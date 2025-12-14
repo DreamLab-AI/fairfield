@@ -147,22 +147,180 @@ class MinimoomaNoirDB extends Dexie {
   }
 
   /**
-   * Delete old cached data (older than 7 days)
+   * Get estimated storage usage in bytes
    */
-  async pruneOldCache(): Promise<void> {
-    const sevenDaysAgo = Date.now() / 1000 - (7 * 24 * 60 * 60);
+  async getStorageEstimate(): Promise<{ used: number; quota: number; percentage: number }> {
+    if ('storage' in navigator && 'estimate' in navigator.storage) {
+      const estimate = await navigator.storage.estimate();
+      const used = estimate.usage || 0;
+      const quota = estimate.quota || 0;
+      return {
+        used,
+        quota,
+        percentage: quota > 0 ? (used / quota) * 100 : 0
+      };
+    }
+    return { used: 0, quota: 0, percentage: 0 };
+  }
 
-    // Prune old user cache
-    await this.users
-      .where('cached_at')
-      .below(sevenDaysAgo)
-      .delete();
+  /**
+   * Get table row counts for diagnostics
+   */
+  async getTableCounts(): Promise<Record<string, number>> {
+    return {
+      messages: await this.messages.count(),
+      channels: await this.channels.count(),
+      users: await this.users.count(),
+      deletions: await this.deletions.count(),
+      searchIndex: await this.searchIndex.count(),
+      searchHistory: await this.searchHistory.count()
+    };
+  }
 
-    // Prune old deleted messages
-    await this.deletions
+  /**
+   * Aggressive cache pruning with configurable limits
+   *
+   * Default strategy:
+   * - Keep only last 3 days of messages per channel (configurable)
+   * - Keep max 1000 messages per channel
+   * - Keep max 500 users in cache
+   * - Prune search index older than 7 days
+   * - Auto-trigger when storage exceeds 80% quota
+   */
+  async pruneOldCache(options: {
+    maxMessageAgeDays?: number;
+    maxMessagesPerChannel?: number;
+    maxCachedUsers?: number;
+    maxSearchIndexAgeDays?: number;
+    forceAggressive?: boolean;
+  } = {}): Promise<{ pruned: Record<string, number>; storageFreed: number }> {
+    const {
+      maxMessageAgeDays = 3,
+      maxMessagesPerChannel = 1000,
+      maxCachedUsers = 500,
+      maxSearchIndexAgeDays = 7,
+      forceAggressive = false
+    } = options;
+
+    const pruned: Record<string, number> = {
+      messages: 0,
+      users: 0,
+      deletions: 0,
+      searchIndex: 0
+    };
+
+    const storageBefore = await this.getStorageEstimate();
+    const needsAggressive = forceAggressive || storageBefore.percentage > 80;
+
+    const now = Date.now() / 1000;
+    const messagesCutoff = now - (maxMessageAgeDays * 24 * 60 * 60);
+    const searchCutoff = now - (maxSearchIndexAgeDays * 24 * 60 * 60);
+    const userCacheCutoff = now - (needsAggressive ? 1 : 7) * 24 * 60 * 60;
+
+    // 1. Prune old messages by age
+    pruned.messages += await this.messages
       .where('created_at')
-      .below(sevenDaysAgo)
+      .below(messagesCutoff)
       .delete();
+
+    // 2. Prune messages per channel if exceeding limit
+    const channels = await this.channels.toArray();
+    for (const channel of channels) {
+      const messageCount = await this.messages
+        .where('channelId')
+        .equals(channel.id)
+        .count();
+
+      if (messageCount > maxMessagesPerChannel) {
+        // Keep only the newest messages
+        const oldestToKeep = await this.messages
+          .where('channelId')
+          .equals(channel.id)
+          .reverse()
+          .offset(maxMessagesPerChannel)
+          .toArray();
+
+        if (oldestToKeep.length > 0) {
+          const idsToDelete = oldestToKeep.map(m => m.id);
+          await this.messages.bulkDelete(idsToDelete);
+          pruned.messages += idsToDelete.length;
+
+          // Also remove from search index
+          await this.searchIndex
+            .where('messageId')
+            .anyOf(idsToDelete)
+            .delete();
+        }
+      }
+    }
+
+    // 3. Prune old user cache - keep only most recently cached
+    const userCount = await this.users.count();
+    if (userCount > maxCachedUsers || needsAggressive) {
+      // Delete users older than cutoff
+      pruned.users += await this.users
+        .where('cached_at')
+        .below(userCacheCutoff)
+        .delete();
+
+      // If still over limit, delete oldest
+      const remainingUsers = await this.users.count();
+      if (remainingUsers > maxCachedUsers) {
+        const toDelete = await this.users
+          .orderBy('cached_at')
+          .limit(remainingUsers - maxCachedUsers)
+          .toArray();
+        await this.users.bulkDelete(toDelete.map(u => u.pubkey));
+        pruned.users += toDelete.length;
+      }
+    }
+
+    // 4. Prune old deletions (keep for reference but clean old ones)
+    pruned.deletions += await this.deletions
+      .where('created_at')
+      .below(now - (needsAggressive ? 3 : 7) * 24 * 60 * 60)
+      .delete();
+
+    // 5. Prune old search index entries
+    pruned.searchIndex += await this.searchIndex
+      .where('timestamp')
+      .below(searchCutoff)
+      .delete();
+
+    // 6. Clean up search history (keep last 20 in aggressive mode)
+    if (needsAggressive) {
+      const historyCount = await this.searchHistory.count();
+      if (historyCount > 20) {
+        const oldHistory = await this.searchHistory
+          .orderBy('timestamp')
+          .limit(historyCount - 20)
+          .toArray();
+        await this.searchHistory.bulkDelete(oldHistory.map(h => h.id!));
+      }
+    }
+
+    const storageAfter = await this.getStorageEstimate();
+
+    return {
+      pruned,
+      storageFreed: storageBefore.used - storageAfter.used
+    };
+  }
+
+  /**
+   * Check if storage is getting full and prune if needed
+   * Call this periodically or after bulk operations
+   */
+  async autoMaintenance(): Promise<void> {
+    const storage = await this.getStorageEstimate();
+
+    if (storage.percentage > 90) {
+      console.warn(`[DB] Storage at ${storage.percentage.toFixed(1)}% - running aggressive cleanup`);
+      await this.pruneOldCache({ forceAggressive: true });
+    } else if (storage.percentage > 70) {
+      console.info(`[DB] Storage at ${storage.percentage.toFixed(1)}% - running standard cleanup`);
+      await this.pruneOldCache();
+    }
   }
 
   /**

@@ -7,8 +7,11 @@ export type { AuthState, AppState } from './auth';
 
 export {
   userStore,
+  whitelistStatusStore,
   isAuthenticated,
   isAdmin,
+  isAdminVerified,
+  whitelistSource,
   isApproved,
   currentPubkey,
   currentCohorts,

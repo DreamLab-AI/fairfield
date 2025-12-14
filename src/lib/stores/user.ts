@@ -1,10 +1,18 @@
-import { derived, type Readable } from 'svelte/store';
+import { derived, writable, type Readable, type Writable } from 'svelte/store';
 import { authStore } from './auth';
+import { verifyWhitelistStatus, type CohortName, type WhitelistStatus } from '$lib/nostr/whitelist';
+import { browser } from '$app/environment';
 
 /**
  * User cohort types
  */
 export type CohortType = 'freshman' | 'sophomore' | 'junior' | 'senior' | 'graduate' | 'faculty' | 'staff' | 'alumni';
+
+/**
+ * Relay-verified whitelist status store
+ * This is the SOURCE OF TRUTH for admin/cohort permissions
+ */
+export const whitelistStatusStore: Writable<WhitelistStatus | null> = writable(null);
 
 /**
  * User profile interface
@@ -87,21 +95,45 @@ export const userStore: Readable<UserState> = derived(
     // For now, we just use the default profile
     // TODO: Implement Nostr relay queries to fetch kind 0 metadata events
 
-    // Simulate async profile loading
+    // Load profile and verify whitelist status from relay
     const loadProfile = async () => {
       try {
-        // This is where you'd query Nostr relays for:
-        // - kind 0 (metadata) events for user profile
-        // - kind 30023 (profile badges) for cohort information
-        // - Check admin list (kind 10000 or similar)
+        // Verify whitelist status from relay (SOURCE OF TRUTH)
+        if (browser) {
+          const whitelistStatus = await verifyWhitelistStatus($auth.pubkey);
+          whitelistStatusStore.set(whitelistStatus);
 
-        // For now, just set the initial profile
-        set({
-          profile: initialProfile,
-          isLoading: false,
-          error: null
-        });
+          // Update profile with relay-verified status
+          const verifiedProfile: UserProfile = {
+            ...initialProfile,
+            isAdmin: whitelistStatus.isAdmin,
+            isApproved: whitelistStatus.isWhitelisted,
+            cohorts: [] // Map cohorts if needed
+          };
+
+          set({
+            profile: verifiedProfile,
+            isLoading: false,
+            error: null
+          });
+
+          if (import.meta.env.DEV) {
+            console.log('[User] Whitelist status verified:', {
+              pubkey: $auth.pubkey.slice(0, 8) + '...',
+              isAdmin: whitelistStatus.isAdmin,
+              cohorts: whitelistStatus.cohorts,
+              source: whitelistStatus.source
+            });
+          }
+        } else {
+          set({
+            profile: initialProfile,
+            isLoading: false,
+            error: null
+          });
+        }
       } catch (error) {
+        console.warn('[User] Failed to verify whitelist status:', error);
         set({
           profile: initialProfile,
           isLoading: false,
@@ -129,10 +161,29 @@ export const isAuthenticated: Readable<boolean> = derived(
 
 /**
  * Derived store for checking if current user is admin
+ * Uses client-side check (VITE_ADMIN_PUBKEY) for fast UI updates
  */
 export const isAdmin: Readable<boolean> = derived(
   userStore,
   $user => $user.profile?.isAdmin ?? false
+);
+
+/**
+ * Derived store for RELAY-VERIFIED admin status
+ * This is the authoritative check - use for privileged operations
+ */
+export const isAdminVerified: Readable<boolean> = derived(
+  whitelistStatusStore,
+  $status => $status?.isAdmin ?? false
+);
+
+/**
+ * Derived store for whitelist verification source
+ * Useful for debugging - shows if status came from relay, cache, or fallback
+ */
+export const whitelistSource: Readable<'relay' | 'cache' | 'fallback' | null> = derived(
+  whitelistStatusStore,
+  $status => $status?.source ?? null
 );
 
 /**
