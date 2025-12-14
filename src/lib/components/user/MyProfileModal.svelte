@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { authStore } from '$lib/stores/auth';
+	import { profileCache } from '$lib/stores/profiles';
 	import { encodePubkey, encodePrivkey } from '$lib/nostr/keys';
 
 	export let open = false;
@@ -63,6 +64,10 @@
 
 	function saveProfile() {
 		authStore.setProfile(editNickname || null, editAvatar || null);
+		// Clear cached profile so it picks up the new nickname/avatar
+		if ($authStore.publicKey) {
+			profileCache.remove($authStore.publicKey);
+		}
 		profileSaved = true;
 		setTimeout(() => (profileSaved = false), 2000);
 	}
