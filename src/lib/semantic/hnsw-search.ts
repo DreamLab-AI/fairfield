@@ -65,15 +65,20 @@ export async function loadIndex(): Promise<boolean> {
     const indexBlob = new Blob([indexData.data]);
     const indexUrl = URL.createObjectURL(indexBlob);
 
-    // Parse mapping (NPZ format - simplified parsing)
-    const mappingArray = new Uint8Array(mappingData.data);
-    labelMapping = parseNpzMapping(mappingArray);
+    try {
+      // Parse mapping (NPZ format - simplified parsing)
+      const mappingArray = new Uint8Array(mappingData.data);
+      labelMapping = parseNpzMapping(mappingArray);
 
-    // Set search ef parameter
-    searchIndex.setEf(50);
+      // Set search ef parameter
+      searchIndex.setEf(50);
 
-    console.log(`Index loaded with ${labelMapping.size} vectors`);
-    return true;
+      console.log(`Index loaded with ${labelMapping.size} vectors`);
+      return true;
+    } finally {
+      // Fix memory leak: always revoke Blob URL
+      URL.revokeObjectURL(indexUrl);
+    }
   } catch (error) {
     console.error('Failed to load HNSW index:', error);
     return false;
@@ -106,23 +111,73 @@ function parseNpzMapping(data: Uint8Array): Map<number, string> {
   return mapping;
 }
 
+// Embedding API URL (deployed Cloudflare Worker)
+const EMBEDDING_API_URL = import.meta.env.VITE_EMBEDDING_API_URL || 'https://minimoonoir-embedding-api.solitary-paper-764d.workers.dev';
+
+// Cache for embedding results
+const embeddingCache = new Map<string, number[]>();
+
 /**
- * Generate query embedding
- * In production, this would use a lightweight model or server-side embedding
+ * Generate query embedding via Cloudflare Worker API
+ * Uses Xenova/all-MiniLM-L6-v2 ONNX model (384 dimensions)
  */
 async function embedQuery(query: string): Promise<number[]> {
-  // For now, use a simple TF-IDF-like approach
-  // In production, either:
-  // 1. Use a small ONNX model in browser
-  // 2. Call a server endpoint
-  // 3. Use pre-computed query embeddings
+  // Check cache first
+  const cached = embeddingCache.get(query);
+  if (cached) {
+    return cached;
+  }
 
-  // Placeholder: random vector (should be replaced with actual embedding)
-  console.warn('Using placeholder embedding - implement real embedding service');
-  const vector = new Array(indexDimensions).fill(0).map(() => Math.random() * 2 - 1);
+  try {
+    const response = await fetch(`${EMBEDDING_API_URL}/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: query })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Embedding API error: ${response.status}`);
+    }
+
+    const data = await response.json() as { embeddings: number[][]; dimensions: number };
+
+    if (!data.embeddings || data.embeddings.length === 0) {
+      throw new Error('No embedding returned from API');
+    }
+
+    const embedding = data.embeddings[0];
+
+    // Cache the result (limit cache size)
+    if (embeddingCache.size > 100) {
+      const firstKey = embeddingCache.keys().next().value;
+      if (firstKey) embeddingCache.delete(firstKey);
+    }
+    embeddingCache.set(query, embedding);
+
+    return embedding;
+  } catch (error) {
+    console.error('Embedding API call failed:', error);
+    // Fallback to simple hash-based pseudo-embedding for offline use
+    return generateFallbackEmbedding(query);
+  }
+}
+
+/**
+ * Fallback embedding when API is unavailable
+ * Uses deterministic hash-based vector (not semantic, just for testing)
+ */
+function generateFallbackEmbedding(text: string): number[] {
+  const vector = new Array(indexDimensions).fill(0);
+
+  // Simple hash-based deterministic vector
+  for (let i = 0; i < text.length; i++) {
+    const charCode = text.charCodeAt(i);
+    const idx = (charCode * (i + 1)) % indexDimensions;
+    vector[idx] += charCode / 255;
+  }
 
   // Normalize
-  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0)) || 1;
   return vector.map(v => v / norm);
 }
 

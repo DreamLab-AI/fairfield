@@ -18,9 +18,21 @@
   // UI components
   import { SkeletonLoader, EmptyState } from '$lib/components/ui';
 
+  // Semantic search
+  import { SemanticSearch } from '$lib/semantic';
+
   let channels: CreatedChannel[] = [];
   let loading = true;
   let error: string | null = null;
+  let showSearch = false;
+
+  function handleSearchSelect(noteId: string) {
+    // Navigate to the message (noteId contains the event ID)
+    // For now, just log it - full implementation would scroll to message
+    console.log('Selected note:', noteId);
+    // TODO: Find which channel contains this message and navigate there
+    showSearch = false;
+  }
 
   onMount(async () => {
     // Wait for auth store to be ready before checking authentication
@@ -79,10 +91,40 @@
             <p class="text-base-content/70">Join conversations in public channels</p>
           </div>
           <div class="flex items-center gap-2">
+            <button
+              class="btn btn-ghost btn-sm"
+              on:click={() => showSearch = !showSearch}
+              title="Semantic Search"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span class="hidden sm:inline">Search</span>
+            </button>
             <MarkAllRead />
           </div>
         </div>
       </div>
+
+      <!-- Semantic Search Panel -->
+      {#if showSearch}
+        <div class="card bg-base-200 shadow-lg mb-6">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-lg font-semibold">Semantic Search</h3>
+              <button class="btn btn-ghost btn-sm btn-circle" on:click={() => showSearch = false}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p class="text-sm text-base-content/70 mb-3">
+              Search by meaning, not just keywords. Find messages that are semantically similar to your query.
+            </p>
+            <SemanticSearch onSelect={handleSearchSelect} placeholder="Search messages by meaning..." />
+          </div>
+        </div>
+      {/if}
 
       {#if loading}
         <div class="space-y-3">
