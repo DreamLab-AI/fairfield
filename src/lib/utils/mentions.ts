@@ -3,6 +3,8 @@
  * Supports parsing, formatting, and tag generation for Nostr events
  */
 
+import { nip19 } from 'nostr-tools';
+
 export interface Mention {
   pubkey: string;
   startIndex: number;
@@ -128,38 +130,39 @@ export function formatPubkey(pubkey: string): string {
 }
 
 /**
- * Convert hex pubkey to npub format (basic conversion)
- * Note: In production, use nostr-tools for proper bech32 encoding
+ * Convert hex pubkey to npub format
  * @param hexPubkey - Hex format pubkey
  * @returns npub format (or hex if conversion fails)
  */
 export function hexToNpub(hexPubkey: string): string {
-  // This is a placeholder - in production, use nostr-tools:
-  // import { nip19 } from 'nostr-tools';
-  // return nip19.npubEncode(hexPubkey);
-
-  // For now, return hex
-  return hexPubkey;
+  try {
+    return nip19.npubEncode(hexPubkey);
+  } catch (error) {
+    console.error('Failed to encode hex to npub:', error);
+    return hexPubkey;
+  }
 }
 
 /**
- * Convert npub to hex pubkey (basic conversion)
- * Note: In production, use nostr-tools for proper bech32 decoding
+ * Convert npub to hex pubkey
  * @param npub - npub format pubkey
  * @returns hex format pubkey
  */
 export function npubToHex(npub: string): string {
-  // This is a placeholder - in production, use nostr-tools:
-  // import { nip19 } from 'nostr-tools';
-  // const decoded = nip19.decode(npub);
-  // return decoded.data as string;
-
-  // For now, return as-is if not npub format
   if (!npub.startsWith('npub1')) {
     return npub;
   }
 
-  return npub;
+  try {
+    const decoded = nip19.decode(npub);
+    if (decoded.type === 'npub') {
+      return decoded.data as string;
+    }
+    return npub;
+  } catch (error) {
+    console.error('Failed to decode npub to hex:', error);
+    return npub;
+  }
 }
 
 /**

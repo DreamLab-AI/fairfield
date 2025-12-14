@@ -1,24 +1,49 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
+  import { dmStore, sortedConversations } from '$lib/stores/dm';
+  import { hexToBytes } from '@noble/hashes/utils.js';
 
-  let conversations: any[] = [];
-  let loading = true;
+  $: conversations = $sortedConversations;
+  $: loading = $dmStore.isLoading;
+  $: error = $dmStore.error;
+
+  let unsubscribe: (() => void) | null = null;
 
   onMount(async () => {
     // Wait for auth store to be ready before checking authentication
     await authStore.waitForReady();
 
-    if (!$authStore.isAuthenticated) {
+    if (!$authStore.isAuthenticated || !$authStore.privateKey) {
       goto(`${base}/`);
       return;
     }
 
-    // Load DM conversations (placeholder)
-    conversations = [];
-    loading = false;
+    // Load DM conversations from relay
+    try {
+      const privkeyBytes = hexToBytes($authStore.privateKey);
+
+      // Dummy relay object - actual relay calls happen via NDK inside dmStore
+      const dummyRelay = {
+        publish: async () => {}
+      };
+
+      await dmStore.fetchConversations(dummyRelay, privkeyBytes);
+
+      // Subscribe to real-time DMs
+      unsubscribe = await dmStore.subscribeToIncoming(privkeyBytes);
+    } catch (err) {
+      console.error('Failed to load conversations:', err);
+    }
+  });
+
+  onDestroy(() => {
+    // Unsubscribe when leaving the page
+    if (unsubscribe) {
+      unsubscribe();
+    }
   });
 
   function formatPubkey(pubkey: string): string {
@@ -55,6 +80,13 @@
     <p class="text-base-content/70">Private encrypted conversations</p>
   </div>
 
+  {#if error}
+    <div class="alert alert-error mb-4">
+      <span>{error}</span>
+      <button class="btn btn-sm" on:click={() => dmStore.clearError()}>Dismiss</button>
+    </div>
+  {/if}
+
   {#if loading}
     <div class="flex justify-center items-center min-h-[400px]">
       <div class="loading loading-spinner loading-lg text-primary"></div>
@@ -63,6 +95,9 @@
     <div class="card bg-base-200">
       <div class="card-body items-center text-center">
         <p class="text-base-content/70">No conversations yet. Start chatting!</p>
+        <p class="text-sm text-base-content/50 mt-2">
+          To start a conversation, you need someone else's public key
+        </p>
       </div>
     </div>
   {:else}
@@ -81,17 +116,17 @@
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start mb-1">
-                  <h3 class="font-semibold">{formatPubkey(conv.pubkey)}</h3>
+                  <h3 class="font-semibold">{conv.name}</h3>
                   <span class="text-xs text-base-content/60">
-                    {formatTime(conv.lastMessage.created_at)}
+                    {formatTime(conv.lastMessageTimestamp)}
                   </span>
                 </div>
                 <p class="text-sm text-base-content/70 truncate">
-                  {conv.lastMessage.content}
+                  {conv.lastMessage}
                 </p>
               </div>
-              {#if conv.unread > 0}
-                <div class="badge badge-primary badge-sm">{conv.unread}</div>
+              {#if conv.unreadCount > 0}
+                <div class="badge badge-primary badge-sm">{conv.unreadCount}</div>
               {/if}
             </div>
           </div>
