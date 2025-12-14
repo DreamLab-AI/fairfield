@@ -177,8 +177,18 @@ function createSectionStore() {
         ]
       }));
 
-      // TODO: Publish kind 9022 event to relay
-      // This would be handled by the nostr/sections.ts service
+      // Publish kind 9022 event to relay
+      const { requestSectionAccess } = await import('$lib/nostr/sections');
+      const result = await requestSectionAccess(section, message);
+
+      if (!result.success) {
+        // Rollback local state on failure
+        update(state => ({
+          ...state,
+          access: state.access.filter(a => !(a.section === section && a.status === 'pending'))
+        }));
+        return { success: false, error: result.error };
+      }
 
       return { success: true };
     },
@@ -200,8 +210,18 @@ function createSectionStore() {
         pendingRequests: state.pendingRequests.filter(r => r.id !== request.id)
       }));
 
-      // TODO: Publish kind 9023 approval event
-      // TODO: Send DM to user notifying them of approval
+      // Publish kind 9023 approval event and send DM notification
+      const { approveSectionAccess } = await import('$lib/nostr/sections');
+      const result = await approveSectionAccess(request);
+
+      if (!result.success) {
+        // Rollback: add request back to pending
+        update(state => ({
+          ...state,
+          pendingRequests: [request, ...state.pendingRequests]
+        }));
+        return { success: false, error: result.error };
+      }
 
       return { success: true };
     },
@@ -224,7 +244,30 @@ function createSectionStore() {
         pendingRequests: state.pendingRequests.filter(r => r.id !== request.id)
       }));
 
-      // TODO: Optionally send DM explaining denial
+      // Send DM explaining denial if reason provided
+      if (reason) {
+        try {
+          const { getNDK } = await import('$lib/nostr/ndk');
+          const { NDKEvent } = await import('@nostr-dev-kit/ndk');
+          const ndk = getNDK();
+          const signer = ndk.signer;
+
+          if (signer) {
+            const dmEvent = new NDKEvent(ndk);
+            dmEvent.kind = 4; // NIP-04 encrypted DM
+            dmEvent.tags = [['p', request.requesterPubkey]];
+            dmEvent.content = await signer.encrypt(
+              { pubkey: request.requesterPubkey } as any,
+              `Your access request for ${request.section} has been denied. Reason: ${reason}`
+            );
+            await dmEvent.sign(signer);
+            await dmEvent.publish();
+          }
+        } catch (error) {
+          console.error('[Sections] Failed to send denial DM:', error);
+          // Don't fail the denial operation if DM fails
+        }
+      }
 
       return { success: true };
     },
@@ -303,12 +346,26 @@ function createSectionStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        // TODO: Fetch from relay
-        // - User's section access events
-        // - Section stats events
-        // - (Admin) Pending requests
+        const pubkey = get(currentPubkey);
+        const isAdmin = get(isAdminVerified);
 
-        update(state => ({ ...state, loading: false }));
+        // Fetch section stats from relay
+        const { fetchSectionStats, fetchUserAccess, fetchPendingRequests } =
+          await import('$lib/nostr/sections');
+
+        const [stats, userAccess, adminRequests] = await Promise.all([
+          fetchSectionStats(),
+          pubkey ? fetchUserAccess(pubkey) : Promise.resolve([]),
+          isAdmin ? fetchPendingRequests() : Promise.resolve([])
+        ]);
+
+        update(state => ({
+          ...state,
+          stats,
+          access: userAccess.length > 0 ? userAccess : state.access,
+          pendingRequests: isAdmin ? adminRequests : state.pendingRequests,
+          loading: false
+        }));
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to refresh';
         update(state => ({ ...state, loading: false, error: errorMessage }));

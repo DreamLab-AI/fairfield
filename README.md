@@ -466,21 +466,32 @@ minimoonoir/
 ```bash
 # .env (local development)
 VITE_RELAY_URL=wss://nosflare.solitary-paper-764d.workers.dev
-VITE_ADMIN_PUBKEY=<hex-pubkey>              # Admin public key (hex)
+VITE_ADMIN_PUBKEY=<hex-pubkey>              # Admin public key (64-char hex)
 VITE_NDK_DEBUG=false                         # Enable NDK debug logging
-
-# GitHub Secrets (for CI/CD)
-# Add these in repository Settings > Secrets and variables > Actions
-CLOUDFLARE_API_TOKEN=<your-api-token>        # For relay deployment
-ADMIN_PUBKEY=<hex-pubkey>                    # Admin public key
 ```
+
+### GitHub Configuration (for CI/CD)
+
+**Repository Variables** (Settings → Secrets and variables → Actions → Variables):
+
+| Variable | Description |
+|----------|-------------|
+| `ADMIN_PUBKEY` | Admin public key (64-char hex format) |
+
+**Repository Secrets** (Settings → Secrets and variables → Actions → Secrets):
+
+| Secret | Description |
+|--------|-------------|
+| `CLOUDFLARE_API_TOKEN` | For relay deployment |
+
+The deploy workflow uses `${{ vars.ADMIN_PUBKEY }}` to inject the admin key at build time.
 
 ### Relay Configuration
 
 The Cloudflare Workers relay is deployed separately. Key configuration:
 
 - **Relay URL:** `wss://nosflare.solitary-paper-764d.workers.dev`
-- **Admin Pubkey:** Set via `VITE_ADMIN_PUBKEY` environment variable
+- **Admin Pubkey:** Set via `ADMIN_PUBKEY` repository variable
 - **Access Control:** D1 database whitelist with cohort support
 - **Storage:** Durable Objects (SQLite-backed) for event storage
 

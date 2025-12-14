@@ -3,6 +3,7 @@
   import { profileCache } from '$lib/stores/profiles';
   import { getAvatarUrl } from '$lib/utils/identicon';
   import Avatar from '$lib/components/ui/Avatar.svelte';
+  import ProfileModal from '$lib/components/user/ProfileModal.svelte';
   import type { CachedProfile } from '$lib/stores/profiles';
 
   export let pubkey: string;
@@ -15,6 +16,7 @@
 
   let profile: CachedProfile | null = null;
   let unsubscribe: (() => void) | null = null;
+  let showProfileModal = false;
 
   $: displayName = profile?.displayName || truncatePubkey(pubkey);
   $: avatarUrl = profile?.avatar || getAvatarUrl(pubkey, avatarSizeMap[avatarSize]);
@@ -52,9 +54,17 @@
 
   function handleClick() {
     if (clickable) {
-      // TODO: Open profile modal or navigate to profile page
-      console.log('Profile clicked:', pubkey);
+      showProfileModal = true;
     }
+  }
+
+  function handleStartDM(event: CustomEvent<{ pubkey: string }>) {
+    // Dispatch custom event to parent for DM navigation
+    const dmEvent = new CustomEvent('startDM', {
+      detail: { pubkey: event.detail.pubkey },
+      bubbles: true
+    });
+    window.dispatchEvent(dmEvent);
   }
 </script>
 
@@ -98,6 +108,16 @@
     {/if}
   {/if}
 </div>
+
+<ProfileModal
+  {pubkey}
+  name={profile?.displayName || null}
+  avatar={profile?.avatar || null}
+  about={profile?.about || null}
+  nip05={profile?.nip05 || null}
+  bind:show={showProfileModal}
+  on:startDM={handleStartDM}
+/>
 
 <style>
   .user-display {

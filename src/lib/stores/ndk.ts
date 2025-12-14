@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKSubscription } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { browser } from '$app/environment';
 
 const RELAYS = [

@@ -1,45 +1,83 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy, afterUpdate } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
+  import { dmStore } from '$lib/stores/dm';
+  import { hexToBytes } from '@noble/hashes/utils.js';
 
   $: recipientPubkey = $page.params.pubkey;
+  $: messages = $dmStore.messages;
 
-  let messages: any[] = [];
   let messageInput = '';
   let loading = true;
   let sending = false;
   let messagesContainer: HTMLDivElement;
+  let unsubscribe: (() => void) | null = null;
 
   onMount(async () => {
     // Wait for auth store to be ready before checking authentication
     await authStore.waitForReady();
 
-    if (!$authStore.isAuthenticated) {
+    if (!$authStore.isAuthenticated || !$authStore.privateKey) {
       goto(`${base}/`);
       return;
     }
 
-    // Load messages (placeholder)
-    messages = [];
+    // Load or start conversation
+    if (!$dmStore.conversations.has(recipientPubkey)) {
+      dmStore.startConversation(recipientPubkey);
+    } else {
+      dmStore.selectConversation(recipientPubkey);
+    }
+
+    // Subscribe to real-time DMs
+    try {
+      const privkeyBytes = hexToBytes($authStore.privateKey);
+      unsubscribe = await dmStore.subscribeToIncoming(privkeyBytes);
+    } catch (err) {
+      console.error('Failed to subscribe to DMs:', err);
+    }
+
     loading = false;
   });
 
+  onDestroy(() => {
+    // Unsubscribe when leaving the page
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  });
+
+  afterUpdate(() => {
+    // Scroll to bottom when new messages arrive
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  });
+
   async function sendMessage() {
-    if (!messageInput.trim() || sending) return;
+    if (!messageInput.trim() || sending || !$authStore.privateKey) return;
 
     sending = true;
     const content = messageInput;
     messageInput = '';
 
     try {
-      // Implement actual DM sending
-      console.log('Sending DM:', content);
+      // Convert hex private key to Uint8Array
+      const privkeyBytes = hexToBytes($authStore.privateKey);
+
+      // Dummy relay object - actual relay calls happen via NDK inside dmStore
+      const dummyRelay = {
+        publish: async () => {}
+      };
+
+      await dmStore.sendDM(content, dummyRelay, privkeyBytes);
     } catch (error) {
       console.error('Error sending DM:', error);
       messageInput = content;
+      alert('Failed to send message. Please try again.');
     } finally {
       sending = false;
     }
@@ -92,12 +130,12 @@
         {:else}
           <div class="space-y-2">
             {#each messages as message (message.id)}
-              <div class="chat {message.pubkey === $authStore.publicKey ? 'chat-end' : 'chat-start'}">
+              <div class="chat {message.senderPubkey === $authStore.publicKey ? 'chat-end' : 'chat-start'}">
                 <div class="chat-bubble">
                   {message.content}
                 </div>
                 <div class="chat-footer opacity-50 text-xs">
-                  {formatTime(message.created_at)}
+                  {formatTime(message.timestamp)}
                 </div>
               </div>
             {/each}

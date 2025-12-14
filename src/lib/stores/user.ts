@@ -2,6 +2,7 @@ import { derived, writable, type Readable, type Writable } from 'svelte/store';
 import { authStore } from './auth';
 import { verifyWhitelistStatus, type CohortName, type WhitelistStatus } from '$lib/nostr/whitelist';
 import { browser } from '$app/environment';
+import { profileCache } from './profiles';
 
 /**
  * User cohort types
@@ -91,24 +92,49 @@ export const userStore: Readable<UserState> = derived(
       error: null
     });
 
-    // In a real implementation, this would fetch the full profile from Nostr relays
-    // For now, we just use the default profile
-    // TODO: Implement Nostr relay queries to fetch kind 0 metadata events
-
-    // Load profile and verify whitelist status from relay
+    // Load profile metadata and verify whitelist status from relay
     const loadProfile = async () => {
       try {
-        // Verify whitelist status from relay (SOURCE OF TRUTH)
         if (browser) {
+          // Fetch kind 0 metadata events from Nostr relays via profile cache
+          const cachedProfile = await profileCache.getProfile($auth.pubkey);
+
+          // Verify whitelist status from relay (SOURCE OF TRUTH)
           const whitelistStatus = await verifyWhitelistStatus($auth.pubkey);
           whitelistStatusStore.set(whitelistStatus);
 
-          // Update profile with relay-verified status
+          // Map cohorts from whitelist status
+          const cohorts: CohortType[] = whitelistStatus.cohorts.map((cohortName): CohortType => {
+            // Map from CohortName to CohortType
+            const mapping: Record<CohortName, CohortType> = {
+              'freshman': 'freshman',
+              'sophomore': 'sophomore',
+              'junior': 'junior',
+              'senior': 'senior',
+              'graduate': 'graduate',
+              'faculty': 'faculty',
+              'staff': 'staff',
+              'alumni': 'alumni'
+            };
+            return mapping[cohortName];
+          });
+
+          // Merge relay metadata with whitelist status
           const verifiedProfile: UserProfile = {
             ...initialProfile,
+            name: cachedProfile.profile?.name ?? null,
+            displayName: cachedProfile.displayName,
+            avatar: cachedProfile.avatar,
+            about: cachedProfile.about,
+            nip05: cachedProfile.nip05,
+            lud16: cachedProfile.profile?.lud16 ?? null,
+            website: cachedProfile.profile?.website ?? null,
+            banner: cachedProfile.profile?.banner ?? null,
             isAdmin: whitelistStatus.isAdmin,
             isApproved: whitelistStatus.isWhitelisted,
-            cohorts: [] // Map cohorts if needed
+            cohorts,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
           };
 
           set({
@@ -118,10 +144,11 @@ export const userStore: Readable<UserState> = derived(
           });
 
           if (import.meta.env.DEV) {
-            console.log('[User] Whitelist status verified:', {
+            console.log('[User] Profile loaded from Nostr:', {
               pubkey: $auth.pubkey.slice(0, 8) + '...',
+              displayName: verifiedProfile.displayName,
               isAdmin: whitelistStatus.isAdmin,
-              cohorts: whitelistStatus.cohorts,
+              cohorts: cohorts,
               source: whitelistStatus.source
             });
           }
@@ -133,7 +160,7 @@ export const userStore: Readable<UserState> = derived(
           });
         }
       } catch (error) {
-        console.warn('[User] Failed to verify whitelist status:', error);
+        console.warn('[User] Failed to load profile:', error);
         set({
           profile: initialProfile,
           isLoading: false,
