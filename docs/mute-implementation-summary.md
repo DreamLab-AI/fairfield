@@ -12,7 +12,7 @@ Implemented a comprehensive user mute/ignore system for Minimoonoir Nostr (Phase
 1. **Mute Store** - `/src/lib/stores/mute.ts`
    - Core mute functionality with localStorage persistence
    - Methods: `muteUser()`, `unmuteUser()`, `isMuted()`, `getMutedUsers()`, `clearAllMutes()`
-   - Storage key: `fairfield-muted-users`
+   - Storage key: `minimoonoir-muted-users`
    - Includes mute reason and timestamp metadata
    - Derived stores for reactive updates
 
@@ -116,7 +116,7 @@ interface MutedUser {
 ```
 
 ### Storage
-- localStorage key: `fairfield-muted-users`
+- localStorage key: `minimoonoir-muted-users`
 - Array of MutedUser objects serialized as JSON
 - Automatically loaded on page load
 - Saved immediately on mute/unmute

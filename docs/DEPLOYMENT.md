@@ -50,8 +50,8 @@ flowchart TB
 ### 1. Fork and Clone Repository
 
 ```bash
-git clone https://github.com/your-username/fairfield-nostr.git
-cd fairfield-nostr
+git clone https://github.com/your-username/minimoonoir-nostr.git
+cd minimoonoir-nostr
 npm install
 ```
 
@@ -292,7 +292,7 @@ GitHub Actions will:
 ### Step 5: Verify Deployment
 
 1. Check Actions tab for build status
-2. Once complete, visit: `https://your-username.github.io/fairfield-nostr/`
+2. Once complete, visit: `https://your-username.github.io/minimoonoir-nostr/`
 3. PWA should load and connect to your relay
 
 ### Step 6: Configure Custom Domain (Optional)
@@ -702,7 +702,7 @@ After successful deployment:
 
 ## Support
 
-- **Issues**: https://github.com/your-username/fairfield-nostr/issues
+- **Issues**: https://github.com/your-username/minimoonoir-nostr/issues
 - **Nostr Protocol**: https://nostr.com
 - **Cloudflare Workers**: https://developers.cloudflare.com/workers
 - **SvelteKit**: https://kit.svelte.dev

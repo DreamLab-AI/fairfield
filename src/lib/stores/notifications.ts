@@ -34,7 +34,7 @@ export interface NotificationState {
 /**
  * Storage key for persisting notifications
  */
-const STORAGE_KEY = 'fairfield-nostr-notifications';
+const STORAGE_KEY = 'minimoonoir-nostr-notifications';
 
 /**
  * Load notifications from localStorage

@@ -9,7 +9,7 @@ Complete Progressive Web App implementation for Minimoonoir Nostr with offline s
 ## Files Created
 
 ### 1. Service Worker
-**File**: `/home/devuser/workspace/fairfield-nostr/src/service-worker.ts`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/service-worker.ts`
 - Complete service worker with three caching strategies
 - IndexedDB message queue for offline messages
 - Background sync implementation
@@ -17,7 +17,7 @@ Complete Progressive Web App implementation for Minimoonoir Nostr with offline s
 - ~500 lines of production-ready code
 
 ### 2. PWA Store
-**File**: `/home/devuser/workspace/fairfield-nostr/src/lib/stores/pwa.ts`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/lib/stores/pwa.ts`
 - Svelte stores for PWA state management
 - Install prompt handling
 - Update notification system
@@ -26,20 +26,20 @@ Complete Progressive Web App implementation for Minimoonoir Nostr with offline s
 - ~280 lines
 
 ### 3. PWA Initialization Utilities
-**File**: `/home/devuser/workspace/fairfield-nostr/src/lib/utils/pwa-init.ts`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/lib/utils/pwa-init.ts`
 - PWA initialization function
 - Offline support for message sending
 - Queue restoration on app start
 - ~80 lines
 
 ### 4. TypeScript Definitions
-**File**: `/home/devuser/workspace/fairfield-nostr/src/types/service-worker.d.ts`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/types/service-worker.d.ts`
 - Type definitions for service worker APIs
 - BeforeInstallPromptEvent interface
 - SyncManager and SyncEvent types
 
 ### 5. Documentation
-**File**: `/home/devuser/workspace/fairfield-nostr/docs/pwa-implementation.md`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/docs/pwa-implementation.md`
 - Complete implementation guide
 - Usage examples
 - Integration patterns
@@ -50,29 +50,29 @@ Complete Progressive Web App implementation for Minimoonoir Nostr with offline s
 ## Files Modified
 
 ### 1. Store Index
-**File**: `/home/devuser/workspace/fairfield-nostr/src/lib/stores/index.ts`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/lib/stores/index.ts`
 - Added PWA store exports
 
 ### 2. Manifest
-**File**: `/home/devuser/workspace/fairfield-nostr/static/manifest.json`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/static/manifest.json`
 - Updated theme colors (#16213e, #1a1a2e)
 - Updated description
 - Added share target
 - Updated shortcuts
 
 ### 3. Vite Config
-**File**: `/home/devuser/workspace/fairfield-nostr/vite.config.ts`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/vite.config.ts`
 - Configured custom service worker
 - Set up inject manifest strategy
 - Enabled dev mode PWA
 
 ### 4. App HTML
-**File**: `/home/devuser/workspace/fairfield-nostr/src/app.html`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/app.html`
 - Updated theme color
 - Updated description
 
 ### 5. Layout Component
-**File**: `/home/devuser/workspace/fairfield-nostr/src/routes/+layout.svelte`
+**File**: `/home/devuser/workspace/minimoonoir-nostr/src/routes/+layout.svelte`
 - Added PWA initialization
 - Added install banner
 - Added update notification
@@ -87,7 +87,7 @@ Complete Progressive Web App implementation for Minimoonoir Nostr with offline s
    - JS, CSS, HTML files
    - Images, icons
    - Fonts
-   
+
 2. **Network First** (Dynamic Content)
    - API calls
    - Real-time updates
@@ -168,7 +168,7 @@ async function sendMessage(content: string) {
 ## File Structure
 
 ```
-fairfield-nostr/
+minimoonoir-nostr/
 ├── src/
 │   ├── service-worker.ts              (NEW - Service worker)
 │   ├── lib/

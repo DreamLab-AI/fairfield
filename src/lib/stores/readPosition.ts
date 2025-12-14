@@ -6,7 +6,7 @@ interface ReadPositions {
   [channelId: string]: number; // timestamp of last read message
 }
 
-const STORAGE_KEY = 'fairfield-read-positions';
+const STORAGE_KEY = 'minimoonoir-read-positions';
 
 function createReadPositionStore() {
   const initialPositions: ReadPositions = browser

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const DEPLOYED_URL = 'https://jjohare.github.io/fairfield-nostr';
+const DEPLOYED_URL = 'https://jjohare.github.io/minimoonoir-nostr';
 
 test.describe('Deployed Site - Minimoonoir PWA', () => {
   test.beforeEach(async ({ page }) => {

@@ -9,14 +9,14 @@ Successfully implemented a comprehensive channel statistics dashboard for the Mi
 ## Files Created
 
 ### 1. Core Statistics Store
-**File:** `/home/devuser/workspace/fairfield-nostr/src/lib/stores/channelStats.ts`
+**File:** `/home/devuser/workspace/minimoonoir-nostr/src/lib/stores/channelStats.ts`
 - Statistics calculation engine
 - Caching mechanism (5-minute cache)
 - Channel-level and platform-level analytics
 - Interfaces for all stat types
 
 ### 2. Activity Graph Component
-**File:** `/home/devuser/workspace/fairfield-nostr/src/lib/components/forum/ActivityGraph.svelte`
+**File:** `/home/devuser/workspace/minimoonoir-nostr/src/lib/components/forum/ActivityGraph.svelte`
 - SVG-based visualization (no external libraries)
 - Responsive design
 - Interactive tooltips
@@ -24,7 +24,7 @@ Successfully implemented a comprehensive channel statistics dashboard for the Mi
 - Height customization
 
 ### 3. Channel Statistics Component
-**File:** `/home/devuser/workspace/fairfield-nostr/src/lib/components/forum/ChannelStats.svelte`
+**File:** `/home/devuser/workspace/minimoonoir-nostr/src/lib/components/forum/ChannelStats.svelte`
 - Comprehensive statistics panel
 - Key metrics cards
 - Activity graphs
@@ -35,7 +35,7 @@ Successfully implemented a comprehensive channel statistics dashboard for the Mi
 - Lazy loading
 
 ### 4. Admin Statistics Page
-**File:** `/home/devuser/workspace/fairfield-nostr/src/routes/admin/stats/+page.svelte`
+**File:** `/home/devuser/workspace/minimoonoir-nostr/src/routes/admin/stats/+page.svelte`
 - Platform-wide analytics
 - Channel comparison table
 - Sortable columns
@@ -44,7 +44,7 @@ Successfully implemented a comprehensive channel statistics dashboard for the Mi
 - Activity trends
 
 ### 5. Documentation
-**File:** `/home/devuser/workspace/fairfield-nostr/docs/channel-stats-usage.md`
+**File:** `/home/devuser/workspace/minimoonoir-nostr/docs/channel-stats-usage.md`
 - Complete usage guide
 - API documentation
 - Implementation examples
@@ -266,7 +266,7 @@ joinDates.forEach((timestamp, index) => {
 ## Integration Points
 
 ### Channel Detail Page
-**File:** `/home/devuser/workspace/fairfield-nostr/src/routes/chat/[channelId]/+page.svelte`
+**File:** `/home/devuser/workspace/minimoonoir-nostr/src/routes/chat/[channelId]/+page.svelte`
 - Added stats toggle button
 - Integrated ChannelStats component
 - Collapsible panel

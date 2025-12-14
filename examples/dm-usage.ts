@@ -141,7 +141,7 @@ async function exampleNDKIntegration() {
 
   // Initialize NDK
   const ndk = new NDK({
-    explicitRelayUrls: ['wss://relay.fairfield.example.com']
+    explicitRelayUrls: ['wss://relay.minimoonoir.example.com']
   });
   await ndk.connect();
 

@@ -34,8 +34,8 @@ const initialState: AuthState = {
   isReady: false
 };
 
-const STORAGE_KEY = 'fairfield_keys';
-const SESSION_KEY = 'fairfield_session';
+const STORAGE_KEY = 'minimoonoir_keys';
+const SESSION_KEY = 'minimoonoir_session';
 
 /**
  * Admin Configuration

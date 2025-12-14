@@ -10,7 +10,7 @@ Complete implementation of auto-save drafts for both channel messages and direct
 ### 1. Draft Store (`/src/lib/stores/drafts.ts`)
 
 **Features:**
-- Persistent storage using localStorage (key: `fairfield-drafts`)
+- Persistent storage using localStorage (key: `minimoonoir-drafts`)
 - Draft management for both channels and DMs
 - Auto-save with debouncing
 - Draft preview generation
@@ -120,7 +120,7 @@ handleBlur()                   // Save on blur
 ### LocalStorage Structure
 ```json
 {
-  "fairfield-drafts": {
+  "minimoonoir-drafts": {
     "channel-id-1": {
       "channelId": "channel-id-1",
       "content": "Draft message content...",
@@ -138,7 +138,7 @@ handleBlur()                   // Save on blur
 ```
 
 ### Storage Key
-- **Key**: `fairfield-drafts`
+- **Key**: `minimoonoir-drafts`
 - **Scope**: Per browser/device
 - **Persistence**: Survives page refresh and app restart
 - **Cleanup**: Manual via `clearAllDrafts()` or automatic on send

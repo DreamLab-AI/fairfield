@@ -140,9 +140,9 @@ test.describe('User Signup Flow', () => {
     // Check localStorage
     const storedKeys = await page.evaluate(() => {
       return {
-        pubkey: localStorage.getItem('fairfield_nostr_pubkey'),
-        encryptedPrivkey: localStorage.getItem('fairfield_nostr_encrypted_privkey'),
-        mnemonicShown: localStorage.getItem('fairfield_nostr_mnemonic_shown')
+        pubkey: localStorage.getItem('minimoonoir_nostr_pubkey'),
+        encryptedPrivkey: localStorage.getItem('minimoonoir_nostr_encrypted_privkey'),
+        mnemonicShown: localStorage.getItem('minimoonoir_nostr_mnemonic_shown')
       };
     });
 

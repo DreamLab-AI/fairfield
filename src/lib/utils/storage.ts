@@ -3,9 +3,9 @@
  */
 
 const STORAGE_KEYS = {
-  PUBKEY: 'fairfield_nostr_pubkey',
-  ENCRYPTED_PRIVKEY: 'fairfield_nostr_encrypted_privkey',
-  MNEMONIC_SHOWN: 'fairfield_nostr_mnemonic_shown'
+  PUBKEY: 'minimoonoir_nostr_pubkey',
+  ENCRYPTED_PRIVKEY: 'minimoonoir_nostr_encrypted_privkey',
+  MNEMONIC_SHOWN: 'minimoonoir_nostr_mnemonic_shown'
 } as const;
 
 export interface StoredKeys {

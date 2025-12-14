@@ -155,7 +155,7 @@ NDK_CONFIG = {
   enableDebug: boolean,
   cache: {
     enabled: true,
-    name: 'fairfield-nostr-cache',
+    name: 'minimoonoir-nostr-cache',
     version: 1
   },
   pool: {
@@ -382,8 +382,8 @@ All files are in proper subdirectories (not root):
 
 2. Configure D1 database:
    ```bash
-   npx wrangler d1 create fairfield-nostr
-   npx wrangler d1 execute fairfield-nostr --file=schema.sql
+   npx wrangler d1 create minimoonoir-nostr
+   npx wrangler d1 execute minimoonoir-nostr --file=schema.sql
    ```
 
 3. Set Worker URL in `.env`:

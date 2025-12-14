@@ -136,17 +136,17 @@
       switch (format) {
         case 'json':
           content = exportToJSON(enrichedMessages, options);
-          filename = generateTimestampedFilename('fairfield-export', 'json');
+          filename = generateTimestampedFilename('minimoonoir-export', 'json');
           mimeType = 'application/json';
           break;
         case 'csv':
           content = exportToCSV(enrichedMessages, options);
-          filename = generateTimestampedFilename('fairfield-export', 'csv');
+          filename = generateTimestampedFilename('minimoonoir-export', 'csv');
           mimeType = 'text/csv';
           break;
         case 'text':
           content = exportToText(enrichedMessages, options);
-          filename = generateTimestampedFilename('fairfield-export', 'txt');
+          filename = generateTimestampedFilename('minimoonoir-export', 'txt');
           mimeType = 'text/plain';
           break;
       }

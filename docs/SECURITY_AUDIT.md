@@ -25,7 +25,7 @@ This security audit identifies **4 Critical**, **5 High**, **6 Medium**, and **4
 
 ```typescript
 // auth.ts:76-82
-localStorage.setItem('fairfield_keys', JSON.stringify({
+localStorage.setItem('minimoonoir_keys', JSON.stringify({
   publicKey,
   privateKey,  // CRITICAL: Plain text private key
   mnemonic: mnemonic || null,
