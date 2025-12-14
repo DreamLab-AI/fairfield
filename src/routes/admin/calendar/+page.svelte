@@ -2,15 +2,12 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { authStore } from '$lib/stores/auth';
+  import { authStore, isAdmin } from '$lib/stores/auth';
   import { setSigner, connectNDK } from '$lib/nostr/ndk';
   import { fetchAllEvents, type CalendarEvent } from '$lib/nostr/calendar';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import EventCard from '$lib/components/events/EventCard.svelte';
-
-  // Admin pubkey
-  const ADMIN_PUBKEY = '55f6d852c8ecbf022be81be356b62fdeef09c900deaf2bd262dc6759427c2eb2';
 
   let events: CalendarEvent[] = [];
   let channels: CreatedChannel[] = [];
@@ -48,8 +45,8 @@
       return;
     }
 
-    // Check admin access
-    if ($authStore.publicKey !== ADMIN_PUBKEY) {
+    // Check admin access using store (reads from VITE_ADMIN_PUBKEY)
+    if (!$isAdmin) {
       goto(`${base}/events`);
       return;
     }

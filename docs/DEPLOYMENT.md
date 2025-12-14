@@ -262,15 +262,25 @@ Go to **Settings** > **Secrets and variables** > **Actions** > **New repository 
 5. Continue to summary > Create Token
 6. **Copy the token** (shown only once)
 
-### Step 3: Update Environment Variables
+### Step 3: Set GitHub Repository Variables
 
-Edit `.github/workflows/deploy-pages.yml` with your configuration:
+Go to your GitHub repository → Settings → Secrets and variables → Actions → Variables tab.
+
+Add these repository variables:
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `ADMIN_PUBKEY` | `your-64-char-hex-pubkey` | Admin public key (hex format) |
+
+The workflow references these via `${{ vars.ADMIN_PUBKEY }}`.
+
+Relay URL and app name are set directly in `.github/workflows/deploy-pages.yml`:
 
 ```yaml
 env:
   NODE_VERSION: '20'
   VITE_RELAY_URL: wss://nosflare.your-subdomain.workers.dev
-  VITE_ADMIN_PUBKEY: your-hex-pubkey-here
+  VITE_ADMIN_PUBKEY: ${{ vars.ADMIN_PUBKEY }}
   VITE_APP_NAME: Minimoonoir
   VITE_NDK_DEBUG: false
 ```
