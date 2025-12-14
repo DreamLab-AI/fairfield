@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { fade } from 'svelte/transition';
 	import { authStore, isAuthenticated } from '$lib/stores/auth';
 	import { initializePWA } from '$lib/utils/pwa-init';
 	import {
@@ -145,9 +146,11 @@
 				onProfileClick={toggleProfileModal}
 			/>
 		{/if}
-		<main role="main">
-			<slot />
-		</main>
+		{#key $page.url.pathname}
+			<main role="main" in:fade={{ duration: 150, delay: 75 }} out:fade={{ duration: 75 }}>
+				<slot />
+			</main>
+		{/key}
 	{:else}
 		<div class="flex items-center justify-center min-h-screen">
 			<div class="loading loading-spinner loading-lg text-primary"></div>
