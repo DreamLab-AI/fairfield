@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { ndkStore } from './ndk';
+import { authStore } from './auth';
 import type { NDKUser, NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { browser } from '$app/environment';
 
@@ -79,11 +80,18 @@ function createProfileCache() {
       await user.fetchProfile();
 
       const profile = user.profile;
+
+      // For current user, prefer local nickname from authStore over relay data
+      const auth = get(authStore);
+      const isCurrentUser = auth.publicKey === pubkey;
+      const localNickname = isCurrentUser ? auth.nickname : null;
+      const localAvatar = isCurrentUser ? auth.avatar : null;
+
       const entry: CachedProfile = {
         pubkey,
         profile: profile || null,
-        displayName: profile?.displayName || profile?.name || truncatePubkey(pubkey),
-        avatar: profile?.image || profile?.picture || null,
+        displayName: localNickname || profile?.displayName || profile?.name || truncatePubkey(pubkey),
+        avatar: localAvatar || profile?.image || profile?.picture || null,
         nip05: profile?.nip05 || null,
         about: profile?.about || null,
         lastFetched: now,
