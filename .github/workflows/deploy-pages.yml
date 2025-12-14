@@ -22,7 +22,7 @@ env:
   NODE_VERSION: '20'
   # Private relay URL
   VITE_RELAY_URL: wss://nosflare.solitary-paper-764d.workers.dev
-  VITE_ADMIN_PUBKEY: d2508ff0e0f4f0791d25fac8a8e400fa2930086c2fe50c7dbb7f265aeffe2031
+  VITE_ADMIN_PUBKEY: ${{ vars.ADMIN_PUBKEY }}
   VITE_APP_NAME: Minimoonoir
   VITE_NDK_DEBUG: false
 
