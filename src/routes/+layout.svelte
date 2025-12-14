@@ -19,6 +19,7 @@
 	import { notificationStore } from '$lib/stores/notifications';
 	import { initSearch } from '$lib/init/searchInit';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Navigation from '$lib/components/ui/Navigation.svelte';
 	import MyProfileModal from '$lib/components/user/MyProfileModal.svelte';
 
@@ -159,6 +160,7 @@
 </div>
 
 <Toast />
+<ConfirmDialog />
 
 <style>
 	:global(body) {
