@@ -153,10 +153,31 @@ export class Database {
       for (const [key, values] of Object.entries(filter)) {
         if (key.startsWith('#') && Array.isArray(values)) {
           const tagName = key.substring(1);
+
+          // Validate tag name - only allow alphanumeric, underscore, and hyphen
+          if (!/^[a-zA-Z0-9_-]+$/.test(tagName)) {
+            console.warn(`Invalid tag name ignored: ${tagName}`);
+            continue;
+          }
+
           // SQLite JSON search - check if tags array contains matching tag
           for (const value of values) {
-            conditions.push(`tags LIKE ?`);
-            params.push(`%["${tagName}","${value}"%`);
+            // Validate value exists and is a string
+            if (typeof value !== 'string' || value.length === 0) {
+              console.warn(`Invalid tag value ignored for tag ${tagName}`);
+              continue;
+            }
+
+            // Escape special SQL LIKE characters (%, _) in tag values
+            // Also escape double quotes and backslashes for JSON string matching
+            const escapedValue = value
+              .replace(/\\/g, '\\\\')  // Escape backslashes first
+              .replace(/"/g, '\\"')    // Escape double quotes for JSON
+              .replace(/%/g, '\\%')    // Escape SQL LIKE wildcard %
+              .replace(/_/g, '\\_');   // Escape SQL LIKE wildcard _
+
+            conditions.push(`tags LIKE ? ESCAPE '\\'`);
+            params.push(`%["${tagName}","${escapedValue}"%`);
           }
         }
       }

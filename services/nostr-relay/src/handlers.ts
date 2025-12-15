@@ -1,21 +1,29 @@
 import { WebSocket } from 'ws';
 import { Database, NostrEvent } from './db';
 import { Whitelist } from './whitelist';
+import { RateLimiter } from './rateLimit';
 import crypto from 'crypto';
 import { schnorr } from '@noble/secp256k1';
+
+// Extend WebSocket to include IP address
+interface ExtendedWebSocket extends WebSocket {
+  ip?: string;
+}
 
 export class NostrHandlers {
   private db: Database;
   private whitelist: Whitelist;
+  private rateLimiter: RateLimiter;
   private subscriptions: Map<string, Map<string, any[]>>;
 
-  constructor(db: Database, whitelist: Whitelist) {
+  constructor(db: Database, whitelist: Whitelist, rateLimiter: RateLimiter) {
     this.db = db;
     this.whitelist = whitelist;
+    this.rateLimiter = rateLimiter;
     this.subscriptions = new Map();
   }
 
-  async handleMessage(ws: WebSocket, message: string): Promise<void> {
+  async handleMessage(ws: ExtendedWebSocket, message: string): Promise<void> {
     try {
       const parsed = JSON.parse(message);
 
@@ -45,7 +53,14 @@ export class NostrHandlers {
     }
   }
 
-  private async handleEvent(ws: WebSocket, event: NostrEvent): Promise<void> {
+  private async handleEvent(ws: ExtendedWebSocket, event: NostrEvent): Promise<void> {
+    // Check rate limit
+    const ip = ws.ip || 'unknown';
+    if (!this.rateLimiter.checkEventLimit(ip)) {
+      this.sendNotice(ws, 'rate limit exceeded');
+      return;
+    }
+
     // Validate event structure
     if (!this.validateEvent(event)) {
       this.sendOK(ws, event.id, false, 'invalid: event validation failed');
@@ -166,8 +181,10 @@ export class NostrHandlers {
   }
 
   private broadcastEvent(event: NostrEvent): void {
-    for (const [ws, subscriptions] of this.subscriptions.entries()) {
-      for (const [subId, filters] of subscriptions.entries()) {
+    const entries = Array.from(this.subscriptions.entries());
+    for (const [ws, subscriptions] of entries) {
+      const subEntries = Array.from(subscriptions.entries());
+      for (const [subId, filters] of subEntries) {
         if (this.eventMatchesFilters(event, filters)) {
           this.send(ws as any, ['EVENT', subId, event]);
         }
@@ -202,7 +219,34 @@ export class NostrHandlers {
     this.send(ws, ['NOTICE', message]);
   }
 
-  handleDisconnect(ws: WebSocket): void {
+  handleDisconnect(ws: ExtendedWebSocket): void {
     this.subscriptions.delete(ws as any);
+
+    // Release connection from rate limiter
+    if (ws.ip) {
+      this.rateLimiter.releaseConnection(ws.ip);
+    }
+  }
+
+  /**
+   * Track a new connection from the given IP
+   * Returns false if connection limit is exceeded
+   */
+  trackConnection(ws: ExtendedWebSocket, ip: string): boolean {
+    ws.ip = ip;
+
+    if (!this.rateLimiter.trackConnection(ip)) {
+      this.sendNotice(ws, 'rate limit exceeded: too many concurrent connections');
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Get rate limiter statistics
+   */
+  getRateLimitStats() {
+    return this.rateLimiter.getStats();
   }
 }
