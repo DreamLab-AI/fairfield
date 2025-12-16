@@ -177,6 +177,32 @@ function createProfileCache() {
   }
 
   /**
+   * Immediately update the current user's profile in cache
+   * Used when user saves their profile to ensure instant UI updates
+   */
+  function updateCurrentUserProfile(
+    pubkey: string,
+    displayName: string | null,
+    avatar: string | null
+  ): void {
+    update(state => {
+      const existing = state.profiles.get(pubkey);
+      const entry: CachedProfile = {
+        pubkey,
+        profile: existing?.profile || null,
+        displayName: displayName || truncatePubkey(pubkey),
+        avatar: avatar || null,
+        nip05: existing?.nip05 || null,
+        about: existing?.about || null,
+        lastFetched: Date.now(),
+        isFetching: false
+      };
+      state.profiles.set(pubkey, entry);
+      return state;
+    });
+  }
+
+  /**
    * Clean expired entries
    */
   function cleanExpired(): void {
@@ -202,7 +228,8 @@ function createProfileCache() {
     getCachedSync,
     prefetchProfiles,
     clear,
-    remove
+    remove,
+    updateCurrentUserProfile
   };
 }
 

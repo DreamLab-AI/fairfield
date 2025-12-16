@@ -2,6 +2,8 @@
 	import { authStore } from '$lib/stores/auth';
 	import { profileCache } from '$lib/stores/profiles';
 	import { encodePubkey, encodePrivkey } from '$lib/nostr/keys';
+	import { ndkStore } from '$lib/stores/ndk';
+	import { NDKEvent } from '@nostr-dev-kit/ndk';
 
 	export let open = false;
 
@@ -12,6 +14,8 @@
 	let editNickname = '';
 	let editAvatar = '';
 	let profileSaved = false;
+	let profileSaving = false;
+	let profileError: string | null = null;
 	let previousFocusElement: HTMLElement | null = null;
 
 	$: npub = $authStore.publicKey ? encodePubkey($authStore.publicKey) : '';
@@ -62,14 +66,52 @@
 		}
 	}
 
-	function saveProfile() {
-		authStore.setProfile(editNickname || null, editAvatar || null);
-		// Clear cached profile so it picks up the new nickname/avatar
-		if ($authStore.publicKey) {
-			profileCache.remove($authStore.publicKey);
+	async function saveProfile() {
+		const ndk = ndkStore.get();
+		if (!ndk || !$authStore.publicKey) {
+			profileError = 'Not connected to relay';
+			return;
 		}
-		profileSaved = true;
-		setTimeout(() => (profileSaved = false), 2000);
+
+		profileSaving = true;
+		profileError = null;
+
+		try {
+			// Create kind 0 metadata event
+			const metadataEvent = new NDKEvent(ndk);
+			metadataEvent.kind = 0;
+			metadataEvent.content = JSON.stringify({
+				name: editNickname || undefined,
+				display_name: editNickname || undefined,
+				picture: editAvatar || undefined,
+			});
+
+			// Sign and publish to relay
+			await metadataEvent.sign();
+			await metadataEvent.publish();
+
+			// Update local auth store
+			authStore.setProfile(editNickname || null, editAvatar || null);
+
+			// Clear cached profile and force re-fetch with new data
+			if ($authStore.publicKey) {
+				profileCache.remove($authStore.publicKey);
+				// Immediately update the cache with the new profile
+				profileCache.updateCurrentUserProfile(
+					$authStore.publicKey,
+					editNickname || null,
+					editAvatar || null
+				);
+			}
+
+			profileSaved = true;
+			setTimeout(() => (profileSaved = false), 3000);
+		} catch (error) {
+			console.error('Failed to publish profile:', error);
+			profileError = error instanceof Error ? error.message : 'Failed to save profile';
+		} finally {
+			profileSaving = false;
+		}
 	}
 
 	async function copyToClipboard(text: string, type: 'npub' | 'nsec') {
@@ -168,9 +210,22 @@
 				</label>
 			</div>
 
+			<!-- Error Display -->
+			{#if profileError}
+				<div class="alert alert-error mb-3 py-2">
+					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+					<span class="text-sm">{profileError}</span>
+				</div>
+			{/if}
+
 			<!-- Save Profile Button -->
-			<button class="btn btn-primary btn-sm w-full mb-4" on:click={saveProfile}>
-				{#if profileSaved}
+			<button class="btn btn-primary btn-sm w-full mb-4" on:click={saveProfile} disabled={profileSaving}>
+				{#if profileSaving}
+					<span class="loading loading-spinner loading-sm"></span>
+					Publishing to relay...
+				{:else if profileSaved}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -184,9 +239,9 @@
 							d="M5 13l4 4L19 7"
 						/></svg
 					>
-					Saved!
+					Profile Published!
 				{:else}
-					Save Profile
+					Save & Publish Profile
 				{/if}
 			</button>
 
