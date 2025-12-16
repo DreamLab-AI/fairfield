@@ -67,9 +67,24 @@
 	}
 
 	async function saveProfile() {
-		const ndk = ndkStore.get();
-		if (!ndk || !$authStore.publicKey) {
-			profileError = 'Not connected to relay';
+		if (!$authStore.publicKey) {
+			profileError = 'Not authenticated';
+			return;
+		}
+
+		// Get NDK from store - may need to init if not already
+		let ndk = ndkStore.get();
+		if (!ndk) {
+			// Try to initialize NDK
+			try {
+				ndk = await ndkStore.init();
+			} catch (e) {
+				console.error('Failed to init NDK:', e);
+			}
+		}
+
+		if (!ndk) {
+			profileError = 'Not connected to relay. Please refresh the page.';
 			return;
 		}
 
