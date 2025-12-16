@@ -115,7 +115,7 @@
 </script>
 
 <svelte:head>
-	<title>Nostr BBS</title>
+	<title>Minimoonoir</title>
 </svelte:head>
 
 <!-- Skip to main content link for accessibility -->
