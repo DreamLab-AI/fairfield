@@ -40,6 +40,36 @@ const initialState: AuthState = {
 
 const STORAGE_KEY = 'nostr_bbs_keys';
 const SESSION_KEY = 'nostr_bbs_session';
+const COOKIE_KEY = 'nostr_bbs_auth';
+const KEEP_SIGNED_IN_KEY = 'nostr_bbs_keep_signed_in';
+
+/**
+ * Cookie utilities for persistent auth
+ */
+function setCookie(name: string, value: string, days: number): void {
+  if (!browser) return;
+  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict; Secure`;
+}
+
+function getCookie(name: string): string | null {
+  if (!browser) return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function deleteCookie(name: string): void {
+  if (!browser) return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict; Secure`;
+}
+
+/**
+ * Check if user wants persistent login
+ */
+function shouldKeepSignedIn(): boolean {
+  if (!browser) return false;
+  return localStorage.getItem(KEEP_SIGNED_IN_KEY) !== 'false';
+}
 
 /**
  * Admin Configuration
@@ -246,6 +276,11 @@ function createAuthStore() {
         }
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
+
+        // If keep signed in is enabled, also set a cookie for persistence
+        if (shouldKeepSignedIn()) {
+          setCookie(COOKIE_KEY, publicKey, 30); // 30 day cookie
+        }
       }
 
       update(state => ({ ...state, ...syncStateFields(authData) }));
@@ -345,6 +380,7 @@ function createAuthStore() {
       if (browser) {
         localStorage.removeItem(STORAGE_KEY);
         sessionStorage.removeItem(SESSION_KEY);
+        deleteCookie(COOKIE_KEY);
         const { goto } = await import('$app/navigation');
         goto(`${base}/`);
       }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, afterUpdate } from 'svelte';
 	import { fetchPreview, getCachedPreview, type LinkPreviewData } from '$lib/stores/linkPreviews';
 	import { getDomain, getFaviconUrl } from '$lib/utils/linkPreview';
 
@@ -10,6 +10,39 @@
 	let error = false;
 	let element: HTMLElement;
 	let isVisible = false;
+	let twitterContainer: HTMLElement;
+
+	// Load Twitter widgets script when needed
+	function loadTwitterWidgets() {
+		if (typeof window !== 'undefined' && !(window as Window & { twttr?: unknown }).twttr) {
+			const script = document.createElement('script');
+			script.src = 'https://platform.twitter.com/widgets.js';
+			script.async = true;
+			script.charset = 'utf-8';
+			document.head.appendChild(script);
+		}
+	}
+
+	// Render Twitter embed HTML
+	function renderTwitterEmbed() {
+		if (preview?.type === 'twitter' && preview.html && twitterContainer) {
+			twitterContainer.innerHTML = preview.html;
+			// Tell Twitter to process the new embed
+			if (typeof window !== 'undefined') {
+				const twttr = (window as Window & { twttr?: { widgets?: { load?: (el?: HTMLElement) => void } } }).twttr;
+				if (twttr?.widgets?.load) {
+					twttr.widgets.load(twitterContainer);
+				}
+			}
+		}
+	}
+
+	afterUpdate(() => {
+		if (preview?.type === 'twitter' && preview.html) {
+			loadTwitterWidgets();
+			renderTwitterEmbed();
+		}
+	});
 
 	// Lazy load preview using intersection observer
 	onMount(() => {
@@ -76,6 +109,11 @@
 				<div class="skeleton-domain"></div>
 			</div>
 		</div>
+	{:else if preview?.type === 'twitter' && preview.html}
+		<!-- Twitter/X embed -->
+		<div class="twitter-embed" bind:this={twitterContainer} on:click|stopPropagation on:keydown|stopPropagation>
+			<!-- Twitter widget will be rendered here -->
+		</div>
 	{:else if error || !preview?.title}
 		<!-- Error state or minimal preview - just show link -->
 		<div class="preview-minimal">
@@ -140,15 +178,15 @@
 		display: flex;
 		gap: 0.75rem;
 		padding: 0.75rem;
-		background: var(--bg-secondary);
-		border: 1px solid var(--border-color);
+		background: oklch(var(--b2));
+		border: 1px solid oklch(var(--b3));
 		border-radius: 0.5rem;
 	}
 
 	.skeleton-image {
 		width: 100px;
 		height: 100px;
-		background: linear-gradient(90deg, var(--bg-tertiary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+		background: linear-gradient(90deg, oklch(var(--b3)) 0%, oklch(var(--b2)) 50%, oklch(var(--b3)) 100%);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 		border-radius: 0.375rem;
@@ -166,7 +204,7 @@
 	.skeleton-title,
 	.skeleton-description,
 	.skeleton-domain {
-		background: linear-gradient(90deg, var(--bg-tertiary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+		background: linear-gradient(90deg, oklch(var(--b3)) 0%, oklch(var(--b2)) 50%, oklch(var(--b3)) 100%);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 		border-radius: 0.25rem;
@@ -202,14 +240,14 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.75rem;
-		background: var(--bg-secondary);
-		border: 1px solid var(--border-color);
+		background: oklch(var(--b2));
+		border: 1px solid oklch(var(--b3));
 		border-radius: 0.5rem;
 		transition: border-color 0.2s ease;
 	}
 
 	.preview-minimal:hover {
-		border-color: var(--primary-color);
+		border-color: oklch(var(--p));
 	}
 
 	.link-text {
@@ -219,13 +257,13 @@
 
 	.domain {
 		font-size: 0.75rem;
-		color: var(--text-secondary);
+		color: oklch(var(--bc) / 0.6);
 		font-weight: 500;
 	}
 
 	.url {
 		font-size: 0.875rem;
-		color: var(--text-primary);
+		color: oklch(var(--bc));
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -235,23 +273,23 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		background: var(--bg-secondary);
-		border: 1px solid var(--border-color);
+		background: oklch(var(--b2));
+		border: 1px solid oklch(var(--b3));
 		border-radius: 0.5rem;
 		overflow: hidden;
 		transition: border-color 0.2s ease, box-shadow 0.2s ease;
 	}
 
 	.preview-card:hover {
-		border-color: var(--primary-color);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		border-color: oklch(var(--p));
+		box-shadow: 0 4px 12px oklch(var(--bc) / 0.1);
 	}
 
 	.preview-image-container {
 		width: 100%;
 		max-height: 200px;
 		overflow: hidden;
-		background: var(--bg-tertiary);
+		background: oklch(var(--b3));
 	}
 
 	.preview-image {
@@ -282,7 +320,7 @@
 		margin: 0 0 0.375rem 0;
 		font-size: 0.9375rem;
 		font-weight: 600;
-		color: var(--text-primary);
+		color: oklch(var(--bc));
 		line-height: 1.4;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -294,7 +332,7 @@
 	.preview-description {
 		margin: 0;
 		font-size: 0.8125rem;
-		color: var(--text-secondary);
+		color: oklch(var(--bc) / 0.7);
 		line-height: 1.5;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -309,7 +347,7 @@
 		right: 0.75rem;
 		width: 18px;
 		height: 18px;
-		color: var(--text-secondary);
+		color: oklch(var(--bc) / 0.6);
 		opacity: 0;
 		transition: opacity 0.2s ease;
 	}
@@ -322,5 +360,23 @@
 	.preview-minimal .external-icon {
 		position: static;
 		flex-shrink: 0;
+	}
+
+	/* Twitter/X embed container */
+	.twitter-embed {
+		background: oklch(var(--b2));
+		border: 1px solid oklch(var(--b3));
+		border-radius: 0.75rem;
+		overflow: hidden;
+		padding: 1rem;
+	}
+
+	.twitter-embed :global(blockquote) {
+		margin: 0;
+		color: oklch(var(--bc));
+	}
+
+	.twitter-embed :global(a) {
+		color: oklch(var(--p));
 	}
 </style>
