@@ -227,7 +227,7 @@
       </span>
     </div>
 
-    <div class="{isOwnMessage ? 'bg-primary text-primary-content' : 'bg-base-200 text-base-content'} rounded-2xl px-4 py-2 break-words {$isPinned ? 'ring-1 ring-warning/30' : ''}">
+    <div class="rounded-2xl px-4 py-2 break-words {$isPinned ? 'ring-1 ring-warning/30' : ''}" style="{isOwnMessage ? 'background-color: oklch(var(--p)); color: oklch(var(--pc));' : 'background-color: oklch(var(--b2)); color: oklch(var(--bc));'}">
       {#if message.isEncrypted && !isDecrypted}
         <div class="flex items-center gap-2 text-sm opacity-70">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
