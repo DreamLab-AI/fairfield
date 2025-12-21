@@ -1,44 +1,43 @@
-import { writable } from 'svelte/store';
+/**
+ * NDK Store - uses relay manager as single source of truth
+ * @deprecated Use relay manager from '$lib/nostr/relay' directly instead
+ */
+
+import { writable, derived, type Readable } from 'svelte/store';
 import NDK, { NDKEvent, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { browser } from '$app/environment';
-
-const RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.nostr.band',
-  'wss://nos.lol',
-  'wss://relay.snort.social'
-];
+import { relayManager, connectionState } from '$lib/nostr/relay';
 
 function createNDKStore() {
-  const { subscribe, set } = writable<NDK | null>(null);
+  // Derive NDK instance from relay manager's connection state
+  const ndkDerived: Readable<NDK | null> = derived(
+    connectionState,
+    ($connectionState) => {
+      return relayManager.ndk;
+    }
+  );
 
-  let instance: NDK | null = null;
+  const { subscribe } = ndkDerived;
 
   const init = async () => {
-    if (!browser || instance) return instance;
+    if (!browser) return null;
 
-    try {
-      const ndk = new NDK({
-        explicitRelayUrls: RELAYS,
-        autoConnectUserRelays: true
-      });
+    // Return the NDK instance from relay manager
+    const instance = relayManager.ndk;
 
-      await ndk.connect();
-      instance = ndk;
-      set(ndk);
-
-      console.log('NDK connected to relays');
-      return ndk;
-    } catch (error) {
-      console.error('Failed to initialize NDK:', error);
-      return null;
+    if (instance) {
+      console.log('NDK store using existing relay manager instance');
+      return instance;
     }
+
+    console.warn('NDK not initialized. Use connectRelay() from $lib/nostr/relay to connect.');
+    return null;
   };
 
   return {
     subscribe,
     init,
-    get: () => instance
+    get: () => relayManager.ndk
   };
 }
 

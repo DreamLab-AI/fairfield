@@ -207,6 +207,7 @@ function generateRecurringEvents(
  */
 export async function fetchUpcomingSectionEvents(
   userPubkey: string,
+  userCohorts: string[],
   days: number = 7
 ): Promise<SectionEvent[]> {
   const sections = getSections();
@@ -215,7 +216,10 @@ export async function fetchUpcomingSectionEvents(
   const futureLimit = now + days * 24 * 60 * 60;
 
   for (const section of sections) {
-    // TODO: Check user access to section
+    // Check user access before fetching events
+    if (!canViewSectionEvents(userCohorts, section.id as ChannelSection)) {
+      continue; // Skip this section
+    }
     const sectionEvents = await fetchSectionEvents(section.id as ChannelSection);
     allEvents.push(
       ...sectionEvents.filter((e) => e.start >= now && e.start <= futureLimit)
