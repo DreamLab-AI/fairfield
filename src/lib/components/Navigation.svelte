@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { authStore, isAuthenticated } from '$lib/stores/auth';
-  import { isAdminVerified } from '$lib/stores/user';
+  import { isAdminVerified, userStore } from '$lib/stores/user';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { bookmarkCount } from '$lib/stores/bookmarks';
@@ -12,6 +12,10 @@
 
   $: isAuth = $isAuthenticated;
   $: isAdminUser = $isAdminVerified;
+
+  // Subscribe to userStore to trigger whitelist verification
+  // This ensures the derived callback runs and populates whitelistStatusStore
+  $: void $userStore;
 
   let showBookmarksModal = false;
   let isSearchOpen = false;
