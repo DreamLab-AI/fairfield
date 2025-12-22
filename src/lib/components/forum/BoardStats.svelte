@@ -14,6 +14,14 @@
   onMount(async () => {
     if (!browser) return;
 
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (loading) {
+        loading = false;
+        console.warn('BoardStats: Fetch timeout, showing empty state');
+      }
+    }, 10000);
+
     try {
       await connectNDK();
 
@@ -62,6 +70,7 @@
     } catch (e) {
       console.error('Failed to fetch board stats:', e);
     } finally {
+      clearTimeout(timeout);
       loading = false;
     }
   });
