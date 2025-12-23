@@ -74,7 +74,7 @@ sections:
   - id: "public-lobby"
     name: "Public Lobby"
     description: "Welcome area for visitors"
-    icon: "wave"
+    icon: "👋"
     order: 1
     access:
       requiresApproval: false
@@ -92,7 +92,7 @@ sections:
   - id: "community-rooms"
     name: "Community Rooms"
     description: "Core community chatrooms"
-    icon: "moon"
+    icon: "🌙"
     order: 2
     access:
       requiresApproval: true
@@ -110,7 +110,7 @@ sections:
   - id: "dreamlab"
     name: "DreamLab"
     description: "Creative and experimental projects"
-    icon: "sparkles"
+    icon: "✨"
     order: 3
     access:
       requiresApproval: true
