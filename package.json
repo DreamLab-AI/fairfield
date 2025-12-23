@@ -40,6 +40,7 @@
     "hnswlib-wasm": "^0.8.2",
     "lucide-svelte": "^0.561.0",
     "nostr-tools": "^2.19.3",
+    "puppeteer": "^24.34.0",
     "websocket-polyfill": "^1.0.0"
   },
   "devDependencies": {
@@ -61,7 +62,7 @@
     "eslint-plugin-svelte": "^2.44.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^27.3.0",
-    "playwright": "^1.49.1",
+    "playwright": "^1.40.0",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
     "prettier-plugin-svelte": "^3.2.7",
