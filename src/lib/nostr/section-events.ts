@@ -3,7 +3,7 @@
  * Fetches and manages events by section with access control
  */
 
-import { ndk, connectNDK } from './ndk';
+import { ndk, isConnected } from './relay';
 import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import type { CalendarEvent } from './calendar';
 import type { EventMetadata, RecurrencePattern, ChannelSection } from '$lib/types/channel';
@@ -51,9 +51,8 @@ function parseEventFromTags(event: NDKEvent): EventMetadata | null {
  * Channels have a section tag that maps them to sections
  */
 async function getChannelSection(channelId: string): Promise<ChannelSection | null> {
-  if (!ndk) return null;
-
-  await connectNDK();
+  const ndkInstance = ndk();
+  if (!ndkInstance) return null;
 
   try {
     // Fetch the channel creation event (kind 40)
@@ -63,7 +62,7 @@ async function getChannelSection(channelId: string): Promise<ChannelSection | nu
       limit: 1,
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     const channelEvent = Array.from(events)[0];
 
     if (channelEvent) {
@@ -86,12 +85,11 @@ async function getChannelSection(channelId: string): Promise<ChannelSection | nu
  * Only returns events from channels in that section
  */
 export async function fetchSectionEvents(sectionId: ChannelSection): Promise<SectionEvent[]> {
-  if (!ndk) {
+  const ndkInstance = ndk();
+  if (!ndkInstance) {
     console.error('NDK not initialized');
     return [];
   }
-
-  await connectNDK();
 
   try {
     // Fetch all group messages that have event tags (kind 9)
@@ -100,7 +98,7 @@ export async function fetchSectionEvents(sectionId: ChannelSection): Promise<Sec
       limit: 500,
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     const sectionEvents: SectionEvent[] = [];
 
     for (const event of events) {

@@ -4,7 +4,8 @@
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import {
     fetchChannels,
     fetchChannelMessages,
@@ -57,13 +58,12 @@
     }
 
     try {
-      // Set up signer if we have a private key
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      // Connect to relay if we have a private key
+      if ($authStore.privateKey && !isConnected()) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Connect and fetch channels
-      await connectNDK();
+      // Fetch channels
       const channels = await fetchChannels();
       channel = channels.find(c => c.id === channelId) || null;
 

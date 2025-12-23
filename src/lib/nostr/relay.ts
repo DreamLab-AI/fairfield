@@ -455,6 +455,29 @@ export const getCurrentUser = (): Promise<NDKUser | null> => {
 };
 
 /**
+ * Get relay URLs
+ */
+export const getRelayUrls = (): string[] => {
+  return relayManagerInstance.getRelayUrls();
+};
+
+/**
+ * Reconnect to relay (disconnect and reconnect)
+ */
+export const reconnectRelay = async (): Promise<void> => {
+  // Get current relay URL from pool
+  const currentUrls = relayManagerInstance.getRelayUrls();
+  if (currentUrls.length === 0) {
+    console.warn('[Relay] No relay to reconnect to');
+    return;
+  }
+
+  // We need the private key which is stored in the signer
+  // For reconnect, we disconnect and let the caller reconnect with credentials
+  await relayManagerInstance.disconnectRelay();
+};
+
+/**
  * Get relay manager instance
  */
 export const relayManager = relayManagerInstance;

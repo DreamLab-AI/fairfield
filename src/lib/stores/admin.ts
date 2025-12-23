@@ -2,7 +2,7 @@ import { writable, derived } from 'svelte/store';
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { NDKRelay, NDKFilter } from '@nostr-dev-kit/ndk';
 import type { ChannelSection } from '$lib/types/channel';
-import { getNDK, connectNDK } from '$lib/nostr/ndk';
+import { ndk, isConnected } from '$lib/nostr/relay';
 
 export interface PendingRequest {
   id: string;
@@ -181,8 +181,10 @@ export async function fetchPendingRequests(_relay: NDKRelay): Promise<void> {
   adminStore.setError(null);
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
 
     // Subscribe to kind 9021 (join request) events
     const filter: NDKFilter = {
@@ -190,7 +192,7 @@ export async function fetchPendingRequests(_relay: NDKRelay): Promise<void> {
       limit: 100,
     };
 
-    const ndkEvents = await ndk.fetchEvents(filter);
+    const ndkEvents = await ndkInstance.fetchEvents(filter);
 
     const requests: PendingRequest[] = Array.from(ndkEvents).map((event) => {
       // Join requests use 'h' tag for channel ID (NIP-29 style)
@@ -235,13 +237,15 @@ export async function fetchAllUsers(_relay: NDKRelay): Promise<void> {
   adminStore.setError(null);
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
 
     // Fetch user metadata (kind 0) and membership events (kind 9022)
     const [metadataEventsSet, membershipEventsSet] = await Promise.all([
-      ndk.fetchEvents({ kinds: [0 as number], limit: 500 }),
-      ndk.fetchEvents({ kinds: [9022 as number], limit: 1000 }),
+      ndkInstance.fetchEvents({ kinds: [0 as number], limit: 500 }),
+      ndkInstance.fetchEvents({ kinds: [9022 as number], limit: 1000 }),
     ]);
 
     const metadataEvents = Array.from(metadataEventsSet);
@@ -302,14 +306,16 @@ export async function fetchAllChannels(_relay: NDKRelay): Promise<void> {
   adminStore.setError(null);
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
 
     // Fetch channel creation events (kind 40) and metadata (kind 41)
     const [creationEventsSet, metadataEventsSet, memberEventsSet] = await Promise.all([
-      ndk.fetchEvents({ kinds: [40 as number], limit: 100 }),
-      ndk.fetchEvents({ kinds: [41 as number], limit: 100 }),
-      ndk.fetchEvents({ kinds: [9022 as number], limit: 1000 }),
+      ndkInstance.fetchEvents({ kinds: [40 as number], limit: 100 }),
+      ndkInstance.fetchEvents({ kinds: [41 as number], limit: 100 }),
+      ndkInstance.fetchEvents({ kinds: [9022 as number], limit: 1000 }),
     ]);
 
     const creationEvents = Array.from(creationEventsSet);

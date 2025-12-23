@@ -115,9 +115,10 @@
       const relayAdapter = relay ? {
         publish: async (event: import('nostr-tools').Event) => {
           const { NDKEvent } = await import('@nostr-dev-kit/ndk');
-          const { getNDK } = await import('$lib/nostr/ndk');
-          const ndk = getNDK();
-          const ndkEvent = new NDKEvent(ndk, event);
+          const { ndk } = await import('$lib/nostr/relay');
+          const ndkInstance = ndk();
+          if (!ndkInstance) throw new Error('NDK not initialized');
+          const ndkEvent = new NDKEvent(ndkInstance, event);
           await ndkEvent.publish();
         }
       } : { publish: async () => {} };

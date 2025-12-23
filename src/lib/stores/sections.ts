@@ -247,21 +247,25 @@ function createSectionStore() {
       // Send DM explaining denial if reason provided
       if (reason) {
         try {
-          const { getNDK } = await import('$lib/nostr/ndk');
+          const { ndk } = await import('$lib/nostr/relay');
           const { NDKEvent } = await import('@nostr-dev-kit/ndk');
-          const ndk = getNDK();
-          const signer = ndk.signer;
+          const ndkInstance = ndk();
+          if (!ndkInstance) {
+            console.error('[Sections] NDK not initialized for DM');
+            return { success: true }; // Don't fail the denial
+          }
+          const signer = ndkInstance.signer;
 
           if (signer) {
             interface NDKUser {
               pubkey: string;
             }
 
-            const dmEvent = new NDKEvent(ndk);
+            const dmEvent = new NDKEvent(ndkInstance);
             dmEvent.kind = 4; // NIP-04 encrypted DM
             dmEvent.tags = [['p', request.requesterPubkey]];
             // Create NDKUser for encryption
-            const recipientUser = ndk.getUser({ pubkey: request.requesterPubkey });
+            const recipientUser = ndkInstance.getUser({ pubkey: request.requesterPubkey });
             dmEvent.content = await signer.encrypt(
               recipientUser,
               `Your access request for ${request.section} has been denied. Reason: ${reason}`

@@ -202,21 +202,23 @@ export async function publishRegistrationRequest(
 
   try {
     // Dynamic import to avoid SSR issues
-    const { getNDK, connectNDK, setSigner } = await import('./ndk');
+    const { ndk, connectRelay, isConnected } = await import('./relay');
+    const { RELAY_URL } = await import('$lib/config');
     const { NDKEvent } = await import('@nostr-dev-kit/ndk');
     const { KIND_USER_REGISTRATION } = await import('./groups');
 
-    // Set up signer and connect
-    setSigner(privateKey);
-    await connectNDK();
+    // Connect if not already connected
+    if (!isConnected()) {
+      await connectRelay(RELAY_URL, privateKey);
+    }
 
-    const ndk = getNDK();
-    if (!ndk.signer) {
+    const ndkInstance = ndk();
+    if (!ndkInstance?.signer) {
       return { success: false, error: 'Failed to set up signer' };
     }
 
     // Create registration request event
-    const event = new NDKEvent(ndk);
+    const event = new NDKEvent(ndkInstance);
     event.kind = KIND_USER_REGISTRATION;
     event.content = 'New user registration request';
     event.tags = [

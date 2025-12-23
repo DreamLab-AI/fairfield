@@ -3,7 +3,7 @@
  * Implements NIP-28 (Public Chat) event kinds
  */
 import { NDKEvent, type NDKFilter } from '@nostr-dev-kit/ndk';
-import { ndk, connectNDK, hasSigner } from './ndk';
+import { ndk, isConnected } from './relay';
 import { browser } from '$app/environment';
 import type { ChannelSection } from '$lib/types/channel';
 import { validateContent, validateChannelName } from '$lib/utils/validation';
@@ -54,7 +54,8 @@ export async function createChannel(options: ChannelCreateOptions): Promise<Crea
 		throw new Error('Channel creation requires browser environment');
 	}
 
-	if (!hasSigner()) {
+	const ndkInstance = ndk();
+	if (!ndkInstance?.signer) {
 		throw new Error('No signer configured. Please login first.');
 	}
 
@@ -73,8 +74,10 @@ export async function createChannel(options: ChannelCreateOptions): Promise<Crea
 		);
 	}
 
-	// Ensure connected
-	await connectNDK();
+	// Check if connected
+	if (!isConnected()) {
+		throw new Error('Not connected to relays. Please wait for connection.');
+	}
 
 	// Build channel metadata
 	const metadata: ChannelMetadata = {
@@ -83,7 +86,7 @@ export async function createChannel(options: ChannelCreateOptions): Promise<Crea
 	};
 
 	// Create the event
-	const event = new NDKEvent(ndk);
+	const event = new NDKEvent(ndk()!);
 	event.kind = CHANNEL_KINDS.CREATE;
 	event.content = JSON.stringify(metadata);
 
@@ -132,13 +135,16 @@ export async function updateChannelMetadata(
 		throw new Error('Channel operations require browser environment');
 	}
 
-	if (!hasSigner()) {
+	const ndkInstance = ndk();
+	if (!ndkInstance?.signer) {
 		throw new Error('No signer configured. Please login first.');
 	}
 
-	await connectNDK();
+	if (!isConnected()) {
+		throw new Error('Not connected to relays. Please wait for connection.');
+	}
 
-	const event = new NDKEvent(ndk);
+	const event = new NDKEvent(ndk()!);
 	event.kind = CHANNEL_KINDS.METADATA;
 	event.content = JSON.stringify(metadata);
 	event.tags.push(['e', channelId, '', 'root']);
@@ -159,7 +165,8 @@ export async function sendChannelMessage(
 		throw new Error('Channel operations require browser environment');
 	}
 
-	if (!hasSigner()) {
+	const ndkInstance = ndk();
+	if (!ndkInstance?.signer) {
 		throw new Error('No signer configured. Please login first.');
 	}
 
@@ -178,9 +185,11 @@ export async function sendChannelMessage(
 		);
 	}
 
-	await connectNDK();
+	if (!isConnected()) {
+		throw new Error('Not connected to relays. Please wait for connection.');
+	}
 
-	const event = new NDKEvent(ndk);
+	const event = new NDKEvent(ndk()!);
 	event.kind = CHANNEL_KINDS.MESSAGE;
 	event.content = content;
 	event.tags.push(['e', channelId, '', 'root']);
@@ -203,14 +212,21 @@ export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
 		return [];
 	}
 
-	await connectNDK();
+	const ndkInstance = ndk();
+	if (!ndkInstance) {
+		return [];
+	}
+
+	if (!isConnected()) {
+		return [];
+	}
 
 	const filter: NDKFilter = {
 		kinds: [CHANNEL_KINDS.CREATE],
 		limit,
 	};
 
-	const events = await ndk.fetchEvents(filter);
+	const events = await ndkInstance.fetchEvents(filter);
 	const channels: CreatedChannel[] = [];
 
 	for (const event of events) {
@@ -260,7 +276,14 @@ export async function fetchChannelMessages(
 		return [];
 	}
 
-	await connectNDK();
+	const ndkInstance = ndk();
+	if (!ndkInstance) {
+		return [];
+	}
+
+	if (!isConnected()) {
+		return [];
+	}
 
 	const filter: NDKFilter = {
 		kinds: [CHANNEL_KINDS.MESSAGE],
@@ -268,7 +291,7 @@ export async function fetchChannelMessages(
 		limit,
 	};
 
-	const events = await ndk.fetchEvents(filter);
+	const events = await ndkInstance.fetchEvents(filter);
 	const messages: Array<{
 		id: string;
 		content: string;
@@ -312,13 +335,18 @@ export function subscribeToChannel(
 		return { unsubscribe: () => {} };
 	}
 
+	const ndkInstance = ndk();
+	if (!ndkInstance) {
+		return { unsubscribe: () => {} };
+	}
+
 	const filter: NDKFilter = {
 		kinds: [CHANNEL_KINDS.MESSAGE],
 		'#e': [channelId],
 		since: Math.floor(Date.now() / 1000),
 	};
 
-	const sub = ndk.subscribe(filter, { closeOnEose: false });
+	const sub = ndkInstance.subscribe(filter, { closeOnEose: false });
 
 	sub.on('event', (event: NDKEvent) => {
 		const replyTag = event.tags.find(t => t[0] === 'e' && t[3] === 'reply');

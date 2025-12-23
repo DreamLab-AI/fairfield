@@ -5,7 +5,8 @@
   import { authStore } from '$lib/stores/auth';
   import { isAdminVerified, whitelistStatusStore } from '$lib/stores/user';
   import { verifyWhitelistStatus } from '$lib/nostr/whitelist';
-  import { setSigner, connectNDK, getRelayUrls, reconnectNDK, getNDK } from '$lib/nostr/ndk';
+  import { ndk, connectRelay, isConnected, getRelayUrls, reconnectRelay } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { createChannel, fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import { settingsStore } from '$lib/stores/settings';
   import { SECTION_CONFIG, type ChannelSection, type SectionAccessRequest } from '$lib/types/channel';
@@ -68,7 +69,11 @@
     settingsStore.setRelayMode(newMode);
 
     try {
-      await reconnectNDK();
+      await reconnectRelay();
+      // Reconnect with credentials
+      if ($authStore.privateKey) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
+      }
       relayStatus = 'connected';
     } catch (e) {
       console.error('Failed to reconnect:', e);
@@ -88,11 +93,10 @@
       isLoading = true;
       error = null;
 
-      // Set up signer with user's private key
-      setSigner($authStore.privateKey);
-
-      // Connect to relays
-      await connectNDK();
+      // Connect to relay with authentication if not already connected
+      if (!isConnected()) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
+      }
       relayStatus = 'connected';
 
       // Fetch existing channels
@@ -144,8 +148,8 @@
    */
   async function loadChannelJoinRequests() {
     try {
-      const ndk = getNDK();
-      if (!ndk) return;
+      const ndkInstance = ndk();
+      if (!ndkInstance) return;
 
       // Fetch kind 9021 (join request) events
       const filter: NDKFilter = {
@@ -153,14 +157,14 @@
         limit: 100
       };
 
-      const events = await ndk.fetchEvents(filter);
+      const events = await ndkInstance.fetchEvents(filter);
 
       // Also fetch approved requests (kind 9000 add-user) to filter out already-approved
       const approvalFilter: NDKFilter = {
         kinds: [KIND_ADD_USER],
         limit: 500
       };
-      const approvalEvents = await ndk.fetchEvents(approvalFilter);
+      const approvalEvents = await ndkInstance.fetchEvents(approvalFilter);
 
       // Build set of approved user+channel combinations
       const approvedSet = new Set<string>();
@@ -177,7 +181,7 @@
         kinds: [KIND_DELETION],
         limit: 500
       };
-      const deletionEvents = await ndk.fetchEvents(deletionFilter);
+      const deletionEvents = await ndkInstance.fetchEvents(deletionFilter);
       const deletedRequestIds = new Set<string>();
       for (const event of deletionEvents) {
         const deletedIds = event.tags.filter(t => t[0] === 'e').map(t => t[1]);
@@ -221,15 +225,15 @@
    */
   function subscribeChannelJoinRequests(): NDKSubscription | null {
     try {
-      const ndk = getNDK();
-      if (!ndk) return null;
+      const ndkInstance = ndk();
+      if (!ndkInstance) return null;
 
       const filter: NDKFilter = {
         kinds: [KIND_JOIN_REQUEST],
         since: Math.floor(Date.now() / 1000)
       };
 
-      const sub = ndk.subscribe(filter, { closeOnEose: false });
+      const sub = ndkInstance.subscribe(filter, { closeOnEose: false });
 
       sub.on('event', (event: NDKEvent) => {
         const channelId = event.tags.find(t => t[0] === 'h')?.[1] || '';
@@ -261,8 +265,8 @@
    */
   async function loadUserRegistrations() {
     try {
-      const ndk = getNDK();
-      if (!ndk) return;
+      const ndkInstance = ndk();
+      if (!ndkInstance) return;
 
       // Fetch kind 9024 (user registration) events
       const filter: NDKFilter = {
@@ -270,14 +274,14 @@
         limit: 100
       };
 
-      const events = await ndk.fetchEvents(filter);
+      const events = await ndkInstance.fetchEvents(filter);
 
       // Also fetch deletion events to filter out processed registrations
       const deletionFilter: NDKFilter = {
         kinds: [KIND_DELETION],
         limit: 500
       };
-      const deletionEvents = await ndk.fetchEvents(deletionFilter);
+      const deletionEvents = await ndkInstance.fetchEvents(deletionFilter);
       const deletedRequestIds = new Set<string>();
       for (const event of deletionEvents) {
         const deletedIds = event.tags.filter(t => t[0] === 'e').map(t => t[1]);
@@ -318,15 +322,15 @@
    */
   function subscribeUserRegistrations(): NDKSubscription | null {
     try {
-      const ndk = getNDK();
-      if (!ndk) return null;
+      const ndkInstance = ndk();
+      if (!ndkInstance) return null;
 
       const filter: NDKFilter = {
         kinds: [KIND_USER_REGISTRATION as number],
         since: Math.floor(Date.now() / 1000)
       };
 
-      const sub = ndk.subscribe(filter, { closeOnEose: false });
+      const sub = ndkInstance.subscribe(filter, { closeOnEose: false });
 
       sub.on('event', (event: NDKEvent) => {
         const displayNameTag = event.tags.find(t => t[0] === 'name');
@@ -371,13 +375,13 @@
         console.warn('[Admin] Whitelist API failed:', result.error);
       }
 
-      const ndk = getNDK();
-      if (!ndk || !ndk.signer) {
+      const ndkInstance = ndk();
+      if (!ndkInstance || !ndkInstance.signer) {
         throw new Error('No signer available');
       }
 
       // Create deletion event (kind 5) to mark registration as processed
-      const deleteEvent = new NDKEvent(ndk);
+      const deleteEvent = new NDKEvent(ndkInstance);
       deleteEvent.kind = KIND_DELETION;
       deleteEvent.tags = [
         ['e', registration.id]
@@ -411,13 +415,13 @@
       isLoading = true;
       error = null;
 
-      const ndk = getNDK();
-      if (!ndk || !ndk.signer) {
+      const ndkInstance = ndk();
+      if (!ndkInstance || !ndkInstance.signer) {
         throw new Error('No signer available');
       }
 
       // Create deletion event (kind 5) to reject registration
-      const deleteEvent = new NDKEvent(ndk);
+      const deleteEvent = new NDKEvent(ndkInstance);
       deleteEvent.kind = KIND_DELETION;
       deleteEvent.tags = [
         ['e', registration.id]
@@ -486,13 +490,13 @@
       error = null;
       successMessage = null;
 
-      const ndk = getNDK();
-      if (!ndk || !ndk.signer) {
+      const ndkInstance = ndk();
+      if (!ndkInstance || !ndkInstance.signer) {
         throw new Error('No signer available');
       }
 
       // 1. Create add-user event (kind 9000)
-      const addUserEvent = new NDKEvent(ndk);
+      const addUserEvent = new NDKEvent(ndkInstance);
       addUserEvent.kind = KIND_ADD_USER;
       addUserEvent.tags = [
         ['h', request.channelId],
@@ -502,7 +506,7 @@
       await addUserEvent.publish();
 
       // 2. Create deletion event (kind 5) to mark request as processed
-      const deleteEvent = new NDKEvent(ndk);
+      const deleteEvent = new NDKEvent(ndkInstance);
       deleteEvent.kind = KIND_DELETION;
       deleteEvent.tags = [
         ['e', request.id]
@@ -547,13 +551,13 @@
       isLoading = true;
       error = null;
 
-      const ndk = getNDK();
-      if (!ndk || !ndk.signer) {
+      const ndkInstance = ndk();
+      if (!ndkInstance || !ndkInstance.signer) {
         throw new Error('No signer available');
       }
 
       // Create deletion event (kind 5) to reject request
-      const deleteEvent = new NDKEvent(ndk);
+      const deleteEvent = new NDKEvent(ndkInstance);
       deleteEvent.kind = KIND_DELETION;
       deleteEvent.tags = [
         ['e', request.id]

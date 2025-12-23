@@ -2,7 +2,8 @@
   import { createEventDispatcher } from 'svelte';
   import { authStore } from '$lib/stores/auth';
   import { profileCache } from '$lib/stores/profiles';
-  import { getNDK, connectNDK, setSigner, hasSigner } from '$lib/nostr/ndk';
+  import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { NDKEvent } from '@nostr-dev-kit/ndk';
 
   export let publicKey: string;
@@ -28,17 +29,18 @@
     error = null;
 
     try {
-      // Set up NDK signer and connect
-      setSigner(privateKey);
-      await connectNDK();
+      // Connect to relay if not already connected
+      if (!isConnected()) {
+        await connectRelay(RELAY_URL, privateKey);
+      }
 
-      const ndk = getNDK();
-      if (!ndk) {
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
         throw new Error('Failed to initialize NDK');
       }
 
       // Create kind 0 metadata event (NIP-01)
-      const metadataEvent = new NDKEvent(ndk);
+      const metadataEvent = new NDKEvent(ndkInstance);
       metadataEvent.kind = 0;
       metadataEvent.content = JSON.stringify({
         name: nickname.trim(),

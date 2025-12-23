@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ndk, connectNDK } from '$lib/nostr/ndk';
+  import { ndk, isConnected } from '$lib/nostr/relay';
   import { browser } from '$app/environment';
 
   // Board statistics
@@ -23,10 +23,15 @@
     }, 10000);
 
     try {
-      await connectNDK();
+      const ndkInstance = ndk();
+      if (!ndkInstance || !isConnected()) {
+        loading = false;
+        console.warn('BoardStats: NDK not available or not connected');
+        return;
+      }
 
       // Fetch message count (kind 42 = channel messages)
-      const messageEvents = await ndk.fetchEvents({
+      const messageEvents = await ndkInstance.fetchEvents({
         kinds: [42],
         limit: 1000,
       });

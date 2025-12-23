@@ -3,7 +3,7 @@
  * Provides utilities for creating and managing calendar events on Nostr
  */
 
-import { ndk, connectNDK } from './ndk';
+import { ndk, isConnected } from './relay';
 import { NDKEvent, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { createChannel } from './channels';
 
@@ -62,12 +62,11 @@ export async function createCalendarEvent(
     tags: params.tags,
   };
 
-  if (!ndk?.signer) {
+  const ndkInstance = ndk();
+  if (!ndkInstance?.signer) {
     console.error('NDK not connected or no signer available');
     return null;
   }
-
-  await connectNDK();
 
   try {
     let chatRoomId: string | undefined;
@@ -89,7 +88,7 @@ export async function createCalendarEvent(
       }
     }
 
-    const ndkEvent = new NDKEvent(ndk);
+    const ndkEvent = new NDKEvent(ndkInstance);
     ndkEvent.kind = CALENDAR_EVENT_KIND;
 
     // Build content as JSON
@@ -151,12 +150,11 @@ export async function createCalendarEvent(
  * Fetch calendar events for a specific channel
  */
 export async function fetchChannelEvents(channelId: string): Promise<CalendarEvent[]> {
-  if (!ndk) {
+  const ndkInstance = ndk();
+  if (!ndkInstance) {
     console.error('NDK not initialized');
     return [];
   }
-
-  await connectNDK();
 
   try {
     const filter: NDKFilter = {
@@ -164,7 +162,7 @@ export async function fetchChannelEvents(channelId: string): Promise<CalendarEve
       '#e': [channelId],
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     return Array.from(events).map(parseCalendarEvent).filter(Boolean) as CalendarEvent[];
   } catch (error) {
     console.error('Failed to fetch channel events:', error);
@@ -176,12 +174,11 @@ export async function fetchChannelEvents(channelId: string): Promise<CalendarEve
  * Fetch all calendar events across all channels
  */
 export async function fetchAllEvents(): Promise<CalendarEvent[]> {
-  if (!ndk) {
+  const ndkInstance = ndk();
+  if (!ndkInstance) {
     console.error('NDK not initialized');
     return [];
   }
-
-  await connectNDK();
 
   try {
     const filter: NDKFilter = {
@@ -189,7 +186,7 @@ export async function fetchAllEvents(): Promise<CalendarEvent[]> {
       limit: 500,
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     return Array.from(events)
       .map(parseCalendarEvent)
       .filter(Boolean)
@@ -204,12 +201,11 @@ export async function fetchAllEvents(): Promise<CalendarEvent[]> {
  * Fetch upcoming events (within next N days)
  */
 export async function fetchUpcomingEvents(days: number = 7): Promise<CalendarEvent[]> {
-  if (!ndk) {
+  const ndkInstance = ndk();
+  if (!ndkInstance) {
     console.error('NDK not initialized');
     return [];
   }
-
-  await connectNDK();
 
   const now = Math.floor(Date.now() / 1000);
   const futureLimit = now + days * 24 * 60 * 60;
@@ -221,7 +217,7 @@ export async function fetchUpcomingEvents(days: number = 7): Promise<CalendarEve
       limit: 100,
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     return Array.from(events)
       .map(parseCalendarEvent)
       .filter((e): e is CalendarEvent => e !== null && e.start <= futureLimit && e.end >= now)
@@ -239,15 +235,14 @@ export async function rsvpToEvent(
   eventId: string,
   status: 'accept' | 'decline' | 'tentative'
 ): Promise<boolean> {
-  if (!ndk?.signer) {
+  const ndkInstance = ndk();
+  if (!ndkInstance?.signer) {
     console.error('NDK not connected or no signer available');
     return false;
   }
 
-  await connectNDK();
-
   try {
-    const ndkEvent = new NDKEvent(ndk);
+    const ndkEvent = new NDKEvent(ndkInstance);
     ndkEvent.kind = RSVP_KIND;
     ndkEvent.content = '';
     ndkEvent.tags = [
@@ -269,12 +264,11 @@ export async function rsvpToEvent(
  * Fetch RSVPs for an event
  */
 export async function fetchEventRSVPs(eventId: string): Promise<EventRSVP[]> {
-  if (!ndk) {
+  const ndkInstance = ndk();
+  if (!ndkInstance) {
     console.error('NDK not initialized');
     return [];
   }
-
-  await connectNDK();
 
   try {
     const filter: NDKFilter = {
@@ -282,7 +276,7 @@ export async function fetchEventRSVPs(eventId: string): Promise<EventRSVP[]> {
       '#e': [eventId],
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     return Array.from(events)
       .map((e) => {
         const statusTag = e.tags.find((t) => t[0] === 'status');
@@ -307,16 +301,15 @@ export async function fetchEventRSVPs(eventId: string): Promise<EventRSVP[]> {
  * Delete a calendar event
  */
 export async function deleteCalendarEvent(eventId: string): Promise<boolean> {
-  if (!ndk?.signer) {
+  const ndkInstance = ndk();
+  if (!ndkInstance?.signer) {
     console.error('NDK not connected or no signer available');
     return false;
   }
 
-  await connectNDK();
-
   try {
     // Create deletion event (kind 5)
-    const ndkEvent = new NDKEvent(ndk);
+    const ndkEvent = new NDKEvent(ndkInstance);
     ndkEvent.kind = 5;
     ndkEvent.content = 'Event deleted';
     ndkEvent.tags = [['e', eventId]];

@@ -4,7 +4,7 @@
  * Only visible to members of the same cohort/tribe
  */
 
-import { ndk, connectNDK } from './ndk';
+import { ndk, isConnected } from './relay';
 import type { NDKFilter } from '@nostr-dev-kit/ndk';
 import type { CalendarEvent } from './calendar';
 import { verifyCohortMembership, type CohortName } from './whitelist';
@@ -21,12 +21,11 @@ export interface BirthdayEntry {
  * Fetch birthdays for all members of a specific cohort
  */
 export async function fetchCohortBirthdays(cohort: CohortName): Promise<BirthdayEntry[]> {
-  if (!ndk) {
+  const ndkInstance = ndk();
+  if (!ndkInstance) {
     console.error('NDK not initialized');
     return [];
   }
-
-  await connectNDK();
 
   try {
     // Fetch kind 0 metadata events that might have birthdays
@@ -36,7 +35,7 @@ export async function fetchCohortBirthdays(cohort: CohortName): Promise<Birthday
       limit: 500,
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     const birthdays: BirthdayEntry[] = [];
 
     for (const event of events) {

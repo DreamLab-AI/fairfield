@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { ndk, connectNDK } from '$lib/nostr/ndk';
+  import { ndk, isConnected } from '$lib/nostr/relay';
   import { browser } from '$app/environment';
   import { getAvatarUrl } from '$lib/utils/identicon';
   import { lastReadStore } from '$lib/stores/readPosition';
@@ -63,10 +63,21 @@
     if (!browser) return;
 
     try {
-      await connectNDK();
+      if (!isConnected()) {
+        console.warn('NDK not connected');
+        loading = false;
+        return;
+      }
+
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
+        console.warn('NDK instance not available');
+        loading = false;
+        return;
+      }
 
       // Fetch messages for this channel
-      const events = await ndk.fetchEvents({
+      const events = await ndkInstance.fetchEvents({
         kinds: [42],
         '#e': [channel.id],
         limit: 100,

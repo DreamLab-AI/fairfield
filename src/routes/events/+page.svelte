@@ -4,7 +4,8 @@
   import { base } from '$app/paths';
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { fetchAllEvents, fetchChannelEvents, type CalendarEvent } from '$lib/nostr/calendar';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import { fetchTribeBirthdayEvents } from '$lib/nostr/birthdays';
@@ -43,11 +44,9 @@
     }
 
     try {
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      if (!isConnected() && $authStore.privateKey) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
-
-      await connectNDK();
 
       // Fetch channels, events, and tribe birthdays in parallel
       const [channelResults, eventResults, birthdayResults] = await Promise.all([
