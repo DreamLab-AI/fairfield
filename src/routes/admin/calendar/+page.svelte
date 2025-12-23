@@ -2,8 +2,10 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { authStore, isAdmin } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { authStore } from '$lib/stores/auth';
+  import { isAdminVerified } from '$lib/stores/user';
+  import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { fetchAllEvents, type CalendarEvent } from '$lib/nostr/calendar';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
@@ -45,18 +47,16 @@
       return;
     }
 
-    // Check admin access using store (reads from VITE_ADMIN_PUBKEY)
-    if (!$isAdmin) {
+    // Check admin access using relay-verified store (authoritative check)
+    if (!$isAdminVerified) {
       goto(`${base}/events`);
       return;
     }
 
     try {
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      if (!isConnected() && $authStore.privateKey) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
-
-      await connectNDK();
 
       // Fetch channels and events in parallel
       const [channelResults, eventResults] = await Promise.all([fetchChannels(), fetchAllEvents()]);

@@ -13,6 +13,37 @@
 		--color-info: #3b82f6;
 	}
 
+	/* Theme-aware CSS variables for components */
+	[data-theme="light"] {
+		--text-primary: #1e293b;
+		--text-secondary: #64748b;
+		--bg-secondary: #f8fafc;
+		--bg-tertiary: #e2e8f0;
+		--border-color: #e2e8f0;
+		--primary-color: #0284c7;
+		--input-bg: #ffffff;
+		--result-bg: #f8fafc;
+		--result-hover-bg: #f1f5f9;
+		--score-bg: #dcfce7;
+		--info-bg: #f0f9ff;
+		--muted-color: #64748b;
+	}
+
+	[data-theme="dark"] {
+		--text-primary: #f1f5f9;
+		--text-secondary: #94a3b8;
+		--bg-secondary: #1e293b;
+		--bg-tertiary: #334155;
+		--border-color: #334155;
+		--primary-color: #38bdf8;
+		--input-bg: #1e293b;
+		--result-bg: #1e293b;
+		--result-hover-bg: #334155;
+		--score-bg: #166534;
+		--info-bg: #0c4a6e;
+		--muted-color: #94a3b8;
+	}
+
 	body {
 		@apply bg-base-100 text-base-content;
 		font-feature-settings: 'rlig' 1, 'calt' 1;
@@ -25,11 +56,12 @@
 		scroll-behavior: smooth;
 	}
 
-	/* Prevent iOS zoom on input focus */
+	/* Prevent iOS zoom on input focus and ensure proper dark mode text */
 	input,
 	textarea,
 	select {
 		font-size: 16px;
+		color: oklch(var(--bc));
 	}
 
 	@media (min-width: 640px) {
@@ -174,7 +206,7 @@
 	}
 
 	.message-bubble-received {
-		@apply message-bubble bg-base-200;
+		@apply message-bubble bg-base-200 text-base-content;
 	}
 
 	.chat-input {

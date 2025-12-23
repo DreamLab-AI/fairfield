@@ -3,7 +3,8 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
 
   // Forum components
@@ -60,13 +61,12 @@
     }
 
     try {
-      // Set up signer if we have a private key
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      // Connect to relay with authentication
+      if ($authStore.privateKey && !isConnected()) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Connect and fetch NIP-28 channels (kind 40)
-      await connectNDK();
+      // Fetch NIP-28 channels (kind 40)
       channels = await fetchChannels();
     } catch (e) {
       console.error('Failed to load channels:', e);

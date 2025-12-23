@@ -1,89 +1,74 @@
-import NDK, { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
-import { browser } from '$app/environment';
-import { get } from 'svelte/store';
-import { settingsStore, getActiveRelays } from '$lib/stores/settings';
+/**
+ * Backward compatibility layer for NDK
+ * Re-exports from relay.ts which is the single source of truth
+ *
+ * @deprecated Import from '$lib/nostr/relay' instead
+ */
 
-let ndkInstance: NDK | null = null;
-let isConnected = false;
-let currentRelayUrls: string[] = [];
+import NDK, { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { browser } from '$app/environment';
+import { getActiveRelays } from '$lib/stores/settings';
+import { relayManager, ndk as getNdkFromRelay, isConnected as isRelayConnected } from './relay';
 
 /**
- * Get or create NDK instance with current relay configuration
+ * Get NDK instance from relay manager
  */
 export function getNDK(): NDK {
-	const relayUrls = getActiveRelays();
+	const instance = getNdkFromRelay();
 
+	if (instance) {
+		return instance;
+	}
+
+	// Fallback for SSR or before connection
 	if (!browser) {
 		return new NDK({
-			explicitRelayUrls: relayUrls
+			explicitRelayUrls: getActiveRelays()
 		});
 	}
 
-	// If relay configuration changed, recreate instance
-	const relaysChanged = JSON.stringify(relayUrls) !== JSON.stringify(currentRelayUrls);
-
-	if (!ndkInstance || relaysChanged) {
-		// Disconnect old instance if exists
-		if (ndkInstance && isConnected) {
-			try {
-				// NDK doesn't have a disconnect method, but we can clear pools
-				ndkInstance.pool.relays.forEach(relay => relay.disconnect());
-			} catch (e) {
-				console.warn('Error disconnecting old NDK instance:', e);
-			}
-			isConnected = false;
-		}
-
-		const dexieAdapter = new NDKCacheAdapterDexie({ dbName: 'Nostr-BBS-cache' });
-
-		ndkInstance = new NDK({
-			explicitRelayUrls: relayUrls,
-			cacheAdapter: dexieAdapter as any
-		});
-
-		currentRelayUrls = [...relayUrls];
-		if (import.meta.env.DEV) {
-			console.log('NDK configured with relays:', relayUrls);
-		}
-	}
-
-	return ndkInstance;
+	// Return a temporary instance - should connect via relay manager
+	console.warn('NDK not initialized via relay manager. Use connectRelay() from $lib/nostr/relay');
+	return new NDK({
+		explicitRelayUrls: getActiveRelays()
+	});
 }
 
+/**
+ * Export ndk for compatibility
+ */
 export const ndk = browser ? getNDK() : new NDK({ explicitRelayUrls: getActiveRelays() });
 
 /**
  * Connect NDK to relays
+ * @deprecated Use connectRelay() from '$lib/nostr/relay' instead
  */
 export async function connectNDK(): Promise<void> {
 	if (!browser) return;
 
-	const instance = getNDK();
+	// This is a simplified wrapper - real apps should use relay manager
+	console.warn('connectNDK() is deprecated. Use connectRelay() from $lib/nostr/relay');
 
-	if (!isConnected) {
+	const instance = getNDK();
+	if (instance && !isRelayConnected()) {
 		await instance.connect();
-		isConnected = true;
-		if (import.meta.env.DEV) {
-			console.log('NDK connected to relays:', currentRelayUrls);
-		}
 	}
 }
 
 /**
  * Reconnect NDK with updated relay configuration
+ * @deprecated Use disconnectRelay() and connectRelay() from '$lib/nostr/relay' instead
  */
 export async function reconnectNDK(): Promise<void> {
 	if (!browser) return;
 
-	isConnected = false;
-	ndkInstance = null;
-
+	console.warn('reconnectNDK() is deprecated. Use relay manager from $lib/nostr/relay');
 	await connectNDK();
 }
 
 /**
  * Set a signer for authenticated operations
+ * Note: This sets signer on current instance, but relay manager uses its own signer
  */
 export function setSigner(privateKey: string): void {
 	if (!browser) return;
@@ -97,38 +82,36 @@ export function setSigner(privateKey: string): void {
  * Clear the current signer (logout)
  */
 export function clearSigner(): void {
-	if (!browser || !ndkInstance) return;
-	ndkInstance.signer = undefined;
+	if (!browser) return;
+
+	const instance = getNdkFromRelay();
+	if (instance) {
+		instance.signer = undefined;
+	}
 }
 
 /**
  * Check if NDK has a signer configured
  */
 export function hasSigner(): boolean {
-	return browser && ndkInstance?.signer !== undefined;
+	if (!browser) return false;
+
+	const instance = getNdkFromRelay();
+	return instance?.signer !== undefined;
 }
 
 /**
  * Get connection status
+ * @deprecated Use isConnected() from '$lib/nostr/relay' instead
  */
 export function isNDKConnected(): boolean {
-	return isConnected;
+	return isRelayConnected();
 }
 
 /**
  * Get configured relay URLs
+ * @deprecated Use relayManager.getRelayUrls() from '$lib/nostr/relay' instead
  */
 export function getRelayUrls(): string[] {
-	return currentRelayUrls;
-}
-
-// Subscribe to settings changes to auto-reconnect
-if (browser) {
-	settingsStore.subscribe(() => {
-		// Settings changed - will reconnect on next getNDK() call
-		const newRelays = getActiveRelays();
-		if (JSON.stringify(newRelays) !== JSON.stringify(currentRelayUrls)) {
-			console.log('Relay configuration changed, will reconnect on next operation');
-		}
-	});
+	return relayManager.getRelayUrls();
 }

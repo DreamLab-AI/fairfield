@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import { restoreFromMnemonic, restoreFromNsecOrHex } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
 
-  const dispatch = createEventDispatcher<{ success: { publicKey: string; privateKey: string } }>();
+  const dispatch = createEventDispatcher<{ success: { publicKey: string; privateKey: string; keepSignedIn: boolean } }>();
 
   let inputMode: 'paste' | 'individual' | 'privatekey' = 'paste';
   let pastedMnemonic = '';
@@ -12,6 +13,17 @@
   let privateKeyInput = '';
   let isRestoring = false;
   let validationError = '';
+  let keepSignedIn = true; // Default to yes
+
+  onMount(() => {
+    // Check if user previously opted out
+    if (browser) {
+      const savedPref = localStorage.getItem('nostr_bbs_keep_signed_in');
+      if (savedPref !== null) {
+        keepSignedIn = savedPref === 'true';
+      }
+    }
+  });
 
   function switchMode(mode: 'paste' | 'individual' | 'privatekey') {
     inputMode = mode;
@@ -54,7 +66,11 @@
         privateKey = result.privateKey;
       }
 
-      dispatch('success', { publicKey, privateKey });
+      // Save preference
+      if (browser) {
+        localStorage.setItem('nostr_bbs_keep_signed_in', String(keepSignedIn));
+      }
+      dispatch('success', { publicKey, privateKey, keepSignedIn });
     } catch (error) {
       validationError = error instanceof Error ? error.message : 'Invalid credentials';
       authStore.setError(validationError);
@@ -180,6 +196,24 @@
         </div>
       {/if}
 
+      <!-- Keep me signed in toggle -->
+      <div class="form-control mt-4">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            class="toggle toggle-primary"
+            bind:checked={keepSignedIn}
+            disabled={isRestoring}
+          />
+          <div class="flex flex-col">
+            <span class="label-text font-medium">Keep me signed in</span>
+            <span class="label-text-alt text-base-content/60">
+              Stay logged in on this browser using a secure cookie
+            </span>
+          </div>
+        </label>
+      </div>
+
       <div class="card-actions justify-center mt-4">
         <button
           class="btn btn-primary btn-lg w-full sm:w-auto px-8"
@@ -199,7 +233,7 @@
 
       <button
         class="btn btn-ghost btn-sm"
-        on:click={() => dispatch('success', { publicKey: '', privateKey: '' })}
+        on:click={() => dispatch('success', { publicKey: '', privateKey: '', keepSignedIn: true })}
       >
         Create a new account
       </button>

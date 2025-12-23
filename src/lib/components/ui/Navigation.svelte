@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { authStore, isAdmin } from '$lib/stores/auth';
+	import { authStore } from '$lib/stores/auth';
+	import { isAdminVerified, userStore } from '$lib/stores/user';
 
 	export let themePreference: 'dark' | 'light' = 'dark';
 	export let onThemeToggle: () => void;
 	export let onProfileClick: () => void;
+
+	// Subscribe to userStore to trigger whitelist verification
+	// This ensures the derived callback runs and populates whitelistStatusStore
+	$: void $userStore;
 
 	let mobileMenuOpen = false;
 
@@ -54,7 +59,7 @@
 		<ul class="menu menu-horizontal px-1">
 			<li><a href="{base}/chat" class:active={$page.url.pathname.startsWith(`${base}/chat`)} class="min-h-11">Channels</a></li>
 			<li><a href="{base}/dm" class:active={$page.url.pathname.startsWith(`${base}/dm`)} class="min-h-11">Messages</a></li>
-			{#if $isAdmin}
+			{#if $isAdminVerified}
 				<li><a href="{base}/admin" class:active={$page.url.pathname === `${base}/admin`} class="min-h-11">Admin</a></li>
 			{/if}
 		</ul>
@@ -145,7 +150,7 @@
 						Messages
 					</a>
 				</li>
-				{#if $isAdmin}
+				{#if $isAdminVerified}
 					<li>
 						<a
 							href="{base}/admin"

@@ -4,6 +4,9 @@ import type { Event, Filter, Sub } from '$lib/types/nostr';
 import { currentPubkey } from './user';
 import { toast } from './toast';
 import { indexNewMessage, removeDeletedMessage } from '$lib/utils/searchIndex';
+import { ndk, publishEvent, subscribe as ndkSubscribe } from '$lib/nostr/relay';
+import { NDKEvent, type NDKFilter, type NDKSubscription } from '@nostr-dev-kit/ndk';
+import { getPublicKey, getEventHash, signEvent, nip04Encrypt, nip04Decrypt } from '$lib/utils/nostr-crypto';
 
 /**
  * Message author information
@@ -41,12 +44,11 @@ export interface MessageState {
 }
 
 /**
- * WebSocket relay connection type
+ * NDK subscription tracking
  */
-interface RelayConnection {
-  url: string;
-  ws: WebSocket | null;
-  subscriptions: Map<string, Sub>;
+interface SubscriptionInfo {
+  subId: string;
+  subscription: NDKSubscription;
 }
 
 /**
@@ -67,11 +69,8 @@ const initialState: MessageState = {
 function createMessageStore() {
   const { subscribe, set, update } = writable<MessageState>(initialState);
 
-  // Active relay connections
-  const relayConnections = new Map<string, RelayConnection>();
-
-  // Active subscriptions by channel
-  const channelSubscriptions = new Map<string, string[]>();
+  // Active NDK subscriptions by channel
+  const channelSubscriptions = new Map<string, SubscriptionInfo[]>();
 
   /**
    * Convert DB message to app message
@@ -104,11 +103,9 @@ function createMessageStore() {
     recipientPrivkey: string
   ): Promise<string> {
     try {
-      const { nip04Decrypt } = await import('$lib/utils/nostr-crypto');
       return await nip04Decrypt(recipientPrivkey, senderPubkey, encryptedContent);
     } catch (error) {
       console.error('Failed to decrypt message:', error);
-      // Notify user of decryption failure (only once per session to avoid spam)
       toast.warning('Some messages could not be decrypted', 5000);
       return '[Encrypted message - decryption failed]';
     }
@@ -122,175 +119,59 @@ function createMessageStore() {
     recipientPubkey: string,
     senderPrivkey: string
   ): Promise<string> {
-    const { nip04Encrypt } = await import('$lib/utils/nostr-crypto');
     return await nip04Encrypt(senderPrivkey, recipientPubkey, content);
   }
 
   /**
-   * Create Nostr event
+   * Create NDK event from message data
    */
-  async function createEvent(
+  function createNDKEvent(
     content: string,
     kind: number,
-    tags: string[][],
-    privkey: string
-  ): Promise<Event> {
-    const { getPublicKey, getEventHash, signEvent } = await import('$lib/utils/nostr-crypto');
+    tags: string[][]
+  ): NDKEvent {
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
 
-    const pubkey = getPublicKey(privkey);
-    const created_at = Math.floor(Date.now() / 1000);
-
-    const event: Event = {
-      id: '',
-      pubkey,
-      created_at,
-      kind,
-      tags,
-      content,
-      sig: ''
-    };
-
-    event.id = getEventHash(event);
-    event.sig = signEvent(event, privkey);
+    const event = new NDKEvent(ndkInstance);
+    event.kind = kind;
+    event.content = content;
+    event.tags = tags;
+    event.created_at = Math.floor(Date.now() / 1000);
 
     return event;
   }
 
   /**
-   * Connect to relay
+   * Convert NDK event to legacy Event format
    */
-  function connectToRelay(relayUrl: string): Promise<WebSocket> {
-    return new Promise((resolve, reject) => {
-      const existing = relayConnections.get(relayUrl);
-
-      if (existing?.ws?.readyState === WebSocket.OPEN) {
-        resolve(existing.ws);
-        return;
-      }
-
-      const ws = new WebSocket(relayUrl);
-
-      ws.onopen = () => {
-        relayConnections.set(relayUrl, {
-          url: relayUrl,
-          ws,
-          subscriptions: new Map()
-        });
-
-        db.updateRelay(relayUrl, {
-          connected: true,
-          lastConnected: Date.now() / 1000,
-          lastError: null
-        });
-
-        resolve(ws);
-      };
-
-      ws.onerror = (error) => {
-        db.updateRelay(relayUrl, {
-          connected: false,
-          lastError: 'Connection failed'
-        });
-        reject(error);
-      };
-
-      ws.onclose = () => {
-        relayConnections.delete(relayUrl);
-        db.updateRelay(relayUrl, {
-          connected: false
-        });
-      };
-    });
-  }
-
-  /**
-   * Subscribe to relay events
-   */
-  async function subscribeToRelay(
-    relayUrl: string,
-    filters: Filter[],
-    onEvent: (event: Event) => void
-  ): Promise<string> {
-    const ws = await connectToRelay(relayUrl);
-    const subId = Math.random().toString(36).substring(7);
-
-    const subscription: Sub = {
-      id: subId,
-      filters,
-      cb: onEvent
+  function ndkEventToEvent(ndkEvent: NDKEvent): Event {
+    return {
+      id: ndkEvent.id,
+      pubkey: ndkEvent.pubkey,
+      created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+      kind: ndkEvent.kind || 0,
+      tags: ndkEvent.tags,
+      content: ndkEvent.content,
+      sig: ndkEvent.sig || ''
     };
+  }
 
-    const connection = relayConnections.get(relayUrl);
-    if (connection) {
-      connection.subscriptions.set(subId, subscription);
-    }
-
-    // Send subscription request
-    ws.send(JSON.stringify(['REQ', subId, ...filters]));
-
-    // Handle incoming messages
-    const messageHandler = async (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data[0] === 'EVENT' && data[1] === subId) {
-          onEvent(data[2]);
-        }
-      } catch (error) {
-        console.error('Failed to parse relay message:', error);
-      }
+  /**
+   * Convert legacy Filter to NDK filter
+   */
+  function filterToNDKFilter(filter: Filter): NDKFilter {
+    return {
+      kinds: filter.kinds,
+      authors: filter.authors,
+      '#e': filter['#e'],
+      '#p': filter['#p'],
+      since: filter.since,
+      until: filter.until,
+      limit: filter.limit
     };
-
-    ws.addEventListener('message', messageHandler);
-
-    return subId;
-  }
-
-  /**
-   * Unsubscribe from relay
-   */
-  function unsubscribeFromRelay(relayUrl: string, subId: string): void {
-    const connection = relayConnections.get(relayUrl);
-
-    if (connection?.ws?.readyState === WebSocket.OPEN) {
-      connection.ws.send(JSON.stringify(['CLOSE', subId]));
-      connection.subscriptions.delete(subId);
-    }
-  }
-
-  /**
-   * Publish event to relay
-   */
-  async function publishToRelay(relayUrl: string, event: Event): Promise<void> {
-    const ws = await connectToRelay(relayUrl);
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Publish timeout'));
-      }, 10000);
-
-      const messageHandler = (msgEvent: MessageEvent) => {
-        try {
-          const data = JSON.parse(msgEvent.data);
-
-          if (data[0] === 'OK' && data[1] === event.id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', messageHandler);
-
-            if (data[2] === true) {
-              resolve();
-            } else {
-              reject(new Error(data[3] || 'Event rejected'));
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse relay response:', error);
-        }
-      };
-
-      ws.addEventListener('message', messageHandler);
-      ws.send(JSON.stringify(['EVENT', event]));
-    });
   }
 
   return {
@@ -329,14 +210,17 @@ function createMessageStore() {
           ? Math.max(...cachedMessages.map(m => m.created_at))
           : 0;
 
-        const filter: Filter = {
+        const filter: NDKFilter = {
           kinds: [9], // NIP-29 channel message
           '#e': [channelId],
           since,
           limit
         };
 
-        await subscribeToRelay(relayUrl, [filter], async (event) => {
+        const subscription = ndkSubscribe(filter, { closeOnEose: false });
+
+        subscription.on('event', async (ndkEvent: NDKEvent) => {
+          const event = ndkEventToEvent(ndkEvent);
           // Check if already deleted
           const isDeleted = await db.isMessageDeleted(event.id);
           if (isDeleted) return;
@@ -420,8 +304,6 @@ function createMessageStore() {
 
         // Encrypt if necessary
         if (isEncrypted && memberPubkeys.length > 0) {
-          // For group encryption, encrypt for each member
-          // This is simplified - proper implementation would use NIP-44 group encryption
           finalContent = await encryptMessage(content, memberPubkeys[0], userPrivkey);
         }
 
@@ -430,11 +312,12 @@ function createMessageStore() {
           ['e', channelId, relayUrl, 'root']
         ];
 
-        // Create and sign event
-        const event = await createEvent(finalContent, 9, tags, userPrivkey);
+        // Create and publish NDK event
+        const ndkEvent = createNDKEvent(finalContent, 9, tags);
+        await publishEvent(ndkEvent);
 
-        // Publish to relay
-        await publishToRelay(relayUrl, event);
+        // Get the signed event data
+        const event = ndkEventToEvent(ndkEvent);
 
         // Cache locally
         const dbMsg: DBMessage = {
@@ -494,13 +377,13 @@ function createMessageStore() {
         // Create deletion event
         const tags: string[][] = [
           ['e', messageId],
-          ['k', '9'] // Original event kind
+          ['k', '9']
         ];
 
-        const event = await createEvent('', 5, tags, userPrivkey);
+        const ndkEvent = createNDKEvent('', 5, tags);
+        await publishEvent(ndkEvent);
 
-        // Publish deletion
-        await publishToRelay(relayUrl, event);
+        const event = ndkEventToEvent(ndkEvent);
 
         // Mark as deleted in cache
         await db.addDeletion({
@@ -555,20 +438,27 @@ function createMessageStore() {
         const isEncrypted = channel?.isEncrypted || false;
 
         // Subscribe to new messages
-        const messageFilter: Filter = {
+        const messageFilter: NDKFilter = {
           kinds: [9],
           '#e': [channelId],
           since: Math.floor(Date.now() / 1000)
         };
 
         // Subscribe to deletions
-        const deletionFilter: Filter = {
-          kinds: [5, 9005], // NIP-09 and NIP-29 deletions
+        const deletionFilter: NDKFilter = {
+          kinds: [5, 9005 as any], // NIP-09 and NIP-29 deletions
           '#e': [channelId],
           since: Math.floor(Date.now() / 1000)
         };
 
-        const subId1 = await subscribeToRelay(relayUrl, [messageFilter], async (event) => {
+        const subId1 = `msg_${channelId}_${Date.now()}`;
+        const subscription1 = ndkSubscribe(messageFilter, {
+          closeOnEose: false,
+          subId: subId1
+        });
+
+        subscription1.on('event', async (ndkEvent: NDKEvent) => {
+          const event = ndkEventToEvent(ndkEvent);
           // Handle new message
           let content = event.content;
           if (isEncrypted && userPrivkey) {
@@ -609,7 +499,14 @@ function createMessageStore() {
           });
         });
 
-        const subId2 = await subscribeToRelay(relayUrl, [deletionFilter], async (event) => {
+        const subId2 = `del_${channelId}_${Date.now()}`;
+        const subscription2 = ndkSubscribe(deletionFilter, {
+          closeOnEose: false,
+          subId: subId2
+        });
+
+        subscription2.on('event', async (ndkEvent: NDKEvent) => {
+          const event = ndkEventToEvent(ndkEvent);
           // Handle deletion
           const deletedId = event.tags.find(t => t[0] === 'e')?.[1];
 
@@ -639,7 +536,11 @@ function createMessageStore() {
 
         // Track subscriptions
         const subs = channelSubscriptions.get(channelId) || [];
-        channelSubscriptions.set(channelId, [...subs, subId1, subId2]);
+        channelSubscriptions.set(channelId, [
+          ...subs,
+          { subId: subId1, subscription: subscription1 },
+          { subId: subId2, subscription: subscription2 }
+        ]);
 
       } catch (error) {
         console.error('subscribeToChannel error:', error);
@@ -662,8 +563,8 @@ function createMessageStore() {
       const subs = channelSubscriptions.get(channelId);
 
       if (subs) {
-        subs.forEach(subId => {
-          unsubscribeFromRelay(relayUrl, subId);
+        subs.forEach(({ subscription }) => {
+          subscription.stop();
         });
 
         channelSubscriptions.delete(channelId);
@@ -696,7 +597,7 @@ function createMessageStore() {
         const channel = await db.getChannel(channelId);
         const isEncrypted = channel?.isEncrypted || false;
 
-        const filter: Filter = {
+        const filter: NDKFilter = {
           kinds: [9],
           '#e': [channelId],
           until: oldestMessage.created_at - 1,
@@ -708,7 +609,10 @@ function createMessageStore() {
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => resolve(), 5000);
 
-          subscribeToRelay(relayUrl, [filter], async (event) => {
+          const subscription = ndkSubscribe(filter, { closeOnEose: true });
+
+          subscription.on('event', async (ndkEvent: NDKEvent) => {
+            const event = ndkEventToEvent(ndkEvent);
             const isDeleted = await db.isMessageDeleted(event.id);
             if (isDeleted) return;
 
@@ -745,13 +649,17 @@ function createMessageStore() {
               }
               return state;
             });
-          }).catch(reject);
+          });
 
-          // Give relay time to respond
-          setTimeout(() => {
+          subscription.on('eose', () => {
             clearTimeout(timeout);
             resolve();
-          }, 3000);
+          });
+
+          subscription.on('close', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
         });
 
         update(state => ({
@@ -792,16 +700,15 @@ function createMessageStore() {
     },
 
     /**
-     * Disconnect from all relays
+     * Disconnect all subscriptions
      */
     disconnectAll(): void {
-      relayConnections.forEach(connection => {
-        if (connection.ws?.readyState === WebSocket.OPEN) {
-          connection.ws.close();
-        }
+      channelSubscriptions.forEach(subs => {
+        subs.forEach(({ subscription }) => {
+          subscription.stop();
+        });
       });
 
-      relayConnections.clear();
       channelSubscriptions.clear();
     }
   };

@@ -1,7 +1,15 @@
+---
+title: Accessibility Improvements WCAG 2.1 Level AA
+description: Comprehensive WCAG 2.1 Level AA accessibility implementation including ARIA landmarks, keyboard navigation, and screen reader support
+category: reference
+tags: [accessibility, pwa, components]
+difficulty: intermediate
+---
+
 # Accessibility Improvements - Nostr-BBS Nostr Application
 
 ## Summary
-Implemented comprehensive WCAG 2.1 Level AA accessibility fixes across the application to improve usability for users with disabilities, including keyboard-only navigation, screen reader support, and proper color contrast.
+Implemented comprehensive WCAG 2.1 Level AA accessibility fixes across the application to improve usability for users with disabilities, including keyboard-only navigation, screen reader support, and proper colour contrast.
 
 ## Changes Implemented
 

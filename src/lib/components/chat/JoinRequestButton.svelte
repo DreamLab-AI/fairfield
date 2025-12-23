@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { NDKEvent } from '@nostr-dev-kit/ndk';
   import { channelStore, selectedChannel, userMemberStatus } from '$lib/stores/channelStore';
   import { authStore } from '$lib/stores/auth';
   import { toast } from '$lib/stores/toast';
+  import { ndk, publishEvent, isConnected } from '$lib/nostr/relay';
+  import { KIND_JOIN_REQUEST } from '$lib/nostr/groups';
 
   let isLoading = false;
 
@@ -63,8 +66,31 @@
     isLoading = true;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Check relay connection
+      if (!isConnected()) {
+        throw new Error('Not connected to relay');
+      }
 
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
+        throw new Error('NDK not initialized');
+      }
+
+      // Create and publish join request event (kind 9021)
+      const joinRequestEvent = new NDKEvent(ndkInstance);
+      joinRequestEvent.kind = KIND_JOIN_REQUEST;
+      joinRequestEvent.tags = [
+        ['h', $selectedChannel.id]
+      ];
+      joinRequestEvent.content = '';
+
+      const published = await publishEvent(joinRequestEvent);
+
+      if (!published) {
+        throw new Error('Failed to publish join request to relay');
+      }
+
+      // Update local state to show pending status
       channelStore.requestJoin($selectedChannel.id, $authStore.publicKey);
       toast.success('Join request sent successfully');
 

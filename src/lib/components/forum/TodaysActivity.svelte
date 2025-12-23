@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { ndk, connectNDK } from '$lib/nostr/ndk';
+  import { ndk, isConnected } from '$lib/nostr/relay';
   import { browser } from '$app/environment';
 
   interface ActiveTopic {
@@ -20,20 +20,32 @@
   onMount(async () => {
     if (!browser) return;
 
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (loading) {
+        loading = false;
+        console.warn('TodaysActivity: Fetch timeout, showing empty state');
+      }
+    }, 10000);
+
     try {
-      await connectNDK();
+      const ndkInstance = ndk();
+      if (!ndkInstance || !isConnected()) {
+        loading = false;
+        return;
+      }
 
       const todayStart = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
 
       // Fetch today's messages
-      const messageEvents = await ndk.fetchEvents({
+      const messageEvents = await ndkInstance.fetchEvents({
         kinds: [42],
         since: todayStart,
         limit: 500,
       });
 
       // Fetch channel metadata
-      const channelEvents = await ndk.fetchEvents({
+      const channelEvents = await ndkInstance.fetchEvents({
         kinds: [40],
         limit: 100,
       });
@@ -90,6 +102,7 @@
     } catch (e) {
       console.error('Failed to fetch today\'s activity:', e);
     } finally {
+      clearTimeout(timeout);
       loading = false;
     }
   });

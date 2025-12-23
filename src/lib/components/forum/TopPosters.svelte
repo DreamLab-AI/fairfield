@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ndk, connectNDK } from '$lib/nostr/ndk';
+  import { ndk, isConnected } from '$lib/nostr/relay';
   import { browser } from '$app/environment';
   import { getAvatarUrl } from '$lib/utils/identicon';
   import { profileCache } from '$lib/stores/profiles';
@@ -20,11 +20,23 @@
   onMount(async () => {
     if (!browser) return;
 
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (loading) {
+        loading = false;
+        console.warn('TopPosters: Fetch timeout, showing empty state');
+      }
+    }, 10000);
+
     try {
-      await connectNDK();
+      const ndkInstance = ndk();
+      if (!ndkInstance || !isConnected()) {
+        loading = false;
+        return;
+      }
 
       // Fetch all messages
-      const messageEvents = await ndk.fetchEvents({
+      const messageEvents = await ndkInstance.fetchEvents({
         kinds: [42],
         limit: 2000,
       });
@@ -75,6 +87,7 @@
     } catch (e) {
       console.error('Failed to fetch top posters:', e);
     } finally {
+      clearTimeout(timeout);
       loading = false;
     }
   });

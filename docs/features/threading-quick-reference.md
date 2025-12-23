@@ -1,3 +1,10 @@
+---
+title: Threading Quick Reference
+description: Quick reference guide for implementing and using message threading features
+category: howto
+tags: [features, messages, development]
+---
+
 # Threading Quick Reference
 
 ## Quick Start
@@ -147,8 +154,8 @@ function buildReplyTags(parentMessage: Message): string[][] {
 function scrollToMessage(messageId: string) {
   const element = document.getElementById(`message-${messageId}`);
   element?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center'
+    behaviour: 'smooth',
+    block: 'centre'
   });
 }
 ```

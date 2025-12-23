@@ -14,7 +14,6 @@ export interface AuthState {
   nickname: string | null;
   avatar: string | null;
   isPending: boolean;
-  isAdmin: boolean;
   error: string | null;
   isEncrypted: boolean;
   mnemonicBackedUp: boolean;
@@ -31,7 +30,6 @@ const initialState: AuthState = {
   nickname: null,
   avatar: null,
   isPending: false,
-  isAdmin: false,
   error: null,
   isEncrypted: false,
   mnemonicBackedUp: false,
@@ -40,43 +38,37 @@ const initialState: AuthState = {
 
 const STORAGE_KEY = 'nostr_bbs_keys';
 const SESSION_KEY = 'nostr_bbs_session';
+const COOKIE_KEY = 'nostr_bbs_auth';
+const KEEP_SIGNED_IN_KEY = 'nostr_bbs_keep_signed_in';
 
 /**
- * Admin Configuration
- *
- * Admin pubkeys are loaded from VITE_ADMIN_PUBKEY environment variable.
- * This should match the admins array in relay/whitelist.json.
- *
- * Source of Truth: relay/whitelist.json
- * - The relay whitelist determines actual permissions
- * - This client-side check is for UI/UX only
- * - Always verify admin actions server-side via the relay
- *
- * Configuration:
- * 1. Update relay/whitelist.json with admin pubkeys
- * 2. Set VITE_ADMIN_PUBKEY in .env with the same values (comma-separated)
- * 3. Never commit actual admin keys to version control
+ * Cookie utilities for persistent auth
  */
-const ADMIN_PUBKEY = import.meta.env.VITE_ADMIN_PUBKEY || '';
-const ADMIN_PUBKEYS = ADMIN_PUBKEY ? ADMIN_PUBKEY.split(',').map((k: string) => k.trim()).filter(Boolean) : [];
-
-/**
- * Check if a pubkey is an admin (client-side check only)
- *
- * NOTE: This is a client-side convenience check for UI purposes.
- * All admin actions MUST be verified server-side by the relay
- * against relay/whitelist.json which is the source of truth.
- *
- * @param pubkey - Public key to check
- * @returns true if pubkey is in VITE_ADMIN_PUBKEY list
- */
-function isAdminPubkey(pubkey: string): boolean {
-  // Filter out placeholder keys (all zeros)
-  const validAdminKeys = ADMIN_PUBKEYS.filter(k =>
-    k !== '0000000000000000000000000000000000000000000000000000000000000000' && k.length === 64
-  );
-  return validAdminKeys.includes(pubkey);
+function setCookie(name: string, value: string, days: number): void {
+  if (!browser) return;
+  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict; Secure`;
 }
+
+function getCookie(name: string): string | null {
+  if (!browser) return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function deleteCookie(name: string): void {
+  if (!browser) return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict; Secure`;
+}
+
+/**
+ * Check if user wants persistent login
+ */
+function shouldKeepSignedIn(): boolean {
+  if (!browser) return false;
+  return localStorage.getItem(KEEP_SIGNED_IN_KEY) !== 'false';
+}
+
 
 /**
  * Get or generate session encryption key
@@ -143,7 +135,6 @@ function createAuthStore() {
               nickname: parsed.nickname || null,
               avatar: parsed.avatar || null,
               isAuthenticated: true,
-              isAdmin: isAdminPubkey(parsed.publicKey || ''),
               isEncrypted: true,
               mnemonicBackedUp: parsed.mnemonicBackedUp || false,
               isReady: true
@@ -171,7 +162,6 @@ function createAuthStore() {
           ...syncStateFields({
             ...parsed,
             isAuthenticated: true,
-            isAdmin: isAdminPubkey(parsed.publicKey || ''),
             isEncrypted: false,
             mnemonicBackedUp: parsed.mnemonicBackedUp || false,
             isReady: true
@@ -212,7 +202,6 @@ function createAuthStore() {
         privateKey,
         mnemonic: mnemonic || null,
         isAuthenticated: true,
-        isAdmin: isAdminPubkey(publicKey),
         isPending: false,
         error: null,
         isEncrypted: isEncryptionAvailable(),
@@ -246,6 +235,11 @@ function createAuthStore() {
         }
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
+
+        // If keep signed in is enabled, also set a cookie for persistence
+        if (shouldKeepSignedIn()) {
+          setCookie(COOKIE_KEY, publicKey, 30); // 30 day cookie
+        }
       }
 
       update(state => ({ ...state, ...syncStateFields(authData) }));
@@ -301,7 +295,6 @@ function createAuthStore() {
             privateKey,
             publicKey: parsed.publicKey,
             isAuthenticated: true,
-            isAdmin: isAdminPubkey(parsed.publicKey || ''),
             error: null
           })
         }));
@@ -345,6 +338,7 @@ function createAuthStore() {
       if (browser) {
         localStorage.removeItem(STORAGE_KEY);
         sessionStorage.removeItem(SESSION_KEY);
+        deleteCookie(COOKIE_KEY);
         const { goto } = await import('$app/navigation');
         goto(`${base}/`);
       }
@@ -356,5 +350,4 @@ function createAuthStore() {
 
 export const authStore = createAuthStore();
 export const isAuthenticated = derived(authStore, $auth => $auth.isAuthenticated);
-export const isAdmin = derived(authStore, $auth => $auth.isAdmin);
 export const isReady = derived(authStore, $auth => $auth.isReady);

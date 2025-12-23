@@ -4,9 +4,11 @@
   import { base } from '$app/paths';
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { fetchAllEvents, fetchChannelEvents, type CalendarEvent } from '$lib/nostr/calendar';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
+  import { fetchTribeBirthdayEvents } from '$lib/nostr/birthdays';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import EventCard from '$lib/components/events/EventCard.svelte';
   import CreateEventModal from '$lib/components/events/CreateEventModal.svelte';
@@ -42,17 +44,20 @@
     }
 
     try {
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      if (!isConnected() && $authStore.privateKey) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      await connectNDK();
-
-      // Fetch channels and events in parallel
-      const [channelResults, eventResults] = await Promise.all([fetchChannels(), fetchAllEvents()]);
+      // Fetch channels, events, and tribe birthdays in parallel
+      const [channelResults, eventResults, birthdayResults] = await Promise.all([
+        fetchChannels(),
+        fetchAllEvents(),
+        fetchTribeBirthdayEvents($authStore.publicKey),
+      ]);
 
       channels = channelResults;
-      events = eventResults;
+      // Combine regular events with birthday events
+      events = [...eventResults, ...birthdayResults].sort((a, b) => a.start - b.start);
     } catch (e) {
       console.error('Failed to load events:', e);
       error = e instanceof Error ? e.message : 'Failed to load events';

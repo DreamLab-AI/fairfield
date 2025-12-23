@@ -9,6 +9,7 @@ import NDK, {
   NDKRelay,
   NDKSubscription,
   type NDKFilter,
+  type NDKCacheAdapter,
   NDKUser
 } from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
@@ -101,7 +102,7 @@ class RelayManager {
     const ndk = new NDK({
       explicitRelayUrls: [relayUrl],
       signer: this._signer,
-      cacheAdapter: this._cacheAdapter ?? undefined,
+      cacheAdapter: (this._cacheAdapter ?? undefined) as NDKCacheAdapter | undefined,
       enableOutboxModel: false
     });
 
@@ -451,6 +452,29 @@ export const isConnected = (): boolean => {
  */
 export const getCurrentUser = (): Promise<NDKUser | null> => {
   return relayManagerInstance.getCurrentUser();
+};
+
+/**
+ * Get relay URLs
+ */
+export const getRelayUrls = (): string[] => {
+  return relayManagerInstance.getRelayUrls();
+};
+
+/**
+ * Reconnect to relay (disconnect and reconnect)
+ */
+export const reconnectRelay = async (): Promise<void> => {
+  // Get current relay URL from pool
+  const currentUrls = relayManagerInstance.getRelayUrls();
+  if (currentUrls.length === 0) {
+    console.warn('[Relay] No relay to reconnect to');
+    return;
+  }
+
+  // We need the private key which is stored in the signer
+  // For reconnect, we disconnect and let the caller reconnect with credentials
+  await relayManagerInstance.disconnectRelay();
 };
 
 /**

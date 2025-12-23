@@ -7,6 +7,16 @@ A decentralized community bulletin board system built on the Nostr protocol. Fea
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-5.x-orange.svg)](https://kit.svelte.dev)
 [![Google Cloud](https://img.shields.io/badge/Google_Cloud-Platform-blue.svg)](https://cloud.google.com)
 
+## Screenshots
+
+| Homepage | Messages | Calendar |
+|:--------:|:--------:|:--------:|
+| ![Homepage](docs/screenshots/homepage.png) | ![Messages](docs/screenshots/messages.png) | ![Calendar](docs/screenshots/calendar-compact.png) |
+| **Login** | **Signup** | **Mobile View** |
+| ![Login](docs/screenshots/login.png) | ![Signup](docs/screenshots/signup.png) | ![Mobile](docs/screenshots/homepage-mobile.png) |
+| **Profile** | **Semantic Search** | **Admin Dashboard** |
+| ![Profile](docs/screenshots/profile.png) | ![Semantic Search](docs/screenshots/semantic-search.png) | ![Admin Dashboard](docs/screenshots/admin-dashboard.png) |
+
 ## Features
 
 - **Public Chat Channels** - NIP-28 group messaging with cohort-based access control
@@ -1234,7 +1244,7 @@ This project builds upon exceptional open-source work from the Nostr ecosystem a
 - **[Transformers.js](https://huggingface.co/docs/transformers.js)** - Machine learning models by Hugging Face
 - **[sentence-transformers](https://www.sbert.net/)** - Multilingual sentence embeddings
 - **[all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)** - Compact 384d embedding model
-- **[hnswlib](https://github.com/nmslib/hnswlib)** - Fast approximate nearest neighbor search
+- **[hnswlib](https://github.com/nmslib/hnswlib)** - Fast approximate nearest neighbour search
 - **[hnswlib-wasm](https://github.com/yoshoku/hnswlib-wasm)** - WASM-based vector similarity search
 
 ### Infrastructure & Cloud Services

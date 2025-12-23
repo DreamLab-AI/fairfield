@@ -2,8 +2,11 @@
 	import { authStore } from '$lib/stores/auth';
 	import { profileCache } from '$lib/stores/profiles';
 	import { encodePubkey, encodePrivkey } from '$lib/nostr/keys';
-	import { ndk, connectNDK, setSigner, hasSigner } from '$lib/nostr/ndk';
+	import { ndk, isConnected } from '$lib/nostr/relay';
 	import { NDKEvent } from '@nostr-dev-kit/ndk';
+	import { browser } from '$app/environment';
+	import ImageUpload from '$lib/components/ui/ImageUpload.svelte';
+	import type { ImageUploadResult } from '$lib/utils/imageUpload';
 
 	export let open = false;
 
@@ -13,10 +16,23 @@
 	let copiedNsec = false;
 	let editNickname = '';
 	let editAvatar = '';
+	let editBirthday = '';
 	let profileSaved = false;
 	let profileSaving = false;
 	let profileError: string | null = null;
 	let previousFocusElement: HTMLElement | null = null;
+	let useImageUpload = false;
+
+	function handleAvatarUpload(event: CustomEvent<ImageUploadResult>) {
+		const result = event.detail;
+		if (result.success && result.url) {
+			editAvatar = result.url;
+		}
+	}
+
+	function handleAvatarError(event: CustomEvent<string>) {
+		profileError = event.detail;
+	}
 
 	$: npub = $authStore.publicKey ? encodePubkey($authStore.publicKey) : '';
 	$: nsec = $authStore.privateKey ? encodePrivkey($authStore.privateKey) : '';
@@ -26,7 +42,14 @@
 	$: if (open && !lastModalState) {
 		editNickname = $authStore.nickname || '';
 		editAvatar = $authStore.avatar || '';
+		editBirthday = '';
 		previousFocusElement = document.activeElement as HTMLElement;
+		// Load birthday from profile cache
+		if (browser && $authStore.publicKey) {
+			profileCache.getProfile($authStore.publicKey).then(cached => {
+				editBirthday = (cached.profile as any)?.birthday || '';
+			});
+		}
 	}
 	$: lastModalState = open;
 
@@ -76,21 +99,19 @@
 		profileError = null;
 
 		try {
-			// Connect NDK if not already connected
-			await connectNDK();
-
-			// Set signer from private key if not already set
-			if (!hasSigner()) {
-				setSigner($authStore.privateKey);
+			const ndkInstance = ndk();
+			if (!ndkInstance) {
+				throw new Error('NDK not connected');
 			}
 
 			// Create kind 0 metadata event
-			const metadataEvent = new NDKEvent(ndk);
+			const metadataEvent = new NDKEvent(ndkInstance);
 			metadataEvent.kind = 0;
 			metadataEvent.content = JSON.stringify({
 				name: editNickname || undefined,
 				display_name: editNickname || undefined,
 				picture: editAvatar || undefined,
+				birthday: editBirthday || undefined,
 			});
 
 			// Sign and publish to relay
@@ -201,19 +222,53 @@
 				/>
 			</div>
 
-			<!-- Avatar URL -->
+			<!-- Avatar -->
+			<div class="form-control mb-3">
+				<label class="label py-1">
+					<span class="label-text font-semibold">Avatar</span>
+					<button
+						class="btn btn-ghost btn-xs"
+						on:click={() => (useImageUpload = !useImageUpload)}
+					>
+						{useImageUpload ? 'Use URL' : 'Upload Image'}
+					</button>
+				</label>
+
+				{#if useImageUpload}
+					<div class="flex justify-center">
+						<ImageUpload
+							category="avatar"
+							currentUrl={editAvatar}
+							on:upload={handleAvatarUpload}
+							on:error={handleAvatarError}
+						/>
+					</div>
+				{:else}
+					<input
+						type="url"
+						bind:value={editAvatar}
+						placeholder="https://example.com/avatar.jpg"
+						class="input input-bordered input-sm"
+					/>
+					<label class="label py-1">
+						<span class="label-text-alt text-base-content/60">Direct link to an image</span>
+					</label>
+				{/if}
+			</div>
+
+			<!-- Birthday (Optional) -->
 			<div class="form-control mb-4">
 				<label class="label py-1">
-					<span class="label-text font-semibold">Avatar URL</span>
+					<span class="label-text font-semibold">Birthday</span>
+					<span class="label-text-alt text-base-content/60">Optional</span>
 				</label>
 				<input
-					type="url"
-					bind:value={editAvatar}
-					placeholder="https://example.com/avatar.jpg"
+					type="date"
+					bind:value={editBirthday}
 					class="input input-bordered input-sm"
 				/>
 				<label class="label py-1">
-					<span class="label-text-alt text-base-content/60">Direct link to an image</span>
+					<span class="label-text-alt text-base-content/60">Visible to tribe members on the calendar</span>
 				</label>
 			</div>
 

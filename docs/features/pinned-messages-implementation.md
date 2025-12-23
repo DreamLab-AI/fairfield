@@ -1,4 +1,12 @@
-[← Back to Main README](../README.md)
+---
+title: Pinned Messages Implementation
+description: Implementation of message pinning functionality for highlighting important channel messages
+category: reference
+tags: [chat, channels, components]
+difficulty: intermediate
+---
+
+[← Back to Main README](../../README.md)
 
 # Pinned Messages Implementation (Phase 1.5)
 
@@ -26,7 +34,7 @@ Features:
 Features:
 - DaisyUI collapse component for expand/collapse
 - Shows pinned messages in condensed view at top of channel
-- Pin icon with warning color scheme
+- Pin icon with warning colour scheme
 - Click to scroll to original message in chat
 - Unpin button for admins (visible on hover)
 - Truncates long messages to 80 characters
@@ -116,7 +124,7 @@ interface PinnedMessagesState {
 
 ### Scroll Animation
 - Smooth scroll to message
-- 2-second highlight flash with warning color
+- 2-second highlight flash with warning colour
 - CSS keyframe animation
 
 ## Dependencies
@@ -147,7 +155,7 @@ interface PinnedMessagesState {
   - Max limit enforcement
   - Scroll-to-message
   - Persistence across page reloads
-  - Collapse/expand behavior
+  - Collapse/expand behaviour
 
 ## File Paths (Absolute)
 - `/home/devuser/workspace/Nostr-BBS-nostr/src/lib/stores/pinnedMessages.ts`

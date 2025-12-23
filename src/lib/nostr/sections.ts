@@ -11,7 +11,7 @@
  * 2. Sends encrypted DM (NIP-17) to user notifying them
  */
 
-import { getNDK, connectNDK } from './ndk';
+import { ndk, isConnected } from './relay';
 import { NDKEvent, type NDKFilter, type NDKSubscription } from '@nostr-dev-kit/ndk';
 import { browser } from '$app/environment';
 import type {
@@ -57,10 +57,12 @@ export async function requestSectionAccess(
   }
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
-    const signer = ndk.signer;
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      return { success: false, error: 'NDK not initialized' };
+    }
 
+    const signer = ndkInstance.signer;
     if (!signer) {
       return { success: false, error: 'No signer available' };
     }
@@ -81,7 +83,7 @@ export async function requestSectionAccess(
     }
 
     // Create request event
-    const event = new NDKEvent(ndk);
+    const event = new NDKEvent(ndkInstance);
     event.kind = KIND_SECTION_REQUEST;
     event.content = message || '';
     event.tags = [
@@ -123,10 +125,12 @@ export async function approveSectionAccess(
   }
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
-    const signer = ndk.signer;
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      return { success: false, error: 'NDK not initialized' };
+    }
 
+    const signer = ndkInstance.signer;
     if (!signer) {
       return { success: false, error: 'No signer available' };
     }
@@ -137,7 +141,7 @@ export async function approveSectionAccess(
     }
 
     // Create approval event
-    const approvalEvent = new NDKEvent(ndk);
+    const approvalEvent = new NDKEvent(ndkInstance);
     approvalEvent.kind = KIND_SECTION_APPROVAL;
     approvalEvent.content = JSON.stringify({
       section: request.section,
@@ -184,16 +188,20 @@ async function sendAccessApprovalDM(
   message: string
 ): Promise<void> {
   try {
-    const ndk = getNDK();
-    const signer = ndk.signer;
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      console.warn('[Sections] Cannot send DM: NDK not initialized');
+      return;
+    }
 
+    const signer = ndkInstance.signer;
     if (!signer) {
       console.warn('[Sections] Cannot send DM: no signer');
       return;
     }
 
     // Create NIP-04 encrypted DM (fallback, widely supported)
-    const dmEvent = new NDKEvent(ndk);
+    const dmEvent = new NDKEvent(ndkInstance);
     dmEvent.kind = KIND_DM;
     dmEvent.tags = [['p', recipientPubkey]];
 
@@ -224,8 +232,8 @@ export async function fetchPendingRequests(): Promise<SectionAccessRequest[]> {
   if (!browser) return [];
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) return [];
 
     // Fetch kind 9022 requests addressed to admin
     const adminPubkeys = (import.meta.env.VITE_ADMIN_PUBKEY || '')
@@ -236,20 +244,20 @@ export async function fetchPendingRequests(): Promise<SectionAccessRequest[]> {
     if (adminPubkeys.length === 0) return [];
 
     const filter: NDKFilter = {
-      kinds: [KIND_SECTION_REQUEST],
+      kinds: [KIND_SECTION_REQUEST as number],
       '#p': adminPubkeys,
       limit: 100
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     const requests: SectionAccessRequest[] = [];
 
     // Also fetch approvals to filter out already-approved requests
     const approvalFilter: NDKFilter = {
-      kinds: [KIND_SECTION_APPROVAL],
+      kinds: [KIND_SECTION_APPROVAL as number],
       limit: 500
     };
-    const approvalEvents = await ndk.fetchEvents(approvalFilter);
+    const approvalEvents = await ndkInstance.fetchEvents(approvalFilter);
     const approvedRequestIds = new Set(
       Array.from(approvalEvents)
         .flatMap(e => e.tags.filter(t => t[0] === 'e').map(t => t[1]))
@@ -289,17 +297,17 @@ export async function fetchUserAccess(
   if (!browser || !userPubkey) return [];
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) return [];
 
     // Fetch approval events for this user
     const filter: NDKFilter = {
-      kinds: [KIND_SECTION_APPROVAL],
+      kinds: [KIND_SECTION_APPROVAL as number],
       '#p': [userPubkey],
       limit: 50
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     const access: UserSectionAccess[] = [];
 
     // public-lobby is always approved
@@ -324,12 +332,12 @@ export async function fetchUserAccess(
 
     // Also check for pending requests
     const requestFilter: NDKFilter = {
-      kinds: [KIND_SECTION_REQUEST],
+      kinds: [KIND_SECTION_REQUEST as number],
       authors: [userPubkey],
       limit: 10
     };
 
-    const requestEvents = await ndk.fetchEvents(requestFilter);
+    const requestEvents = await ndkInstance.fetchEvents(requestFilter);
     const approvedSections = new Set(access.map(a => a.section));
 
     for (const event of requestEvents) {
@@ -358,15 +366,15 @@ export async function fetchSectionStats(): Promise<SectionStats[]> {
   if (!browser) return [];
 
   try {
-    await connectNDK();
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) return [];
 
     const filter: NDKFilter = {
-      kinds: [KIND_SECTION_STATS],
+      kinds: [KIND_SECTION_STATS as number],
       limit: 10
     };
 
-    const events = await ndk.fetchEvents(filter);
+    const events = await ndkInstance.fetchEvents(filter);
     const stats: SectionStats[] = [];
 
     for (const event of events) {
@@ -405,15 +413,16 @@ export function subscribeSectionEvents(
   if (!browser || !userPubkey) return null;
 
   try {
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) return null;
 
     const filter: NDKFilter = {
-      kinds: [KIND_SECTION_APPROVAL],
+      kinds: [KIND_SECTION_APPROVAL as number],
       '#p': [userPubkey],
       since: Math.floor(Date.now() / 1000)
     };
 
-    const sub = ndk.subscribe(filter, { closeOnEose: false });
+    const sub = ndkInstance.subscribe(filter, { closeOnEose: false });
 
     sub.on('event', (event: NDKEvent) => {
       const sectionTag = event.tags.find(t => t[0] === 'section')?.[1];
@@ -449,7 +458,8 @@ export function subscribeAccessRequests(
   if (!browser) return null;
 
   try {
-    const ndk = getNDK();
+    const ndkInstance = ndk();
+    if (!ndkInstance) return null;
 
     const adminPubkeys = (import.meta.env.VITE_ADMIN_PUBKEY || '')
       .split(',')
@@ -459,12 +469,12 @@ export function subscribeAccessRequests(
     if (adminPubkeys.length === 0) return null;
 
     const filter: NDKFilter = {
-      kinds: [KIND_SECTION_REQUEST],
+      kinds: [KIND_SECTION_REQUEST as number],
       '#p': adminPubkeys,
       since: Math.floor(Date.now() / 1000)
     };
 
-    const sub = ndk.subscribe(filter, { closeOnEose: false });
+    const sub = ndkInstance.subscribe(filter, { closeOnEose: false });
 
     sub.on('event', (event: NDKEvent) => {
       const sectionTag = event.tags.find(t => t[0] === 'section')?.[1];
