@@ -79,7 +79,23 @@ function createProfileCache() {
     try {
       const ndk = ndkStore.get();
       if (!ndk) {
-        throw new Error('NDK not initialized');
+        // NDK not ready yet - return placeholder without throwing
+        console.debug('[ProfileCache] NDK not initialized, returning placeholder for', pubkey.slice(0, 8));
+        const placeholder: CachedProfile = {
+          pubkey,
+          profile: null,
+          displayName: truncatePubkey(pubkey),
+          avatar: null,
+          nip05: null,
+          about: null,
+          lastFetched: 0, // Will retry on next fetch
+          isFetching: false
+        };
+        update(state => {
+          state.profiles.set(pubkey, placeholder);
+          return state;
+        });
+        return placeholder;
       }
 
       // Throttle concurrent fetches to prevent overwhelming relays
