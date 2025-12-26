@@ -33,8 +33,8 @@ export interface WhitelistStatus {
 const statusCache = new Map<string, { status: WhitelistStatus; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Get relay URL from environment
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://nosflare.solitary-paper-764d.workers.dev';
+// Get relay URL from environment (GCP Cloud Run relay)
+const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app';
 
 /**
  * Convert WebSocket URL to HTTP URL for API calls

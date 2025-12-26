@@ -200,7 +200,7 @@
 			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
 				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">
 					<CalendarSidebar
-						bind:isExpanded={$sidebarExpanded}
+						isExpanded={$sidebarExpanded}
 						isVisible={$sidebarVisible}
 					/>
 				</aside>

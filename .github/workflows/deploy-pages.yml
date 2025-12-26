@@ -1,7 +1,7 @@
 name: Deploy to GitHub Pages
 
 # Required GitHub Variables (Settings -> Secrets and variables -> Actions -> Variables):
-# - RELAY_URL: WebSocket URL of Nostr relay (e.g., wss://nosflare-relay-xxx.run.app)
+# - RELAY_URL: WebSocket URL of Nostr relay (e.g., wss://nostr-relay-617806532906.us-central1.run.app)
 # - EMBEDDING_API_URL: HTTPS URL of embedding API (e.g., https://embedding-api-xxx.run.app)
 # - ADMIN_PUBKEY: Nostr public key for admin access (hex format)
 

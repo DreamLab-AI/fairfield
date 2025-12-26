@@ -6,7 +6,7 @@ name: Generate Note Embeddings
 # - GCP_REGION: GCP region (default: us-central1)
 #
 # Required GitHub Variables (Settings -> Secrets and variables -> Actions -> Variables):
-# - RELAY_URL: WebSocket URL of the Nostr relay (e.g., wss://nosflare-relay-xxx.run.app)
+# - RELAY_URL: WebSocket URL of the Nostr relay (e.g., wss://nostr-relay-617806532906.us-central1.run.app)
 #              REQUIRED: Must be set before first run. Workflow will fail without this variable.
 
 on:
@@ -65,7 +65,7 @@ jobs:
 
       - name: Fetch notes from relay
         env:
-          RELAY_URL: ${{ vars.RELAY_URL || 'wss://nosflare-relay-PLACEHOLDER.run.app' }}
+          RELAY_URL: ${{ vars.RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app' }}
         run: |
           python scripts/embeddings/fetch_notes.py \
             --relay "$RELAY_URL" \

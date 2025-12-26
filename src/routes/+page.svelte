@@ -2,13 +2,76 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { isAuthenticated } from '$lib/stores/auth';
+	import { isAuthenticated, authStore } from '$lib/stores/auth';
+	import { restoreFromMnemonic, restoreFromNsecOrHex } from '$lib/nostr/keys';
+
+	// Dev mode: show when ?dev=1 in URL or in Vite dev server
+	const ADMIN_SEED = import.meta.env.VITE_ADMIN_SEED || 'loyal bench cheap find pause draft various chief slide lunar sight useless';
+	const ADMIN_NSEC = import.meta.env.VITE_ADMIN_NSEC || 'nsec1vmdlyj0kp899ep567x90m5q5dlvj68fjlcxc0a26z0v7algutqhqknjysc';
+
+	let devLoading = false;
+	let devError = '';
+	let showDevMode = false;
 
 	onMount(() => {
+		// Check for dev mode: ?dev in URL works in both dev and production
+		const urlParams = new URLSearchParams(window.location.search);
+		showDevMode = import.meta.env.DEV || urlParams.has('dev');
+
 		if ($isAuthenticated) {
 			goto(`${base}/chat`);
 		}
 	});
+
+	async function devLoginAsAdmin() {
+		if (!showDevMode) return;
+		devLoading = true;
+		devError = '';
+
+		try {
+			// Try nsec first (faster), fall back to mnemonic
+			let publicKey: string;
+			let privateKey: string;
+
+			try {
+				const result = restoreFromNsecOrHex(ADMIN_NSEC);
+				publicKey = result.publicKey;
+				privateKey = result.privateKey;
+			} catch {
+				// Fall back to mnemonic
+				const result = await restoreFromMnemonic(ADMIN_SEED);
+				publicKey = result.publicKey;
+				privateKey = result.privateKey;
+			}
+
+			await authStore.setKeys(publicKey, privateKey);
+			goto(`${base}/chat`);
+		} catch (error) {
+			devError = error instanceof Error ? error.message : 'Dev login failed';
+			console.error('Dev login error:', error);
+		} finally {
+			devLoading = false;
+		}
+	}
+
+	async function devLoginAsTestUser() {
+		if (!showDevMode) return;
+		devLoading = true;
+		devError = '';
+
+		try {
+			// Generate a deterministic test user from a fixed seed
+			const testSeed = 'test user seed phrase for development only not secure at all okay';
+			const result = await restoreFromMnemonic('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about');
+			await authStore.setKeys(result.publicKey, result.privateKey);
+			goto(`${base}/chat`);
+		} catch (error) {
+			devError = error instanceof Error ? error.message : 'Dev login failed';
+			console.error('Dev login error:', error);
+		} finally {
+			devLoading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -74,5 +137,45 @@
 				</div>
 			</div>
 		</div>
+
+		{#if showDevMode}
+			<div class="card bg-warning/10 border border-warning/30 mt-8">
+				<div class="card-body">
+					<h3 class="card-title text-warning text-lg justify-center">
+						🛠️ Development Mode
+					</h3>
+					<p class="text-sm text-center text-base-content/70 mb-4">
+						Quick login for testing (only visible in dev mode)
+					</p>
+					{#if devError}
+						<div class="alert alert-error mb-4">
+							<span>{devError}</span>
+						</div>
+					{/if}
+					<div class="flex flex-wrap gap-3 justify-center">
+						<button
+							class="btn btn-warning"
+							on:click={devLoginAsAdmin}
+							disabled={devLoading}
+						>
+							{#if devLoading}
+								<span class="loading loading-spinner loading-sm"></span>
+							{/if}
+							Login as Admin
+						</button>
+						<button
+							class="btn btn-outline btn-warning"
+							on:click={devLoginAsTestUser}
+							disabled={devLoading}
+						>
+							{#if devLoading}
+								<span class="loading loading-spinner loading-sm"></span>
+							{/if}
+							Login as Test User
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
