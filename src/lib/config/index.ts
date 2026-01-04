@@ -12,6 +12,9 @@ export {
 	APP_VERSION,
 	NDK_CONFIG,
 	TIMEOUTS,
+	SOLID_SERVER_URL,
+	SOLID_ENABLED,
+	SOLID_STORAGE_BACKEND,
 	validateConfig
 } from './environment';
 
