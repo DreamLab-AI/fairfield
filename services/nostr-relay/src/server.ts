@@ -57,8 +57,8 @@ class NostrRelay {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'healthy',
-        version: '2.2.0',
-        database: 'better-sqlite3',
+        version: '2.3.0',
+        database: 'postgresql',
         events: stats.eventCount,
         whitelisted: stats.whitelistCount,
         dbSizeBytes: stats.dbSizeBytes,
@@ -153,7 +153,7 @@ class NostrRelay {
         pubkey: process.env.ADMIN_PUBKEYS?.split(',')[0] || '',
         supported_nips: [1, 11, 16, 33, 98],
         software: 'fairfield-nostr-relay',
-        version: '2.2.0',
+        version: '2.3.0',
         limitation: {
           auth_required: false,
           payment_required: false,
