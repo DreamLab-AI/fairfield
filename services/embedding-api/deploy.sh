@@ -2,12 +2,13 @@
 # Deploy Embedding API to Cloud Run
 # Usage: ./deploy.sh [tag]
 # Requires: docker, gcloud CLI authenticated
+# Environment: GCP_PROJECT_ID (required), GCP_REGION (default: us-central1)
 
 set -e
 
 # Configuration
-PROJECT_ID="cumbriadreamlab"
-REGION="us-central1"
+PROJECT_ID="${GCP_PROJECT_ID:?Error: GCP_PROJECT_ID environment variable must be set}"
+REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="embedding-api"
 REPO="minimoonoir"
 IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE_NAME}"

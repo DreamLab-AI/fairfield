@@ -1,9 +1,15 @@
 /**
  * Link preview store with caching
- * Fetches OpenGraph metadata for URLs
+ * Fetches OpenGraph metadata for URLs via Cloud Run proxy
  */
 
 import { writable, get } from 'svelte/store';
+import { browser } from '$app/environment';
+
+// Link preview API URL - use Cloud Run service in production, local proxy in dev
+const LINK_PREVIEW_API = browser
+	? (import.meta.env.VITE_LINK_PREVIEW_API_URL || '/api/proxy')
+	: '/api/proxy';
 
 export interface LinkPreviewData {
 	url: string;
@@ -109,8 +115,8 @@ export async function fetchPreview(url: string): Promise<LinkPreviewData> {
 	const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 
 	try {
-		// Use proxy endpoint for fetching
-		const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+		// Use Cloud Run proxy endpoint for fetching (or local proxy in dev)
+		const proxyUrl = `${LINK_PREVIEW_API}${LINK_PREVIEW_API.includes('/api/proxy') ? '?' : '/preview?'}url=${encodeURIComponent(url)}`;
 		const response = await fetch(proxyUrl, {
 			method: 'GET',
 			headers: {

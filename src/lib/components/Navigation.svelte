@@ -9,6 +9,9 @@
   import BookmarksModal from '$lib/components/chat/BookmarksModal.svelte';
   import GlobalSearch from '$lib/components/chat/GlobalSearch.svelte';
   import { goto } from '$app/navigation';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   $: isAuth = $isAuthenticated;
   $: isAdminUser = $isAdminVerified;
@@ -106,8 +109,8 @@
 
 <nav class="navbar" role="navigation" aria-label="Main navigation">
   <div class="nav-container">
-    <a href="{base}/" class="logo" aria-label="Fairfield - Home">
-      Fairfield
+    <a href="{base}/" class="logo" aria-label="{appConfig.name} - Home">
+      {appConfig.name.split(' - ')[0]}
     </a>
 
     <!-- Hamburger Menu Button (Mobile Only) -->

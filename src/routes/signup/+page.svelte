@@ -8,6 +8,9 @@
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
   import { checkWhitelistStatus, publishRegistrationRequest } from '$lib/nostr/whitelist';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   type FlowStep = 'signup' | 'mnemonic' | 'backup' | 'nickname' | 'pending';
   let step: FlowStep = 'signup';
@@ -75,7 +78,7 @@
 </script>
 
 <svelte:head>
-  <title>Sign Up - Fairfield</title>
+  <title>Sign Up - {appConfig.name}</title>
 </svelte:head>
 
 {#if step === 'signup'}

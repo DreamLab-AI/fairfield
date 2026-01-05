@@ -12,6 +12,9 @@
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import EventCard from '$lib/components/events/EventCard.svelte';
   import CreateEventModal from '$lib/components/events/CreateEventModal.svelte';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let events: CalendarEvent[] = [];
   let channels: CreatedChannel[] = [];
@@ -92,7 +95,7 @@
 </script>
 
 <svelte:head>
-  <title>Events - Fairfield</title>
+  <title>Events - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">

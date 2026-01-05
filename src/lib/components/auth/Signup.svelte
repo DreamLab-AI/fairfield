@@ -2,8 +2,12 @@
   import { createEventDispatcher } from 'svelte';
   import { generateNewIdentity } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
+  import { getAppConfig } from '$lib/config/loader';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
   import WelcomeModal from '$lib/components/ui/WelcomeModal.svelte';
+
+  const appConfig = getAppConfig();
+  const appName = appConfig.name.split(' - ')[0];
 
   const dispatch = createEventDispatcher<{ next: { mnemonic: string; publicKey: string; privateKey: string } }>();
 
@@ -31,7 +35,7 @@
 <div class="flex flex-col items-center justify-center min-h-screen p-4 bg-base-200 gradient-mesh">
   <div class="card w-full max-w-md bg-base-100 shadow-xl">
     <div class="card-body">
-      <h2 class="card-title text-2xl justify-center mb-4">Welcome to Fairfield</h2>
+      <h2 class="card-title text-2xl justify-center mb-4">Welcome to {appName}</h2>
 
       <div class="alert alert-info mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">

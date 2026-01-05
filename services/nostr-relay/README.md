@@ -1,11 +1,11 @@
 # Fairfield Nostr Relay
 
-A whitelist-based Nostr relay with SQLite persistence, NIP-16/33/98 support, and did:nostr identity resolution.
+A whitelist-based Nostr relay with PostgreSQL persistence, NIP-16/33/98 support, and did:nostr identity resolution.
 
 ## Features
 
 - **Whitelist-Controlled Access** - Cohort-based access control with expiring memberships
-- **SQLite Persistence** - Production-grade storage with better-sqlite3 and WAL mode
+- **PostgreSQL Persistence** - Production-grade storage with Cloud SQL and JSONB indexing
 - **NIP-16 Event Treatment** - Proper handling of replaceable, ephemeral, and parameterized events
 - **NIP-33 Parameterized Replaceable** - d-tag based event replacement for articles and profiles
 - **NIP-98 HTTP Auth** - Schnorr signature authentication for HTTP endpoints
@@ -20,7 +20,7 @@ npm install
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with your settings (DATABASE_URL required)
 
 # Run in development
 npm run dev
@@ -47,7 +47,7 @@ graph TB
         RL[Rate Limiter]
         NIP16[NIP-16 Treatment]
         NIP98[NIP-98 Auth]
-        DB[(SQLite DB)]
+        DB[(PostgreSQL)]
     end
 
     C1 -->|ws://| WS
@@ -107,7 +107,7 @@ graph LR
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP/WebSocket port |
 | `HOST` | `0.0.0.0` | Bind address |
-| `SQLITE_DATA_DIR` | `./data` | Database directory |
+| `DATABASE_URL` | - | PostgreSQL connection string (required) |
 | `WHITELIST_PUBKEYS` | - | Comma-separated allowed pubkeys |
 | `ADMIN_PUBKEYS` | - | Comma-separated admin pubkeys |
 | `RATE_LIMIT_EVENTS_PER_SEC` | `10` | Max events per second per IP |
@@ -199,7 +199,7 @@ nostr-relay/
 ├── src/
 │   ├── server.ts      # HTTP/WebSocket server
 │   ├── handlers.ts    # Message handlers
-│   ├── db.ts          # SQLite database
+│   ├── db.ts          # PostgreSQL database (pg)
 │   ├── whitelist.ts   # Access control
 │   ├── rateLimit.ts   # Rate limiting
 │   ├── nip16.ts       # Event treatment
@@ -207,8 +207,37 @@ nostr-relay/
 │   └── did-nostr.ts   # Identity resolution
 ├── tests/
 │   └── unit/          # Unit tests
-├── data/              # SQLite database (gitignored)
 └── dist/              # Compiled output
+```
+
+## Database Schema
+
+The relay uses PostgreSQL with JSONB for efficient tag storage:
+
+```sql
+-- Events table with GIN index for tag filtering
+CREATE TABLE events (
+    id TEXT PRIMARY KEY,
+    pubkey TEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    kind INTEGER NOT NULL,
+    tags JSONB NOT NULL,
+    content TEXT NOT NULL,
+    sig TEXT NOT NULL,
+    received_at BIGINT
+);
+
+CREATE INDEX idx_tags ON events USING GIN(tags);
+
+-- Whitelist with cohort management
+CREATE TABLE whitelist (
+    pubkey TEXT PRIMARY KEY,
+    cohorts JSONB NOT NULL DEFAULT '[]',
+    added_at BIGINT,
+    added_by TEXT,
+    expires_at BIGINT,
+    notes TEXT
+);
 ```
 
 ## Security Considerations

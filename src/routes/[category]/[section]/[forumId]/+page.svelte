@@ -7,6 +7,9 @@
   import { userStore } from '$lib/stores/user';
   import { getSectionWithCategory, getBreadcrumbs } from '$lib/config';
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let loading = true;
   let error: string | null = null;
@@ -54,7 +57,7 @@
 </script>
 
 <svelte:head>
-  <title>Forum - Fairfield</title>
+  <title>Forum - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">

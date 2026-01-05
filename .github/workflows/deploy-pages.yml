@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
 # Required GitHub Variables (Settings -> Secrets and variables -> Actions -> Variables):
-# - RELAY_URL: WebSocket URL of Nostr relay (e.g., wss://nostr-relay-617806532906.us-central1.run.app)
+# - RELAY_URL: WebSocket URL of Nostr relay (e.g., wss://nostr-relay-xxx.run.app)
 # - EMBEDDING_API_URL: HTTPS URL of embedding API (e.g., https://embedding-api-xxx.run.app)
+# - LINK_PREVIEW_API_URL: HTTPS URL of link preview API (e.g., https://link-preview-api-xxx.run.app)
 # - ADMIN_PUBKEY: Nostr public key for admin access (hex format)
 
 on:
@@ -26,11 +27,13 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  # These URLs should be set in GitHub repository variables after GCP deployment
+  # These URLs MUST be set in GitHub repository variables after GCP deployment
   # Settings -> Secrets and variables -> Actions -> Variables
-  VITE_RELAY_URL: ${{ vars.RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app' }}
-  VITE_EMBEDDING_API_URL: ${{ vars.EMBEDDING_API_URL || 'https://embedding-api-617806532906.us-central1.run.app' }}
-  VITE_ADMIN_PUBKEY: ${{ vars.ADMIN_PUBKEY || '11ed64225dd5e2c5e18f61ad43d5ad9272d08739d3a20dd25886197b0738663c' }}
+  # Build will fail if these are not configured (no hardcoded fallbacks for security)
+  VITE_RELAY_URL: ${{ vars.RELAY_URL }}
+  VITE_EMBEDDING_API_URL: ${{ vars.EMBEDDING_API_URL }}
+  VITE_LINK_PREVIEW_API_URL: ${{ vars.LINK_PREVIEW_API_URL }}
+  VITE_ADMIN_PUBKEY: ${{ vars.ADMIN_PUBKEY }}
   VITE_APP_NAME: Fairfield - DreamLab - Cumbria
   VITE_NDK_DEBUG: false
 

@@ -4,19 +4,27 @@
 	import { base } from '$app/paths';
 	import { isAuthenticated, authStore } from '$lib/stores/auth';
 	import { restoreFromMnemonic, restoreFromNsecOrHex } from '$lib/nostr/keys';
+	import { getAppConfig } from '$lib/config/loader';
 
-	// Dev mode: show when ?dev=1 in URL or in Vite dev server
-	const ADMIN_SEED = import.meta.env.VITE_ADMIN_SEED || 'loyal bench cheap find pause draft various chief slide lunar sight useless';
-	const ADMIN_NSEC = import.meta.env.VITE_ADMIN_NSEC || 'nsec1vmdlyj0kp899ep567x90m5q5dlvj68fjlcxc0a26z0v7algutqhqknjysc';
+	const appConfig = getAppConfig();
+	const appNameParts = appConfig.name.split(' - ');
+	const primaryName = appNameParts[0];
+	const subtitle = appNameParts.slice(1).join(' - ') || 'Nostr Community';
+
+	// Dev mode credentials - MUST be set via environment variables, no hardcoded fallbacks
+	const ADMIN_NSEC = import.meta.env.VITE_DEV_ADMIN_NSEC || '';
+	const ADMIN_SEED = import.meta.env.VITE_DEV_ADMIN_SEED || '';
+	const hasDevCredentials = Boolean(ADMIN_NSEC || ADMIN_SEED);
 
 	let devLoading = false;
 	let devError = '';
 	let showDevMode = false;
 
 	onMount(() => {
-		// Check for dev mode: ?dev in URL works in both dev and production
+		// Dev mode only enabled when: (1) in Vite dev server OR ?dev param, AND (2) credentials are configured
 		const urlParams = new URLSearchParams(window.location.search);
-		showDevMode = import.meta.env.DEV || urlParams.has('dev');
+		const devModeRequested = import.meta.env.DEV || urlParams.has('dev');
+		showDevMode = devModeRequested && hasDevCredentials;
 
 		if ($isAuthenticated) {
 			goto(`${base}/chat`);
@@ -75,17 +83,17 @@
 </script>
 
 <svelte:head>
-	<title>Fairfield - DreamLab - Cumbria</title>
+	<title>{appConfig.name}</title>
 </svelte:head>
 
 <div class="flex flex-col items-center justify-center min-h-screen p-4">
 	<div class="max-w-2xl w-full space-y-8 text-center">
 		<div class="space-y-4">
 			<h1 class="text-6xl font-bold gradient-text">
-				Fairfield
+				{primaryName}
 			</h1>
 			<p class="text-xl text-base-content/70">
-				DreamLab - Cumbria
+				{subtitle}
 			</p>
 		</div>
 
@@ -110,9 +118,9 @@
 			<div class="card bg-base-200">
 				<div class="card-body items-center text-center">
 					<div class="text-4xl mb-2">🔐</div>
-					<h3 class="card-title text-lg">Decentralized</h3>
+					<h3 class="card-title text-lg">Self-Sovereign Identity</h3>
 					<p class="text-sm text-base-content/70">
-						Your keys, your data. No central authority.
+						Your keys, your identity. Nostr keypairs with did:nostr DID support.
 					</p>
 				</div>
 			</div>
@@ -120,9 +128,9 @@
 			<div class="card bg-base-200">
 				<div class="card-body items-center text-center">
 					<div class="text-4xl mb-2">🔒</div>
-					<h3 class="card-title text-lg">Private</h3>
+					<h3 class="card-title text-lg">Encrypted & Ephemeral</h3>
 					<p class="text-sm text-base-content/70">
-						End-to-end encrypted communications.
+						NIP-04 encrypted DMs with NIP-16 ephemeral event support.
 					</p>
 				</div>
 			</div>
@@ -130,9 +138,9 @@
 			<div class="card bg-base-200">
 				<div class="card-body items-center text-center">
 					<div class="text-4xl mb-2">⚡</div>
-					<h3 class="card-title text-lg">Fast & Open</h3>
+					<h3 class="card-title text-lg">Full NIP Compliance</h3>
 					<p class="text-sm text-base-content/70">
-						Built on open protocols and standards.
+						NIP-28 channels, NIP-33 addressable events, NIP-98 HTTP auth.
 					</p>
 				</div>
 			</div>

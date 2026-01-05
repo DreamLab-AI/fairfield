@@ -20,6 +20,7 @@
 	import { initializeNotificationListeners } from '$lib/utils/notificationIntegration';
 	import { notificationStore } from '$lib/stores/notifications';
 	import { initSearch } from '$lib/init/searchInit';
+	import { getAppConfig } from '$lib/config/loader';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SessionTimeoutWarning from '$lib/components/ui/SessionTimeoutWarning.svelte';
@@ -28,6 +29,9 @@
 	import ScreenReaderAnnouncer from '$lib/components/ui/ScreenReaderAnnouncer.svelte';
 	import CalendarSidebar from '$lib/components/calendar/CalendarSidebar.svelte';
 	import CalendarSheet from '$lib/components/calendar/CalendarSheet.svelte';
+
+	const appConfig = getAppConfig();
+	const appName = appConfig.name.split(' - ')[0];
 
 	let mounted = false;
 	let themePreference: 'dark' | 'light' = 'dark';
@@ -136,7 +140,7 @@
 </script>
 
 <svelte:head>
-	<title>Fairfield - DreamLab - Cumbria</title>
+	<title>{appConfig.name}</title>
 </svelte:head>
 
 <!-- Skip to main content link for accessibility -->
@@ -148,7 +152,7 @@
 		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6" aria-hidden="true">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 		</svg>
-		<span>Install Fairfield app for offline access</span>
+		<span>Install {appName} app for offline access</span>
 		<div class="flex gap-2">
 			<button class="btn btn-sm btn-primary" on:click={handleInstall} aria-label="Install application">Install</button>
 			<button class="btn btn-sm btn-ghost" on:click={dismissInstallBanner} aria-label="Dismiss install banner">Dismiss</button>

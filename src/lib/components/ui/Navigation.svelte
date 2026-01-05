@@ -3,6 +3,9 @@
 	import { base } from '$app/paths';
 	import { authStore } from '$lib/stores/auth';
 	import { isAdminVerified, userStore } from '$lib/stores/user';
+	import { getAppConfig } from '$lib/config/loader';
+
+	const appConfig = getAppConfig();
 
 	export let themePreference: 'dark' | 'light' = 'dark';
 	export let onThemeToggle: () => void;
@@ -51,7 +54,7 @@
 				<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
 			</svg>
 		</button>
-		<a href="{base}/chat" class="btn btn-ghost text-xl">Fairfield</a>
+		<a href="{base}/chat" class="btn btn-ghost text-xl">{appConfig.name.split(' - ')[0]}</a>
 	</div>
 
 	<!-- Desktop Navigation (hidden on mobile) -->

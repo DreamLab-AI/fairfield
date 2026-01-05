@@ -16,6 +16,9 @@
   import type { CalendarEvent } from '$lib/nostr/calendar';
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let events: (SectionEvent | CalendarEvent)[] = [];
   let loading = true;
@@ -110,7 +113,7 @@
 </script>
 
 <svelte:head>
-  <title>{section?.name || 'Section'} Calendar - Fairfield</title>
+  <title>{section?.name || 'Section'} Calendar - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">

@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { ndkStore } from './ndk';
+import { ndk } from '$lib/nostr/relay';
 import { authStore } from './auth';
 import type { NDKUser, NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { browser } from '$app/environment';
@@ -78,8 +78,8 @@ function createProfileCache() {
 
     // Fetch from NDK with throttling
     try {
-      const ndk = ndkStore.get();
-      if (!ndk) {
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
         // NDK not ready yet - return placeholder without throwing
         console.debug('[ProfileCache] NDK not initialized, returning placeholder for', pubkey.slice(0, 8));
         const placeholder: CachedProfile = {
@@ -102,7 +102,7 @@ function createProfileCache() {
 
       // Throttle concurrent fetches to prevent overwhelming relays
       const profile = await profileFetchThrottle.execute(async () => {
-        const user: NDKUser = ndk.getUser({ pubkey });
+        const user: NDKUser = ndkInstance.getUser({ pubkey });
         await user.fetchProfile();
         return user.profile || null;
       });
@@ -117,14 +117,14 @@ function createProfileCache() {
       let registrationName: string | null = null;
       if (!profile?.displayName && !profile?.name && !localNickname) {
         try {
-          const registrationEvents = await ndk.fetchEvents({
+          const registrationEvents = await ndkInstance.fetchEvents({
             kinds: [KIND_USER_REGISTRATION as number],
             authors: [pubkey],
             limit: 1
           });
           const regEvent = Array.from(registrationEvents)[0];
           if (regEvent) {
-            const nameTag = regEvent.tags.find(t => t[0] === 'name');
+            const nameTag = regEvent.tags.find((t: string[]) => t[0] === 'name');
             registrationName = nameTag?.[1] || null;
           }
         } catch (e) {

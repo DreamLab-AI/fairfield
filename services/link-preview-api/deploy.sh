@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy Image API to Cloud Run
+# Deploy Link Preview API to Cloud Run
 # Usage: ./deploy.sh [tag]
 # Environment: GCP_PROJECT_ID (required), GCP_REGION (default: us-central1)
 
@@ -7,14 +7,13 @@ set -e
 
 PROJECT_ID="${GCP_PROJECT_ID:?Error: GCP_PROJECT_ID environment variable must be set}"
 REGION="${GCP_REGION:-us-central1}"
-SERVICE_NAME="image-api"
+SERVICE_NAME="link-preview-api"
 REPO="minimoonoir"
 IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE_NAME}"
 TAG="${1:-latest}"
 SERVICE_ACCOUNT="fairfield-applications@${PROJECT_ID}.iam.gserviceaccount.com"
-GCS_BUCKET="minimoonoir-images"
 
-echo "=== Image API Deployment ==="
+echo "=== Link Preview API Deployment ==="
 echo "Image: ${IMAGE_NAME}:${TAG}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,15 +31,17 @@ docker push ${IMAGE_NAME}:latest
 echo "Deploying..."
 gcloud run deploy ${SERVICE_NAME} \
     --image ${IMAGE_NAME}:${TAG} \
-    --region ${REGION} \
     --platform managed \
+    --region ${REGION} \
     --allow-unauthenticated \
     --service-account ${SERVICE_ACCOUNT} \
-    --memory 512Mi \
+    --memory 256Mi \
     --cpu 1 \
-    --max-instances 10 \
-    --set-env-vars "GCS_BUCKET=${GCS_BUCKET},GOOGLE_CLOUD_PROJECT=${PROJECT_ID}"
+    --min-instances 0 \
+    --max-instances 5 \
+    --timeout 30 \
+    --set-env-vars "ALLOWED_ORIGINS=https://dreamlab-ai.github.io,https://jjohare.github.io,http://localhost:5173"
 
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --region ${REGION} --format 'value(status.url)')
 echo "Deployed: ${SERVICE_URL}"
-curl -s "${SERVICE_URL}/health" | jq . 2>/dev/null || true
+echo "Health: ${SERVICE_URL}/health"

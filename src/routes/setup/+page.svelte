@@ -451,20 +451,22 @@ sections:
 				</p>
 
 				<div class="space-y-4 mb-6">
-					{#if $workingConfig.sections?.length}
-						{#each $workingConfig.sections as section}
-							<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
-								<div class="flex items-center gap-3">
-									<span class="text-2xl">{section.icon}</span>
-									<div>
-										<p class="font-medium">{section.name}</p>
-										<p class="text-gray-500 text-sm">{section.description}</p>
+					{#if $workingConfig.categories?.some(c => c.sections?.length)}
+						{#each $workingConfig.categories ?? [] as category}
+							{#each category.sections ?? [] as section}
+								<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
+									<div class="flex items-center gap-3">
+										<span class="text-2xl">{section.icon}</span>
+										<div>
+											<p class="font-medium">{section.name}</p>
+											<p class="text-gray-500 text-sm">{section.description}</p>
+										</div>
 									</div>
+									<span class="text-sm text-gray-400">
+										{section.access.requiresApproval ? 'Approval required' : 'Auto-approve'}
+									</span>
 								</div>
-								<span class="text-sm text-gray-400">
-									{section.access.requiresApproval ? 'Approval required' : 'Auto-approve'}
-								</span>
-							</div>
+							{/each}
 						{/each}
 					{:else}
 						<div class="text-center py-8 text-gray-500">

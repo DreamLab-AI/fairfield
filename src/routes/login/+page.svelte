@@ -3,6 +3,9 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   async function handleSuccess(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
     const { publicKey, privateKey } = event.detail;
@@ -12,7 +15,7 @@
 </script>
 
 <svelte:head>
-  <title>Login - Fairfield</title>
+  <title>Login - {appConfig.name}</title>
 </svelte:head>
 
 <Login on:success={handleSuccess} />

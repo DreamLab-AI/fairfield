@@ -15,7 +15,6 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
-  import { saveKeysToStorage } from '$lib/nostr/keys';
   import Signup from './Signup.svelte';
   import MnemonicDisplay from './MnemonicDisplay.svelte';
   import Login from './Login.svelte';
@@ -54,7 +53,6 @@
     if (publicKey && privateKey) {
       tempKeys = { mnemonic: '', publicKey, privateKey };
       await authStore.setKeys(publicKey, privateKey);
-      saveKeysToStorage(publicKey, privateKey);
 
       // Check if user is already approved or admin - skip pending approval
       try {
@@ -80,7 +78,6 @@
     if (tempKeys) {
       const { publicKey, privateKey, mnemonic } = tempKeys;
       await authStore.setKeys(publicKey, privateKey, mnemonic);
-      saveKeysToStorage(publicKey, privateKey);
       // Confirm backup was shown to clear mnemonic from storage
       authStore.confirmMnemonicBackup();
       authStore.setPending(true);

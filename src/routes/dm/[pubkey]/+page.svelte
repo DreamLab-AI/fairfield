@@ -7,6 +7,9 @@
   import { dmStore } from '$lib/stores/dm';
   import { toast } from '$lib/stores/toast';
   import { hexToBytes } from '@noble/hashes/utils.js';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   $: recipientPubkey = $page.params.pubkey;
   $: messages = $dmStore.messages;
@@ -111,7 +114,7 @@
 </script>
 
 <svelte:head>
-  <title>DM with {formatPubkey(recipientPubkey)} - Fairfield</title>
+  <title>DM with {formatPubkey(recipientPubkey)} - {appConfig.name}</title>
 </svelte:head>
 
 {#if loading}

@@ -10,6 +10,9 @@
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import EventCard from '$lib/components/events/EventCard.svelte';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let events: CalendarEvent[] = [];
   let channels: CreatedChannel[] = [];
@@ -102,7 +105,7 @@
 </script>
 
 <svelte:head>
-  <title>Admin Calendar - Fairfield</title>
+  <title>Admin Calendar - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-7xl">

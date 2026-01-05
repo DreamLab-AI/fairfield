@@ -2,7 +2,6 @@
  * Configuration Loader
  * Loads and parses YAML configuration for 3-tier BBS hierarchy
  * Category → Section → Forum (NIP-28 Channel)
- * FAIRFIELD FORK: Hardcoded Fairfield/DreamLab/Cumbria configuration
  */
 
 import type {
@@ -117,14 +116,14 @@ function validateConfig(config: BBSConfig): void {
 
 /**
  * Get default configuration (fallback)
- * FAIRFIELD FORK: Hardcoded Fairfield/DreamLab/Cumbria configuration
+ * Generic BBS configuration - customize via config/sections.yaml
  */
 function getDefaultConfig(): BBSConfig {
 	return {
 		app: {
-			name: 'Fairfield - DreamLab - Cumbria',
+			name: 'Nostr BBS',
 			version: '2.0.0',
-			defaultPath: '/fairfield/fairfield-guests',
+			defaultPath: '/general/welcome',
 			tiers: [
 				{ level: 1, name: 'Category', plural: 'Categories' },
 				{ level: 2, name: 'Section', plural: 'Sections' },
@@ -159,22 +158,20 @@ function getDefaultConfig(): BBSConfig {
 		cohorts: [
 			{ id: 'admin', name: 'Administrators', description: 'Global administrators' },
 			{ id: 'approved', name: 'Approved Users', description: 'Manually approved' },
-			{ id: 'business', name: 'Business Partners', description: 'Business collaborators' },
-			{ id: 'moomaa-tribe', name: 'Moomaa Tribe', description: 'Core community members' },
-			{ id: 'fairfield-residents', name: 'Fairfield Residents', description: 'Local community members' }
+			{ id: 'members', name: 'Community Members', description: 'Core community members' }
 		],
 		categories: [
 			{
-				id: 'fairfield',
-				name: 'Fairfield',
-				description: 'Local community areas and announcements',
-				icon: '🏔️',
+				id: 'general',
+				name: 'General',
+				description: 'Public discussion areas',
+				icon: '💬',
 				order: 1,
 				sections: [
 					{
-						id: 'fairfield-guests',
-						name: 'Fairfield Guests',
-						description: 'Welcome area for visitors',
+						id: 'welcome',
+						name: 'Welcome',
+						description: 'Welcome area for new visitors',
 						icon: '👋',
 						order: 1,
 						access: { requiresApproval: false, defaultRole: 'guest', autoApprove: true },
@@ -210,17 +207,17 @@ function getDefaultConfig(): BBSConfig {
 				]
 			},
 			{
-				id: 'minimoonoir',
-				name: 'MiniMooNoir',
-				description: 'Core community spaces and discussions',
-				icon: '🌙',
+				id: 'community',
+				name: 'Community',
+				description: 'Members-only discussion spaces',
+				icon: '🌟',
 				order: 2,
 				sections: [
 					{
-						id: 'minimoonoir-rooms',
-						name: 'Community Rooms',
-						description: 'Core community chatrooms',
-						icon: '🌙',
+						id: 'discussions',
+						name: 'Discussions',
+						description: 'General member discussions',
+						icon: '💭',
 						order: 1,
 						access: { requiresApproval: true, defaultRole: 'member', autoApprove: false },
 						calendar: { access: 'full', canCreate: true },
@@ -242,8 +239,8 @@ function getDefaultConfig(): BBSConfig {
 					},
 					{
 						id: 'events',
-						name: 'Events & Meetups',
-						description: 'Community events',
+						name: 'Events',
+						description: 'Community events and meetups',
 						icon: '📅',
 						order: 3,
 						access: { requiresApproval: true, defaultRole: 'member', autoApprove: false },
@@ -255,16 +252,16 @@ function getDefaultConfig(): BBSConfig {
 				]
 			},
 			{
-				id: 'dreamlab',
-				name: 'DreamLab',
-				description: 'Creative and experimental projects',
-				icon: '✨',
+				id: 'projects',
+				name: 'Projects',
+				description: 'Collaborative project spaces',
+				icon: '🚀',
 				order: 3,
 				sections: [
 					{
-						id: 'dreamlab-projects',
-						name: 'Projects',
-						description: 'Creative and experimental projects',
+						id: 'active-projects',
+						name: 'Active Projects',
+						description: 'Currently active project discussions',
 						icon: '💡',
 						order: 1,
 						access: { requiresApproval: true, defaultRole: 'member', autoApprove: false },
@@ -274,23 +271,11 @@ function getDefaultConfig(): BBSConfig {
 						allowForumCreation: true
 					},
 					{
-						id: 'development',
-						name: 'Development',
-						description: 'Technical projects and code',
-						icon: '💻',
-						order: 2,
-						access: { requiresApproval: true, defaultRole: 'member', autoApprove: false },
-						calendar: { access: 'full', canCreate: true },
-						ui: { color: '#3b82f6' },
-						showStats: true,
-						allowForumCreation: true
-					},
-					{
 						id: 'resources',
 						name: 'Resources',
 						description: 'Shared files and documentation',
 						icon: '📚',
-						order: 3,
+						order: 2,
 						access: { requiresApproval: true, defaultRole: 'member', autoApprove: false },
 						calendar: { access: 'none', canCreate: false },
 						ui: { color: '#84cc16' },
@@ -334,7 +319,7 @@ export function getTiers(): TierConfig[] {
 }
 
 export function getDefaultPath(): string {
-	return config.app.defaultPath || '/fairfield/fairfield-guests';
+	return config.app.defaultPath || '/general/welcome';
 }
 
 // ============================================================================
@@ -350,7 +335,7 @@ export function getCategory(categoryId: CategoryId): CategoryConfig | undefined 
 }
 
 export function getDefaultCategory(): CategoryConfig {
-	const defaultPath = config.app.defaultPath || '/fairfield/fairfield-guests';
+	const defaultPath = config.app.defaultPath || '/general/welcome';
 	const categoryId = defaultPath.split('/')[1];
 	return getCategory(categoryId) || config.categories[0];
 }
@@ -389,7 +374,7 @@ export function getSectionWithCategory(sectionId: SectionId): { section: Section
 }
 
 export function getDefaultSection(): SectionConfig {
-	const defaultPath = config.app.defaultPath || '/fairfield/fairfield-guests';
+	const defaultPath = config.app.defaultPath || '/general/welcome';
 	const parts = defaultPath.split('/').filter(Boolean);
 	if (parts.length >= 2) {
 		const section = getSection(parts[1]);

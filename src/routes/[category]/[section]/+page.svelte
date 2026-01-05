@@ -11,6 +11,9 @@
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
   import ChannelCard from '$lib/components/forum/ChannelCard.svelte';
   import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   interface Forum {
     id: string;
@@ -121,7 +124,7 @@
 </script>
 
 <svelte:head>
-  <title>{section?.name ?? 'Section'} - Fairfield</title>
+  <title>{section?.name ?? 'Section'} - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">

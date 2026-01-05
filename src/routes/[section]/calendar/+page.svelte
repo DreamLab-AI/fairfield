@@ -241,7 +241,7 @@
               <div class="badge badge-error">No Access</div>
             {/if}
           </div>
-          {#if section?.features.calendar.canCreate && accessLevel === 'full'}
+          {#if section?.calendar?.canCreate && accessLevel === 'full'}
             <p class="text-xs text-base-content/60 mt-2">
               You can create events in this section
             </p>

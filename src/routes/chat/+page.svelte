@@ -21,6 +21,9 @@
 
   // Semantic search
   import { SemanticSearch } from '$lib/semantic';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let channels: CreatedChannel[] = [];
   let loading = true;
@@ -82,7 +85,7 @@
 </script>
 
 <svelte:head>
-  <title>Channels - Fairfield</title>
+  <title>Channels - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">

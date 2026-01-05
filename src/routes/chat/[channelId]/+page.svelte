@@ -20,6 +20,9 @@
   import MessageItem from '$lib/components/chat/MessageItem.svelte';
   import type { Message } from '$lib/types/channel';
   import { getActiveRelays } from '$lib/stores/settings';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   $: channelId = $page.params.channelId;
 
@@ -265,7 +268,7 @@
 </script>
 
 <svelte:head>
-  <title>{channel?.name || 'Channel'} - Fairfield</title>
+  <title>{channel?.name || 'Channel'} - {appConfig.name}</title>
 </svelte:head>
 
 {#if loading}

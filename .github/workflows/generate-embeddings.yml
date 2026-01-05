@@ -63,9 +63,16 @@ jobs:
           python scripts/embeddings/download_manifest.py || echo '{"version": 0, "last_event_id": null}' > manifest.json
           cat manifest.json
 
+      - name: Validate RELAY_URL
+        run: |
+          if [ -z "${{ vars.RELAY_URL }}" ]; then
+            echo "::error::RELAY_URL repository variable is not set. Configure at Settings -> Secrets and variables -> Actions -> Variables"
+            exit 1
+          fi
+
       - name: Fetch notes from relay
         env:
-          RELAY_URL: ${{ vars.RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app' }}
+          RELAY_URL: ${{ vars.RELAY_URL }}
         run: |
           python scripts/embeddings/fetch_notes.py \
             --relay "$RELAY_URL" \

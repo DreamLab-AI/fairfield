@@ -78,27 +78,3 @@ export function restoreFromNsecOrHex(input: string): { privateKey: string; publi
   const publicKey = getPublicKey(hexToBytes(privateKey));
   return { privateKey, publicKey };
 }
-
-export function saveKeysToStorage(publicKey: string, privateKey: string): void {
-  if (typeof localStorage === 'undefined') return;
-
-  localStorage.setItem('nostr_bbs_keys', JSON.stringify({
-    publicKey,
-    privateKey,
-    timestamp: Date.now()
-  }));
-}
-
-export function loadKeysFromStorage(): { publicKey: string; privateKey: string } | null {
-  if (typeof localStorage === 'undefined') return null;
-
-  const stored = localStorage.getItem('nostr_bbs_keys');
-  if (!stored) return null;
-
-  try {
-    const { publicKey, privateKey } = JSON.parse(stored);
-    return { publicKey, privateKey };
-  } catch {
-    return null;
-  }
-}
