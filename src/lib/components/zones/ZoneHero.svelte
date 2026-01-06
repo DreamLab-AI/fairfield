@@ -59,27 +59,28 @@
       <div class="h-32 md:h-40 bg-gradient-to-r from-[var(--zone-primary)] to-[var(--zone-accent)]"></div>
     {/if}
 
-    <!-- Content Overlay - Logo only, no text -->
-    <div class="relative px-6 pb-4 {heroUrl ? '-mt-16' : '-mt-8'}">
-      <div class="flex items-end gap-4">
-        <!-- Logo or Icon -->
-        {#if logoUrl}
-          <div class="bg-base-100 rounded-xl p-2 shadow-lg">
-            <img
-              src={logoUrl}
-              alt="{displayName} logo"
-              class="h-16 md:h-20 w-auto object-contain"
-            />
-          </div>
-        {:else}
-          <div
-            class="bg-base-100 rounded-xl p-4 shadow-lg text-5xl md:text-6xl"
-            style="color: {primaryColor};"
-          >
-            {category.icon}
-          </div>
-        {/if}
+    <!-- Content Overlay - Only show logo/icon when no hero image -->
+    {#if !heroUrl}
+      <div class="relative px-6 pb-4 -mt-8">
+        <div class="flex items-end gap-4">
+          {#if logoUrl}
+            <div class="bg-base-100 rounded-xl p-2 shadow-lg">
+              <img
+                src={logoUrl}
+                alt="{displayName} logo"
+                class="h-16 md:h-20 w-auto object-contain"
+              />
+            </div>
+          {:else}
+            <div
+              class="bg-base-100 rounded-xl p-4 shadow-lg text-5xl md:text-6xl"
+              style="color: {primaryColor};"
+            >
+              {category.icon}
+            </div>
+          {/if}
+        </div>
       </div>
-    </div>
+    {/if}
   </div>
 {/if}
