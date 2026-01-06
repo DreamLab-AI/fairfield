@@ -43,6 +43,8 @@
     loading = true;
     error = null;
 
+    console.log('[UserManagement] Loading users with offset:', offset, 'limit:', pageSize);
+
     try {
       const result = await fetchWhitelistUsers({
         limit: pageSize,
@@ -50,10 +52,16 @@
         cohort: filterCohort || undefined
       });
 
+      console.log('[UserManagement] Loaded', result.users.length, 'users, total:', result.total);
       users = result.users;
       total = result.total;
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load users';
+      const errorMessage = e instanceof Error ? e.message : 'Failed to load users';
+      console.error('[UserManagement] Error loading users:', errorMessage);
+      error = errorMessage;
+      // Reset to empty state on error
+      users = [];
+      total = 0;
     } finally {
       loading = false;
     }

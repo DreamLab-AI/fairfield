@@ -9,6 +9,7 @@
  */
 
 import { browser } from '$app/environment';
+import { RELAY_URL } from '$lib/config';
 
 export type CohortName = 'admin' | 'approved' | 'business' | 'moomaa-tribe';
 
@@ -33,14 +34,21 @@ export interface WhitelistStatus {
 const statusCache = new Map<string, { status: WhitelistStatus; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Get relay URL from environment (GCP Cloud Run relay)
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app';
+// Debug logging helper
+const debug = (message: string, ...args: unknown[]) => {
+  if (import.meta.env.DEV) {
+    console.log(`[Whitelist] ${message}`, ...args);
+  }
+};
 
 /**
  * Convert WebSocket URL to HTTP URL for API calls
+ * Uses centralized RELAY_URL from config
  */
 function getRelayHttpUrl(): string {
-  return RELAY_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+  const httpUrl = RELAY_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+  debug('Using relay HTTP URL:', httpUrl);
+  return httpUrl;
 }
 
 /**
@@ -198,9 +206,10 @@ export async function publishRegistrationRequest(
   try {
     // Dynamic import to avoid SSR issues
     const { ndk, connectRelay, isConnected } = await import('./relay');
-    const { RELAY_URL } = await import('$lib/config');
     const { NDKEvent } = await import('@nostr-dev-kit/ndk');
     const { KIND_USER_REGISTRATION } = await import('./groups');
+
+    debug('Publishing registration request, connecting to:', RELAY_URL);
 
     // Connect if not already connected
     if (!isConnected()) {
@@ -326,23 +335,29 @@ export async function fetchWhitelistUsers(options?: {
   limit: number;
   offset: number;
 }> {
+  const httpUrl = getRelayHttpUrl();
+  const params = new URLSearchParams();
+
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+  if (options?.cohort) params.set('cohort', options.cohort);
+
+  const url = `${httpUrl}/api/whitelist/list?${params}`;
+  debug('Fetching whitelist users from:', url);
+
   try {
-    const httpUrl = getRelayHttpUrl();
-    const params = new URLSearchParams();
-
-    if (options?.limit) params.set('limit', String(options.limit));
-    if (options?.offset) params.set('offset', String(options.offset));
-    if (options?.cohort) params.set('cohort', options.cohort);
-
-    const response = await fetch(`${httpUrl}/api/whitelist/list?${params}`, {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json'
       }
     });
 
+    debug('Response status:', response.status);
+
     if (response.ok) {
       const data = await response.json();
+      debug('Fetched users:', data.users?.length, 'total:', data.total);
       return {
         users: data.users || [],
         total: data.total || 0,
@@ -351,11 +366,14 @@ export async function fetchWhitelistUsers(options?: {
       };
     }
 
-    console.error('[Whitelist] Failed to fetch users:', response.status);
-    return { users: [], total: 0, limit: 20, offset: 0 };
+    // Log actual error response for debugging
+    const errorText = await response.text().catch(() => 'Unable to read error response');
+    console.error('[Whitelist] Failed to fetch users:', response.status, errorText);
+    throw new Error(`API returned ${response.status}: ${errorText.slice(0, 100)}`);
   } catch (error) {
     console.error('[Whitelist] Failed to fetch users:', error);
-    return { users: [], total: 0, limit: 20, offset: 0 };
+    // Re-throw instead of silently returning empty - let caller handle the error
+    throw error;
   }
 }
 
