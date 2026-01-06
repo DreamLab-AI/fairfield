@@ -65,3 +65,6 @@ coverage
 *~
 .npmrc
 test-results/
+
+# Source image files (large)
+static/images/zones/*.jpeg
