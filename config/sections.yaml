@@ -19,7 +19,7 @@ deployment:
   relayUrl: 'wss://nostr-relay-617806532906.us-central1.run.app'
   embeddingApiUrl: 'https://embedding-api-617806532906.us-central1.run.app'
   gcsEmbeddingsUrl: 'https://storage.googleapis.com/minimoonoir-vectors'
-  frontendUrl: 'https://jjohare.github.io/minimoonoir'
+  frontendUrl: 'https://dreamlab-ai.github.io/fairfield'
 
 # Role definitions (hierarchical from lowest to highest)
 roles:
