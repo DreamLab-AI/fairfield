@@ -59,8 +59,8 @@
       <div class="h-32 md:h-40 bg-gradient-to-r from-[var(--zone-primary)] to-[var(--zone-accent)]"></div>
     {/if}
 
-    <!-- Content Overlay -->
-    <div class="relative px-6 pb-6 {heroUrl ? '-mt-20' : '-mt-8'}">
+    <!-- Content Overlay - Logo only, no text -->
+    <div class="relative px-6 pb-4 {heroUrl ? '-mt-16' : '-mt-8'}">
       <div class="flex items-end gap-4">
         <!-- Logo or Icon -->
         {#if logoUrl}
@@ -79,29 +79,6 @@
             {category.icon}
           </div>
         {/if}
-
-        <!-- Title and Description -->
-        <div class="flex-1 min-w-0">
-          <h1
-            class="text-2xl md:text-4xl font-bold truncate"
-            style="color: {primaryColor};"
-          >
-            {displayName}
-          </h1>
-          {#if tagline}
-            <p class="text-base-content/70 mt-1 line-clamp-2">{tagline}</p>
-          {/if}
-        </div>
-      </div>
-
-      <!-- Zone Stats (optional) -->
-      <div class="flex gap-4 mt-4 text-sm text-base-content/60">
-        <span>{category.sections.length} sections</span>
-        <span class="opacity-50">|</span>
-        <span class="flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full" style="background: {primaryColor};"></span>
-          {category.access?.strictIsolation ? 'Private Zone' : 'Open Zone'}
-        </span>
       </div>
     </div>
   </div>
