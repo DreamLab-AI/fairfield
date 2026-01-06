@@ -10,6 +10,7 @@
   import { getSectionWithCategory, getBreadcrumbs } from '$lib/config';
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
   import ChannelCard from '$lib/components/forum/ChannelCard.svelte';
+  import ZoneHero from '$lib/components/zones/ZoneHero.svelte';
   import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
   import { getAppConfig } from '$lib/config/loader';
 
@@ -141,11 +142,14 @@
     <Breadcrumb items={breadcrumbs} />
 
     <div class="mt-6">
+      <!-- Compact Zone Hero -->
+      <ZoneHero {category} compact={true} />
+
       <div class="flex items-start justify-between gap-4 mb-6">
         <div class="flex items-center gap-4">
-          <div class="text-5xl">{section.icon}</div>
+          <div class="text-4xl">{section.icon}</div>
           <div>
-            <h1 class="text-3xl font-bold">{section.name}</h1>
+            <h2 class="text-2xl font-bold">{section.name}</h2>
             <p class="text-base-content/70 mt-1">{section.description}</p>
           </div>
         </div>

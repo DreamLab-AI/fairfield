@@ -29,6 +29,7 @@
 	import ScreenReaderAnnouncer from '$lib/components/ui/ScreenReaderAnnouncer.svelte';
 	import CalendarSidebar from '$lib/components/calendar/CalendarSidebar.svelte';
 	import CalendarSheet from '$lib/components/calendar/CalendarSheet.svelte';
+	import ZoneNav from '$lib/components/zones/ZoneNav.svelte';
 
 	const appConfig = getAppConfig();
 	const appName = appConfig.name.split(' - ')[0];
@@ -41,8 +42,14 @@
 	let sessionCleanup: (() => void) | undefined = undefined;
 	let isMobile = false;
 	let calendarSheetOpen = false;
+	let zoneNavCollapsed = false;
 
 	$: showNav = $page.url.pathname !== `${base}/` && $page.url.pathname !== base && $page.url.pathname !== `${base}/signup` && $page.url.pathname !== `${base}/login` && $page.url.pathname !== `${base}/pending`;
+
+	// Extract current category and section from URL
+	$: pathParts = $page.url.pathname.replace(base, '').split('/').filter(Boolean);
+	$: currentCategoryId = pathParts[0] || null;
+	$: currentSectionId = pathParts[1] || null;
 
 	// Start session monitoring when authenticated
 	$: if (browser && $isAuthenticated && !sessionCleanup) {
@@ -200,6 +207,23 @@
 		{/if}
 
 		<div class="flex">
+			<!-- Zone Navigation Sidebar (Desktop) -->
+			{#if showNav && $isAuthenticated && !isMobile}
+				<aside
+					class="flex-shrink-0 hidden md:block border-r border-base-300 bg-base-100 transition-all duration-300 overflow-y-auto"
+					class:w-64={!zoneNavCollapsed}
+					class:w-16={zoneNavCollapsed}
+					style="max-height: calc(100vh - 64px);"
+					aria-label="Zone navigation"
+				>
+					<ZoneNav
+						{currentCategoryId}
+						{currentSectionId}
+						collapsed={zoneNavCollapsed}
+					/>
+				</aside>
+			{/if}
+
 			<!-- Calendar Sidebar (Desktop) -->
 			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
 				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">

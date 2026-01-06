@@ -245,17 +245,22 @@ export async function publishRegistrationRequest(
 /**
  * Approve a user registration via relay API
  *
- * Adds the user to the whitelist with 'approved' cohort.
+ * Adds the user to the whitelist with specified cohorts.
  *
  * @param pubkey - User's public key to approve
  * @param adminPubkey - Admin's public key (for authorization)
+ * @param cohorts - Array of cohort IDs to assign (defaults to ['approved'])
  * @returns Promise resolving to success status
  */
 export async function approveUserRegistration(
   pubkey: string,
-  adminPubkey: string
+  adminPubkey: string,
+  cohorts: string[] = ['approved']
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Ensure 'approved' is always included
+    const finalCohorts = cohorts.includes('approved') ? cohorts : ['approved', ...cohorts];
+
     const httpUrl = getRelayHttpUrl();
     const response = await fetch(`${httpUrl}/api/whitelist/add`, {
       method: 'POST',
@@ -264,7 +269,7 @@ export async function approveUserRegistration(
       },
       body: JSON.stringify({
         pubkey,
-        cohorts: ['approved'],
+        cohorts: finalCohorts,
         adminPubkey,
       }),
     });
@@ -272,6 +277,11 @@ export async function approveUserRegistration(
     if (response.ok) {
       // Clear cache to force re-check
       clearWhitelistCache(pubkey);
+
+      if (import.meta.env.DEV) {
+        console.log('[Whitelist] User approved with cohorts:', pubkey.slice(0, 8), finalCohorts);
+      }
+
       return { success: true };
     }
 

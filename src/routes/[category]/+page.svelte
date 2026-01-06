@@ -8,6 +8,7 @@
   import { getCategory, getBreadcrumbs } from '$lib/config';
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
   import SectionListCard from '$lib/components/navigation/SectionListCard.svelte';
+  import ZoneHero from '$lib/components/zones/ZoneHero.svelte';
   import type { SectionConfig } from '$lib/config/types';
   import { getAppConfig } from '$lib/config/loader';
 
@@ -66,13 +67,8 @@
     <Breadcrumb items={breadcrumbs} />
 
     <div class="mt-6">
-      <div class="flex items-center gap-4 mb-6">
-        <div class="text-5xl">{category.icon}</div>
-        <div>
-          <h1 class="text-3xl font-bold">{category.name}</h1>
-          <p class="text-base-content/70 mt-1">{category.description}</p>
-        </div>
-      </div>
+      <!-- Zone Hero with branding -->
+      <ZoneHero {category} />
 
       <div class="divider"></div>
 
