@@ -259,7 +259,7 @@
             <div class="mt-2 space-y-2">
               <!-- Section filters -->
               <div>
-                <label class="text-xs text-base-content/60 uppercase tracking-wider">Sections</label>
+                <span class="text-xs text-base-content/60 uppercase tracking-wider">Sections</span>
                 <div class="flex flex-wrap gap-2 mt-1">
                   {#each sections as section}
                     <button

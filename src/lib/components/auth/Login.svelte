@@ -150,32 +150,32 @@
         </div>
       {:else if inputMode === 'privatekey'}
         <div class="form-control">
-          <label class="label">
+          <label class="label" for="private-key-input">
             <span class="label-text">Enter your nsec or hex private key</span>
           </label>
           <input
             type="password"
+            id="private-key-input"
             class="input input-bordered font-mono"
             placeholder="nsec1... or 64-character hex"
             bind:value={privateKeyInput}
             disabled={isRestoring}
             autocomplete="off"
           />
-          <label class="label">
-            <span class="label-text-alt text-base-content/50">
-              Supports nsec format (nsec1...) or raw 64-character hex
-            </span>
-          </label>
+          <span class="label-text-alt text-base-content/50 mt-1">
+            Supports nsec format (nsec1...) or raw 64-character hex
+          </span>
         </div>
       {:else}
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" on:paste={handlePaste}>
           {#each wordInputs as word, i}
             <div class="form-control">
-              <label class="label py-1">
+              <label class="label py-1" for="word-input-{i}">
                 <span class="label-text text-xs">Word {i + 1}</span>
               </label>
               <input
                 type="text"
+                id="word-input-{i}"
                 class="input input-bordered input-sm font-mono"
                 placeholder={`Word ${i + 1}`}
                 bind:value={wordInputs[i]}

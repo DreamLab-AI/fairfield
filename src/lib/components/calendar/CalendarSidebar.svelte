@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import MiniCalendar from './MiniCalendar.svelte';
-  import { calendarStore } from '$lib/stores/calendar';
+  import { calendarStore, availabilityBlocks } from '$lib/stores/calendar';
   import { authStore } from '$lib/stores/auth';
   import { userPermissionsStore } from '$lib/stores/userPermissions';
   import type { EventVenueType } from '$lib/types/calendar';
-  import type { UserPermissions } from '$lib/config/types';
+  import type { AvailabilityBlock, UserPermissions } from '$lib/config/types';
   import type { CalendarEvent } from '$lib/nostr/calendar';
   import {
     getEventVisibilityLayer,
@@ -251,6 +251,7 @@
         <MiniCalendar
           selectedDate={selectedDate}
           events={upcomingEvents}
+          availabilityBlocks={$availabilityBlocks}
           onDateSelect={handleDateSelect}
         />
       </div>

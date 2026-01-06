@@ -129,8 +129,8 @@
   {/if}
 
   {#if hasError}
-    <label class="label" id={errorId} role="alert">
+    <span class="label" id={errorId} role="alert">
       <span class="label-text-alt text-error">{error}</span>
-    </label>
+    </span>
   {/if}
 </div>

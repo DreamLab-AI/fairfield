@@ -372,16 +372,18 @@ sections:
 
 				<div class="space-y-4">
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2">Application Name</label>
+						<label for="setup-app-name" class="block text-sm font-medium text-gray-300 mb-2">Application Name</label>
 						<input
+							id="setup-app-name"
 							bind:value={appName}
 							placeholder="My Community"
 							class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2">Relay URL</label>
+						<label for="setup-relay-url" class="block text-sm font-medium text-gray-300 mb-2">Relay URL</label>
 						<input
+							id="setup-relay-url"
 							bind:value={relayUrl}
 							placeholder="wss://relay.example.com"
 							class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -414,10 +416,11 @@ sections:
 
 				<div class="space-y-4">
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2"
+						<label for="setup-admin-pubkey" class="block text-sm font-medium text-gray-300 mb-2"
 							>Admin Public Key (hex)</label
 						>
 						<input
+							id="setup-admin-pubkey"
 							bind:value={adminPubkey}
 							placeholder="64-character hex public key"
 							class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"

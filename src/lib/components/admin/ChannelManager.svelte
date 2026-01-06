@@ -170,10 +170,11 @@
         </h2>
 
         <div class="form-control">
-          <label class="label">
+          <label class="label" for="manager-channel-name">
             <span class="label-text">Channel Name *</span>
           </label>
           <input
+            id="manager-channel-name"
             type="text"
             placeholder="Enter channel name"
             class="input input-bordered"
@@ -182,10 +183,11 @@
         </div>
 
         <div class="form-control">
-          <label class="label">
+          <label class="label" for="manager-channel-description">
             <span class="label-text">Description</span>
           </label>
           <textarea
+            id="manager-channel-description"
             class="textarea textarea-bordered"
             placeholder="Channel description (optional)"
             rows="3"
@@ -194,26 +196,25 @@
         </div>
 
         <div class="form-control">
-          <label class="label">
+          <label class="label" for="manager-channel-section">
             <span class="label-text">Section (Area)</span>
           </label>
-          <select class="select select-bordered" bind:value={formSection}>
+          <select id="manager-channel-section" class="select select-bordered" bind:value={formSection}>
             {#each Object.entries(SECTION_CONFIG) as [key, config]}
               <option value={key}>{config.icon} {config.name}</option>
             {/each}
           </select>
-          <label class="label">
-            <span class="label-text-alt text-base-content/60">
-              {SECTION_CONFIG[formSection]?.description || ''}
-            </span>
-          </label>
+          <span class="label-text-alt text-base-content/60 mt-1">
+            {SECTION_CONFIG[formSection]?.description || ''}
+          </span>
         </div>
 
         <div class="form-control">
-          <label class="label">
+          <label class="label" for="manager-channel-cohorts">
             <span class="label-text">Cohorts (comma-separated)</span>
           </label>
           <input
+            id="manager-channel-cohorts"
             type="text"
             placeholder="e.g., 2024, 2025, Alumni"
             class="input input-bordered"
@@ -223,10 +224,10 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="form-control">
-            <label class="label">
+            <label class="label" for="manager-channel-visibility">
               <span class="label-text">Visibility</span>
             </label>
-            <select class="select select-bordered" bind:value={formVisibility}>
+            <select id="manager-channel-visibility" class="select select-bordered" bind:value={formVisibility}>
               <option value="public">Public (Anyone can see)</option>
               <option value="cohort">Cohort (Cohort members only)</option>
               <option value="private">Private (Invite only)</option>
@@ -234,9 +235,10 @@
           </div>
 
           <div class="form-control">
-            <label class="label cursor-pointer">
+            <label class="label cursor-pointer" for="manager-channel-encrypted">
               <span class="label-text">Encrypted Messages</span>
               <input
+                id="manager-channel-encrypted"
                 type="checkbox"
                 class="toggle toggle-primary"
                 bind:checked={formEncrypted}

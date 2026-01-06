@@ -3,7 +3,9 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
+  import { userPermissionsStore } from '$lib/stores/userPermissions';
   import { getCategories, getAppConfig } from '$lib/config';
+  import { getAccessibleCategories } from '$lib/config/permissions';
   import CategoryCard from '$lib/components/navigation/CategoryCard.svelte';
   import BoardStats from '$lib/components/forum/BoardStats.svelte';
   import TopPosters from '$lib/components/forum/TopPosters.svelte';
@@ -13,7 +15,8 @@
 
   let loading = true;
 
-  $: categories = getCategories();
+  // Filter categories based on user permissions (zone visibility)
+  $: categories = $userPermissionsStore ? getAccessibleCategories($userPermissionsStore) : getCategories();
   $: appConfig = getAppConfig();
 
   onMount(async () => {

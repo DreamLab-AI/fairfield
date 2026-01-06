@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 import type { CalendarEvent } from '../nostr/calendar';
+import type { AvailabilityBlock, SectionId } from '../config/types';
 import { fetchUpcomingEvents, fetchAllEvents } from '../nostr/calendar';
 
 export type CalendarViewMode = 'month' | 'week' | 'day' | 'list';
@@ -14,6 +15,8 @@ export interface CalendarFilters {
 export interface CalendarState {
   events: CalendarEvent[];
   upcomingEvents: CalendarEvent[];
+  availabilityBlocks: AvailabilityBlock[];
+  currentSectionId: SectionId | null;
   selectedDate: Date | null;
   viewMode: CalendarViewMode;
   filters: CalendarFilters;
@@ -26,6 +29,8 @@ export interface CalendarState {
 const initialState: CalendarState = {
   events: [],
   upcomingEvents: [],
+  availabilityBlocks: [],
+  currentSectionId: null,
   selectedDate: null,
   viewMode: 'month',
   filters: {
@@ -192,6 +197,46 @@ function createCalendarStore() {
     },
 
     /**
+     * Set current section for cross-zone block loading
+     */
+    setCurrentSection: (sectionId: SectionId | null) => {
+      update((state) => ({ ...state, currentSectionId: sectionId }));
+    },
+
+    /**
+     * Set availability blocks (cross-zone conflicts)
+     */
+    setAvailabilityBlocks: (blocks: AvailabilityBlock[]) => {
+      update((state) => ({
+        ...state,
+        availabilityBlocks: blocks.sort((a, b) => a.start - b.start),
+      }));
+    },
+
+    /**
+     * Add availability blocks without replacing existing ones
+     */
+    addAvailabilityBlocks: (blocks: AvailabilityBlock[]) => {
+      update((state) => {
+        const existingIds = new Set(state.availabilityBlocks.map((b) => b.id));
+        const newBlocks = blocks.filter((b) => !existingIds.has(b.id));
+        return {
+          ...state,
+          availabilityBlocks: [...state.availabilityBlocks, ...newBlocks].sort(
+            (a, b) => a.start - b.start
+          ),
+        };
+      });
+    },
+
+    /**
+     * Clear all availability blocks
+     */
+    clearAvailabilityBlocks: () => {
+      update((state) => ({ ...state, availabilityBlocks: [] }));
+    },
+
+    /**
      * Reset store to initial state
      */
     reset: () => set(initialState),
@@ -295,3 +340,32 @@ export const sidebarVisible = derived(calendarStore, ($calendar) => $calendar.si
  * Derived store for loading state
  */
 export const isLoading = derived(calendarStore, ($calendar) => $calendar.isLoading);
+
+/**
+ * Derived store for availability blocks
+ */
+export const availabilityBlocks = derived(calendarStore, ($calendar) => $calendar.availabilityBlocks);
+
+/**
+ * Derived store for current section
+ */
+export const currentSectionId = derived(calendarStore, ($calendar) => $calendar.currentSectionId);
+
+/**
+ * Derived store for availability blocks grouped by date
+ */
+export const availabilityBlocksByDate = derived(availabilityBlocks, ($blocks) => {
+  const blockMap = new Map<string, AvailabilityBlock[]>();
+
+  $blocks.forEach((block) => {
+    const date = new Date(block.start);
+    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    if (!blockMap.has(dateString)) {
+      blockMap.set(dateString, []);
+    }
+    blockMap.get(dateString)!.push(block);
+  });
+
+  return blockMap;
+});

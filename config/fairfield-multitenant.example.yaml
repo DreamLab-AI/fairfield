@@ -1,25 +1,24 @@
 # Fairfield Multi-Tenant Configuration
-# Zone-based isolation for Family, Minimoonoir, and DreamLab
+# Zone-based isolation for Family, Friends, and Business areas
 # Each zone has its own branding, visibility rules, and access control
 
 # Application metadata
 app:
   name: 'Fairfield'
   version: '2.0.0'
-  defaultPath: '/minimoonoir/minimoonoir-welcome'
+  defaultPath: '/fairfield-family/home'
 
 # Superuser configuration
 superuser:
-  pubkey: '11ed64225dd5e2c5e18f61ad43d5ad9272d08739d3a20dd25886197b0738663c'
+  pubkey: 'YOUR_ADMIN_PUBKEY_HERE'
   name: 'Instance Owner'
-  relayUrl: 'wss://nostr-relay-617806532906.us-central1.run.app'
+  relayUrl: 'wss://your-relay.example.com'
 
 # Deployment URLs
 deployment:
-  relayUrl: 'wss://nostr-relay-617806532906.us-central1.run.app'
-  embeddingApiUrl: 'https://embedding-api-617806532906.us-central1.run.app'
-  gcsEmbeddingsUrl: 'https://storage.googleapis.com/minimoonoir-vectors'
-  frontendUrl: 'https://jjohare.github.io/minimoonoir'
+  relayUrl: 'wss://your-relay.example.com'
+  embeddingApiUrl: 'https://your-embedding-api.example.com'
+  frontendUrl: 'https://your-frontend.example.com'
 
 # Role definitions (hierarchical from lowest to highest)
 roles:
@@ -136,7 +135,7 @@ categories:
     # Zone-level access control
     access:
       visibleToCohorts: ['family', 'cross-access']
-      hiddenFromCohorts: ['business-only']
+      hiddenFromCohorts: ['business-only', 'friends-only']
       strictIsolation: true
 
     # Zone branding
@@ -145,8 +144,8 @@ categories:
       tagline: 'Our Family Space'
       primaryColor: '#4a7c59'
       accentColor: '#8fbc8f'
-      heroImageUrl: '/images/zones/family-hero.webp'
-      logoUrl: '/images/zones/family-logo.webp'
+      heroImageUrl: '/images/zones/family-hero.jpg'
+      logoUrl: '/images/zones/family-logo.png'
 
     ui:
       color: '#4a7c59'
@@ -165,13 +164,14 @@ categories:
         calendar:
           access: 'full'
           canCreate: true
+          # Reciprocal: family sees when house is busy from other zones
           showBlocksFrom: ['minimoonoir', 'dreamlab']
           blockDisplay:
-            showSourceZone: false
-            showReason: false
+            showSourceZone: false     # Just show colour, not who
+            showReason: false          # No event details
             zoneColours:
-              minimoonoir: '#6366f1'
-              dreamlab: '#c2410c'
+              minimoonoir: '#6366f1'   # Purple - guests visiting
+              dreamlab: '#c2410c'      # Orange - training in progress
         ui:
           color: '#4a7c59'
         showStats: true
@@ -241,8 +241,8 @@ categories:
       tagline: 'Guest Stays & Adventures'
       primaryColor: '#8b5cf6'
       accentColor: '#a78bfa'
-      heroImageUrl: '/images/zones/minimoonoir-hero.webp'
-      logoUrl: '/images/zones/minimoonoir-logo.webp'
+      heroImageUrl: '/images/zones/minimoonoir-hero.jpg'
+      logoUrl: '/images/zones/minimoonoir-logo.png'
 
     ui:
       color: '#8b5cf6'
@@ -260,13 +260,14 @@ categories:
         calendar:
           access: 'full'
           canCreate: false
+          # Cross-zone visibility: see blocks from family and business zones
           showBlocksFrom: ['fairfield-family', 'dreamlab']
           blockDisplay:
-            showSourceZone: true
-            showReason: false
+            showSourceZone: true      # Show "Family" or "DreamLab" label
+            showReason: false          # Don't show event titles/details
             zoneColours:
-              fairfield-family: '#991b1b'
-              dreamlab: '#c2410c'
+              fairfield-family: '#991b1b'   # Dark red - unavailable
+              dreamlab: '#c2410c'            # Dark orange - reduced capacity
         ui:
           color: '#8b5cf6'
         showStats: true
@@ -310,13 +311,14 @@ categories:
         calendar:
           access: 'full'
           canCreate: true
+          # Full cross-zone visibility for booking conflicts
           showBlocksFrom: ['fairfield-family', 'dreamlab']
           blockDisplay:
             showSourceZone: true
             showReason: false
             zoneColours:
-              fairfield-family: '#991b1b'
-              dreamlab: '#c2410c'
+              fairfield-family: '#991b1b'   # Family stay - beds likely taken
+              dreamlab: '#c2410c'            # Training - reduced capacity but possible
         ui:
           color: '#f59e0b'
         showStats: false
@@ -343,8 +345,8 @@ categories:
       tagline: 'Training & Innovation Hub'
       primaryColor: '#ec4899'
       accentColor: '#f472b6'
-      heroImageUrl: '/images/zones/dreamlab-hero.webp'
-      logoUrl: '/images/zones/dreamlab-logo.webp'
+      heroImageUrl: '/images/zones/dreamlab-hero.jpg'
+      logoUrl: '/images/zones/dreamlab-logo.png'
 
     ui:
       color: '#ec4899'
@@ -361,16 +363,17 @@ categories:
           autoApprove: true
           requiredCohorts: ['business', 'minimoonoir-business', 'trainers', 'trainees', 'cross-access']
         calendar:
+          # Business users see sparse calendar - only their booking + blocks
           access: 'cohort'
           canCreate: false
           cohortRestricted: true
           showBlocksFrom: ['fairfield-family', 'minimoonoir']
           blockDisplay:
-            showSourceZone: false
+            showSourceZone: false     # Business doesn't see family/friends labels
             showReason: false
             zoneColours:
-              fairfield-family: '#991b1b'
-              minimoonoir: '#6366f1'
+              fairfield-family: '#991b1b'   # Red - house unavailable
+              minimoonoir: '#6366f1'         # Purple - guests present
         ui:
           color: '#ec4899'
         showStats: true
@@ -387,6 +390,7 @@ categories:
           autoApprove: false
           requiredCohorts: ['trainers', 'trainees', 'cross-access']
         calendar:
+          # Trainers/trainees see their sessions only
           access: 'cohort'
           canCreate: true
           cohortRestricted: true
@@ -415,7 +419,7 @@ categories:
           requiredCohorts: ['business', 'cross-access']
         calendar:
           access: 'cohort'
-          canCreate: false
+          canCreate: false        # Only admin creates project milestones
           cohortRestricted: true
         ui:
           color: '#a855f7'
@@ -433,8 +437,9 @@ categories:
           autoApprove: false
           requiredCohorts: ['business', 'trainers', 'cross-access']
         calendar:
+          # Sparse calendar: business sees only their booking
           access: 'cohort'
-          canCreate: false
+          canCreate: false        # Only admin creates bookings
           cohortRestricted: true
           showBlocksFrom: ['fairfield-family', 'minimoonoir']
           blockDisplay:

@@ -5,6 +5,7 @@
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
   import { userStore } from '$lib/stores/user';
+  import { userPermissionsStore } from '$lib/stores/userPermissions';
   import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
   import { RELAY_URL, getSectionWithCategory, getBreadcrumbs, getCategories } from '$lib/config';
   import {
@@ -14,6 +15,8 @@
   } from '$lib/nostr/section-events';
   import { fetchTribeBirthdayEvents } from '$lib/nostr/birthdays';
   import type { CalendarEvent } from '$lib/nostr/calendar';
+  import type { AvailabilityBlock, SectionId } from '$lib/config/types';
+  import { getCrossZoneBlocks } from '$lib/utils/calendar-visibility';
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import { getAppConfig } from '$lib/config/loader';
@@ -21,6 +24,7 @@
   const appConfig = getAppConfig();
 
   let events: (SectionEvent | CalendarEvent)[] = [];
+  let availabilityBlocks: AvailabilityBlock[] = [];
   let loading = true;
   let error: string | null = null;
   let currentDate = new Date();
@@ -74,6 +78,22 @@
       }
 
       events = [...sectionEvents, ...birthdayEvents].sort((a, b) => a.start - b.start);
+
+      // Load cross-zone availability blocks if user has permissions
+      if ($userPermissionsStore) {
+        try {
+          // Fetch all events to convert to blocks (in a real app, this would be a dedicated API)
+          const allEvents = [...sectionEvents, ...birthdayEvents];
+          availabilityBlocks = getCrossZoneBlocks(
+            sectionId as SectionId,
+            allEvents,
+            $userPermissionsStore
+          );
+        } catch (blockError) {
+          console.warn('Failed to load cross-zone blocks:', blockError);
+          // Non-fatal error - continue without blocks
+        }
+      }
     } catch (e) {
       console.error('Failed to load section events:', e);
       error = e instanceof Error ? e.message : 'Failed to load events';
@@ -242,6 +262,7 @@
       {:else if viewMode === 'calendar'}
         <EventCalendar
           events={displayEvents}
+          {availabilityBlocks}
           {currentDate}
           on:eventClick={handleEventClick}
           on:dayClick={handleDayClick}

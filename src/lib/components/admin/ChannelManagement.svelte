@@ -85,10 +85,11 @@
         <h3 class="font-semibold mb-4">New Channel</h3>
 
         <div class="form-control mb-3">
-          <label class="label">
+          <label class="label" for="mgmt-channel-name">
             <span class="label-text">Channel Name *</span>
           </label>
           <input
+            id="mgmt-channel-name"
             type="text"
             placeholder="Enter channel name"
             class="input input-bordered"
@@ -97,10 +98,11 @@
         </div>
 
         <div class="form-control mb-3">
-          <label class="label">
+          <label class="label" for="mgmt-channel-description">
             <span class="label-text">Description</span>
           </label>
           <textarea
+            id="mgmt-channel-description"
             class="textarea textarea-bordered"
             placeholder="Channel description (optional)"
             rows="2"
@@ -109,27 +111,25 @@
         </div>
 
         <div class="form-control mb-3">
-          <label class="label">
+          <label class="label" for="mgmt-channel-section">
             <span class="label-text">Section (Area)</span>
           </label>
-          <select class="select select-bordered" bind:value={formSection}>
+          <select id="mgmt-channel-section" class="select select-bordered" bind:value={formSection}>
             {#each Object.entries(SECTION_CONFIG) as [key, config]}
               <option value={key}>{config.icon} {config.name}</option>
             {/each}
           </select>
-          <label class="label">
-            <span class="label-text-alt text-base-content/60">
-              {SECTION_CONFIG[formSection]?.description || ''}
-            </span>
-          </label>
+          <span class="label-text-alt text-base-content/60 mt-1">
+            {SECTION_CONFIG[formSection]?.description || ''}
+          </span>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
           <div class="form-control">
-            <label class="label">
+            <label class="label" for="mgmt-channel-visibility">
               <span class="label-text">Visibility</span>
             </label>
-            <select class="select select-bordered" bind:value={formVisibility}>
+            <select id="mgmt-channel-visibility" class="select select-bordered" bind:value={formVisibility}>
               <option value="public">Public</option>
               <option value="cohort">Cohort Only</option>
               <option value="private">Private</option>
@@ -137,10 +137,11 @@
           </div>
 
           <div class="form-control">
-            <label class="label">
+            <label class="label" for="mgmt-channel-cohorts">
               <span class="label-text">Cohorts (comma-separated)</span>
             </label>
             <input
+              id="mgmt-channel-cohorts"
               type="text"
               placeholder="e.g., 2024, 2025"
               class="input input-bordered"

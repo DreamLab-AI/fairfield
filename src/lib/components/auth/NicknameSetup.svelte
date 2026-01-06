@@ -94,12 +94,13 @@
       </div>
 
       <div class="form-control mb-4">
-        <label class="label">
+        <label class="label" for="nickname-input">
           <span class="label-text font-semibold">Nickname / Handle</span>
           <span class="label-text-alt text-base-content/50">{nickname.length}/50</span>
         </label>
         <input
           type="text"
+          id="nickname-input"
           placeholder="e.g., Alice, Bob123, CoolUser"
           class="input input-bordered input-lg w-full"
           class:input-error={nicknameError}
@@ -109,13 +110,9 @@
           on:keydown={(e) => e.key === 'Enter' && isValidNickname && handleContinue()}
         />
         {#if nicknameError}
-          <label class="label">
-            <span class="label-text-alt text-error">{nicknameError}</span>
-          </label>
+          <span class="label-text-alt text-error mt-1">{nicknameError}</span>
         {:else}
-          <label class="label">
-            <span class="label-text-alt text-base-content/60">2-50 characters, letters, numbers, and symbols allowed</span>
-          </label>
+          <span class="label-text-alt text-base-content/60 mt-1">2-50 characters, letters, numbers, and symbols allowed</span>
         {/if}
       </div>
 

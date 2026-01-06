@@ -42,10 +42,96 @@ export interface CalendarConfig {
 	access: CalendarAccessLevel;
 	canCreate: boolean;
 	cohortRestricted?: boolean;
+	/** Cross-zone visibility: show availability blocks from other zones */
+	showBlocksFrom?: CategoryId[];
+	/** Block display configuration */
+	blockDisplay?: CalendarBlockDisplayConfig;
 }
+
+/**
+ * Cross-zone calendar block visibility configuration
+ */
+export interface CalendarBlockDisplayConfig {
+	/** Show which zone caused the block (e.g., "Family" or "DreamLab") */
+	showSourceZone?: boolean;
+	/** Show block reason/title (false = just colour) */
+	showReason?: boolean;
+	/** Custom colours for blocks from specific zones */
+	zoneColours?: Record<CategoryId, string>;
+}
+
+/**
+ * Block type for cross-zone calendar availability
+ */
+export type CalendarBlockType = 'hard' | 'soft' | 'tentative';
+
+/**
+ * Cross-zone availability block (aggregated from other zones)
+ */
+export interface AvailabilityBlock {
+	id: string;
+	start: number;
+	end: number;
+	/** Source zone that created this block */
+	sourceZone: CategoryId;
+	/** Hard = unavailable, Soft = reduced capacity, Tentative = might conflict */
+	blockType: CalendarBlockType;
+	/** Display colour for this block */
+	displayColour: string;
+	/** Visible label (e.g., "Family" or "DreamLab") - only if showSourceZone */
+	label?: string;
+	/** Reason/title - only visible to users with appropriate access */
+	reason?: string;
+}
+
+/**
+ * Default block colours by zone type
+ */
+export const BLOCK_COLOURS = {
+	/** Family bookings - hard block, house less available */
+	family: '#991b1b',      // dark red
+	/** DreamLab bookings - soft block, reduced capacity */
+	business: '#c2410c',    // dark orange
+	/** Default for other zones */
+	default: '#6b7280'      // grey
+} as const;
 
 export interface UIConfig {
 	color: string;
+}
+
+/**
+ * Branding configuration for per-category/section visual identity
+ */
+export interface BrandingConfig {
+	/** Primary theme colour */
+	primaryColor?: string;
+	/** Secondary/accent colour */
+	accentColor?: string;
+	/** Logo URL (overrides global logo) */
+	logoUrl?: string;
+	/** Hero/header image URL */
+	heroImageUrl?: string;
+	/** Favicon URL (optional per-zone favicon) */
+	faviconUrl?: string;
+	/** Custom display name (overrides category/section name in UI) */
+	displayName?: string;
+	/** Tagline or subtitle */
+	tagline?: string;
+}
+
+/**
+ * Category-level access configuration for zone isolation
+ */
+export interface CategoryAccessConfig {
+	/** Cohorts that can see this category (empty = visible to all) */
+	visibleToCohorts?: CohortId[];
+	/** Cohorts explicitly excluded from seeing this category */
+	hiddenFromCohorts?: CohortId[];
+	/** Minimum role required to see this category */
+	minimumRole?: RoleId;
+	/** If true, category is completely invisible to non-matching users */
+	strictIsolation?: boolean;
 }
 
 /**
@@ -85,10 +171,12 @@ export interface SectionConfig {
 	ui: UIConfig;
 	allowForumCreation?: boolean;
 	showStats?: boolean;
+	/** Per-section branding override (inherits from category if not set) */
+	branding?: BrandingConfig;
 }
 
 /**
- * Category (Tier 1) - Top-level container
+ * Category (Tier 1) - Top-level container with zone isolation support
  */
 export interface CategoryConfig {
 	id: CategoryId;
@@ -98,6 +186,10 @@ export interface CategoryConfig {
 	order: number;
 	sections: SectionConfig[];
 	ui?: UIConfig;
+	/** Category-level access control for zone isolation */
+	access?: CategoryAccessConfig;
+	/** Per-category branding (hero images, logos, theming) */
+	branding?: BrandingConfig;
 }
 
 export interface CalendarAccessLevelConfig {
@@ -168,6 +260,16 @@ export interface UserSectionRole {
 }
 
 /**
+ * User's role assignment for a category (zone)
+ */
+export interface UserCategoryRole {
+	categoryId: CategoryId;
+	role: RoleId;
+	assignedAt: number;
+	assignedBy?: string;
+}
+
+/**
  * User's complete permission state
  */
 export interface UserPermissions {
@@ -175,4 +277,8 @@ export interface UserPermissions {
 	cohorts: CohortId[];
 	globalRole: RoleId;
 	sectionRoles: UserSectionRole[];
+	/** Category-level role assignments for zone access */
+	categoryRoles?: UserCategoryRole[];
+	/** Primary zone for cross-access users (where they can create events) */
+	primaryZone?: CategoryId;
 }

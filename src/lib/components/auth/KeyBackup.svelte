@@ -179,11 +179,12 @@
         <div class="space-y-4 mb-4">
           {#each verificationWords as wordIndex, i}
             <div class="form-control">
-              <label class="label">
+              <label class="label" for="verify-word-{i}">
                 <span class="label-text font-medium">Word #{Number(wordIndex) + 1}</span>
               </label>
               <input
                 type="text"
+                id="verify-word-{i}"
                 placeholder="Enter word"
                 class="input input-bordered w-full"
                 bind:value={userInputs[i]}

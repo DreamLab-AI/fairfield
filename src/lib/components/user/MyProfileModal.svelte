@@ -210,10 +210,11 @@
 
 			<!-- Nickname -->
 			<div class="form-control mb-3">
-				<label class="label py-1">
+				<label class="label py-1" for="profile-nickname-input">
 					<span class="label-text font-semibold">Nickname</span>
 				</label>
 				<input
+					id="profile-nickname-input"
 					type="text"
 					bind:value={editNickname}
 					placeholder="Enter a display name"
@@ -245,12 +246,13 @@
 					</div>
 				{:else}
 					<input
+						id="profile-avatar-input"
 						type="url"
 						bind:value={editAvatar}
 						placeholder="https://example.com/avatar.jpg"
 						class="input input-bordered input-sm"
 					/>
-					<label class="label py-1">
+					<label class="label py-1" for="profile-avatar-input">
 						<span class="label-text-alt text-base-content/60">Direct link to an image</span>
 					</label>
 				{/if}
@@ -258,16 +260,17 @@
 
 			<!-- Birthday (Optional) -->
 			<div class="form-control mb-4">
-				<label class="label py-1">
+				<label class="label py-1" for="profile-birthday-input">
 					<span class="label-text font-semibold">Birthday</span>
 					<span class="label-text-alt text-base-content/60">Optional</span>
 				</label>
 				<input
+					id="profile-birthday-input"
 					type="date"
 					bind:value={editBirthday}
 					class="input input-bordered input-sm"
 				/>
-				<label class="label py-1">
+				<label class="label py-1" for="profile-birthday-input">
 					<span class="label-text-alt text-base-content/60">Visible to tribe members on the calendar</span>
 				</label>
 			</div>
@@ -311,7 +314,7 @@
 
 			<!-- npub (always visible) -->
 			<div class="form-control mb-4">
-				<label class="label">
+				<label class="label" for="profile-npub-input">
 					<span class="label-text font-semibold">Public Key (npub)</span>
 					<div
 						class="tooltip tooltip-left"
@@ -335,6 +338,7 @@
 				</label>
 				<div class="flex gap-2">
 					<input
+						id="profile-npub-input"
 						type="text"
 						readonly
 						value={formatKey(npub)}
@@ -376,7 +380,7 @@
 						{/if}
 					</button>
 				</div>
-				<label class="label">
+				<label class="label" for="profile-npub-input">
 					<span class="label-text-alt text-success">Safe to share - this is how others find you</span
 					>
 				</label>
@@ -384,7 +388,7 @@
 
 			<!-- nsec (hidden by default) -->
 			<div class="form-control">
-				<label class="label">
+				<label class="label" for="profile-nsec-input">
 					<span class="label-text font-semibold">Private Key (nsec)</span>
 					<div
 						class="tooltip tooltip-left"

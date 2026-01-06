@@ -318,9 +318,9 @@
           disabled={isSubmitting}
         />
         {#if validationErrors.title}
-          <label class="label">
+          <div class="label">
             <span class="label-text-alt text-error">{validationErrors.title}</span>
-          </label>
+          </div>
         {/if}
       </div>
 
@@ -336,9 +336,9 @@
           disabled={isSubmitting}
         />
         {#if validationErrors.description}
-          <label class="label">
+          <div class="label">
             <span class="label-text-alt text-error">{validationErrors.description}</span>
-          </label>
+          </div>
         {/if}
       </div>
 
@@ -432,9 +432,9 @@
               disabled={isSubmitting}
             />
             {#if validationErrors.endTime}
-              <label class="label">
+              <div class="label">
                 <span class="label-text-alt text-error">{validationErrors.endTime}</span>
-              </label>
+              </div>
             {/if}
           </div>
         {/if}
@@ -446,9 +446,9 @@
   {#if currentStep === 3}
     <div class="space-y-4">
       <div class="form-control">
-        <label class="label">
+        <div class="label">
           <span class="label-text">Venue Type</span>
-        </label>
+        </div>
         <div class="flex gap-2 flex-wrap">
           <label class="label cursor-pointer border rounded-lg p-3 flex-1 min-w-[120px] {formData.venueType === 'fairfield' ? 'border-primary bg-primary/10' : 'border-base-300'}">
             <input
@@ -509,9 +509,9 @@
             {/each}
           </select>
           {#if validationErrors.room}
-            <label class="label">
+            <div class="label">
               <span class="label-text-alt text-error">{validationErrors.room}</span>
-            </label>
+            </div>
           {/if}
         </div>
       {/if}
@@ -530,9 +530,9 @@
             disabled={isSubmitting}
           />
           {#if validationErrors.address}
-            <label class="label">
+            <div class="label">
               <span class="label-text-alt text-error">{validationErrors.address}</span>
-            </label>
+            </div>
           {/if}
         </div>
       {/if}
@@ -551,9 +551,9 @@
             disabled={isSubmitting}
           />
           {#if validationErrors.virtualLink}
-            <label class="label">
+            <div class="label">
               <span class="label-text-alt text-error">{validationErrors.virtualLink}</span>
-            </label>
+            </div>
           {/if}
         </div>
       {/if}
@@ -563,10 +563,10 @@
   <!-- Step 4: Visibility -->
   {#if currentStep === 4}
     <div class="space-y-4">
-      <div class="form-control">
-        <label class="label">
+      <fieldset class="form-control">
+        <legend class="label">
           <span class="label-text">Who can see this event? <span class="text-error">*</span></span>
-        </label>
+        </legend>
         <div class="space-y-2">
           {#each sections as section}
             <label class="label cursor-pointer justify-start gap-2">
@@ -582,16 +582,16 @@
           {/each}
         </div>
         {#if validationErrors.visibleToSections}
-          <label class="label">
+          <div class="label">
             <span class="label-text-alt text-error">{validationErrors.visibleToSections}</span>
-          </label>
+          </div>
         {/if}
-      </div>
+      </fieldset>
 
-      <div class="form-control">
-        <label class="label">
+      <fieldset class="form-control">
+        <legend class="label">
           <span class="label-text">Who can see full details?</span>
-        </label>
+        </legend>
         <div class="space-y-2">
           {#each sections as section}
             <label class="label cursor-pointer justify-start gap-2">
@@ -606,12 +606,12 @@
             </label>
           {/each}
         </div>
-      </div>
+      </fieldset>
 
-      <div class="form-control">
-        <label class="label">
+      <fieldset class="form-control">
+        <legend class="label">
           <span class="label-text">Who can RSVP? (Cohorts)</span>
-        </label>
+        </legend>
         <div class="space-y-2">
           {#each cohorts as cohort}
             <label class="label cursor-pointer justify-start gap-2">
@@ -626,7 +626,7 @@
             </label>
           {/each}
         </div>
-      </div>
+      </fieldset>
 
       <div class="form-control">
         <label class="label" for="max-attendees">

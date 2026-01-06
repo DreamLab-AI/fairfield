@@ -3,8 +3,8 @@
  * Centralized permission checking using config-driven roles and sections
  */
 
-import type { RoleId, SectionId, CohortId, UserPermissions, UserSectionRole } from './types';
-import { getRole, getSection, roleHasCapability, roleIsHigherThan, getHighestRole } from './loader';
+import type { RoleId, SectionId, CohortId, CategoryId, UserPermissions, UserSectionRole, CategoryConfig } from './types';
+import { getRole, getSection, getCategory, getCategories, roleHasCapability, roleIsHigherThan, getHighestRole } from './loader';
 
 /**
  * Check if user has a specific capability
@@ -212,6 +212,79 @@ export function getAccessibleSections(
 	allSectionIds: SectionId[]
 ): SectionId[] {
 	return allSectionIds.filter((id) => canAccessSection(permissions, id));
+}
+
+/**
+ * Check if user can access a category (zone-level visibility)
+ * Categories with access.visibleToCohorts are only visible to matching cohorts
+ * Categories with access.hiddenFromCohorts are hidden from those cohorts
+ * Cross-access cohort and admin always have access
+ */
+export function canAccessCategory(permissions: UserPermissions, categoryId: CategoryId): boolean {
+	const category = getCategory(categoryId);
+	if (!category) return false;
+
+	// Global admin can access everything
+	if (permissions.globalRole === 'admin') {
+		return true;
+	}
+
+	// Cross-access cohort can access all categories
+	if (permissions.cohorts.includes('cross-access')) {
+		return true;
+	}
+
+	// If no access config, category is visible to everyone
+	if (!category.access) {
+		return true;
+	}
+
+	// Check hiddenFromCohorts - if user has ANY hidden cohort, deny access
+	if (category.access.hiddenFromCohorts?.length) {
+		const isHidden = category.access.hiddenFromCohorts.some((cohort) =>
+			permissions.cohorts.includes(cohort)
+		);
+		if (isHidden) return false;
+	}
+
+	// Check minimum role requirement
+	if (category.access.minimumRole) {
+		const userRole = getRole(permissions.globalRole);
+		const minRole = getRole(category.access.minimumRole);
+		if (userRole && minRole && userRole.level < minRole.level) {
+			return false;
+		}
+	}
+
+	// Check visibleToCohorts - if defined, user must have at least one matching cohort
+	if (category.access.visibleToCohorts?.length) {
+		const hasVisibleCohort = category.access.visibleToCohorts.some((cohort) =>
+			permissions.cohorts.includes(cohort)
+		);
+		return hasVisibleCohort;
+	}
+
+	// No visibility restrictions - allow access
+	return true;
+}
+
+/**
+ * Get all categories user can access (filtered by visibility rules)
+ */
+export function getAccessibleCategories(permissions: UserPermissions): CategoryConfig[] {
+	const allCategories = getCategories();
+	return allCategories.filter((category) => canAccessCategory(permissions, category.id));
+}
+
+/**
+ * Check if user has cross-access to all zones
+ */
+export function hasCrossZoneAccess(permissions: UserPermissions): boolean {
+	return (
+		permissions.globalRole === 'admin' ||
+		permissions.cohorts.includes('admin') ||
+		permissions.cohorts.includes('cross-access')
+	);
 }
 
 /**

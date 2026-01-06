@@ -97,10 +97,11 @@
       <!-- Start Date/Time -->
       <div class="grid grid-cols-2 gap-2">
         <div class="form-control">
-          <label class="label py-1">
+          <label class="label py-1" for="event-start-date-input">
             <span class="label-text text-xs">Start Date *</span>
           </label>
           <input
+            id="event-start-date-input"
             type="date"
             bind:value={startDate}
             min={minDate}
@@ -110,10 +111,11 @@
           />
         </div>
         <div class="form-control">
-          <label class="label py-1">
+          <label class="label py-1" for="event-start-time-input">
             <span class="label-text text-xs">Start Time</span>
           </label>
           <input
+            id="event-start-time-input"
             type="time"
             bind:value={startTime}
             class="input input-bordered input-sm"
@@ -125,10 +127,11 @@
       <!-- End Date/Time -->
       <div class="grid grid-cols-2 gap-2">
         <div class="form-control">
-          <label class="label py-1">
+          <label class="label py-1" for="event-end-date-input">
             <span class="label-text text-xs">End Date</span>
           </label>
           <input
+            id="event-end-date-input"
             type="date"
             bind:value={endDate}
             min={startDate || minDate}
@@ -137,10 +140,11 @@
           />
         </div>
         <div class="form-control">
-          <label class="label py-1">
+          <label class="label py-1" for="event-end-time-input">
             <span class="label-text text-xs">End Time</span>
           </label>
           <input
+            id="event-end-time-input"
             type="time"
             bind:value={endTime}
             class="input input-bordered input-sm"
@@ -151,10 +155,11 @@
 
       <!-- Location -->
       <div class="form-control">
-        <label class="label py-1">
+        <label class="label py-1" for="event-location-input">
           <span class="label-text text-xs">Location (optional)</span>
         </label>
         <input
+          id="event-location-input"
           type="text"
           bind:value={location}
           placeholder="Add location..."
@@ -166,10 +171,11 @@
       <!-- Recurrence -->
       <div class="grid grid-cols-2 gap-2">
         <div class="form-control">
-          <label class="label py-1">
+          <label class="label py-1" for="event-recurrence-select">
             <span class="label-text text-xs">Repeat</span>
           </label>
           <select
+            id="event-recurrence-select"
             bind:value={recurrence}
             class="select select-bordered select-sm"
             on:change={emitChange}
@@ -182,10 +188,11 @@
 
         {#if recurrence !== 'none'}
           <div class="form-control">
-            <label class="label py-1">
+            <label class="label py-1" for="event-recurrence-end-input">
               <span class="label-text text-xs">Until</span>
             </label>
             <input
+              id="event-recurrence-end-input"
               type="date"
               bind:value={recurrenceEnd}
               min={startDate || minDate}
