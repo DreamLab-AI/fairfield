@@ -6,8 +6,9 @@ claude-flow.config.json
 .swarm/
 .hive-mind/
 .claude-flow/
-JavaScriptSolidServer/.claude-flow/
-JavaScriptSolidServer/.swarm/
+**/.claude-flow/
+**/.swarm/
+**/.hive-mind/
 memory/
 coordination/
 memory/claude-flow-data.json
