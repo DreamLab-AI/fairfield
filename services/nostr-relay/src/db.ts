@@ -338,6 +338,107 @@ export class NostrDatabase {
     return result.rows.map(r => r.pubkey);
   }
 
+  async listWhitelistFull(options?: {
+    limit?: number;
+    offset?: number;
+    cohortFilter?: string;
+  }): Promise<{
+    users: Array<{
+      pubkey: string;
+      cohorts: string[];
+      addedAt: number;
+      addedBy: string | null;
+      displayName: string | null;
+    }>;
+    total: number;
+  }> {
+    if (!this.pool) return { users: [], total: 0 };
+
+    const limit = options?.limit || 20;
+    const offset = options?.offset || 0;
+
+    let whereClause = 'WHERE (expires_at IS NULL OR expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT)';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (options?.cohortFilter) {
+      whereClause += ` AND cohorts @> $${paramIndex++}::jsonb`;
+      params.push(JSON.stringify([options.cohortFilter]));
+    }
+
+    // Get total count
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*) as count FROM whitelist ${whereClause}`,
+      params
+    );
+    const total = Number(countResult.rows[0].count);
+
+    // Get users with potential profile metadata from kind 0 events
+    const query = `
+      SELECT
+        w.pubkey,
+        w.cohorts,
+        w.added_at,
+        w.added_by,
+        w.notes,
+        (
+          SELECT e.content
+          FROM events e
+          WHERE e.pubkey = w.pubkey AND e.kind = 0
+          ORDER BY e.created_at DESC
+          LIMIT 1
+        ) as profile_content
+      FROM whitelist w
+      ${whereClause}
+      ORDER BY w.added_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    params.push(limit, offset);
+
+    const result = await this.pool.query(query, params);
+
+    const users = result.rows.map(row => {
+      let displayName: string | null = null;
+
+      // Try to extract display name from kind 0 profile
+      if (row.profile_content) {
+        try {
+          const profile = JSON.parse(row.profile_content);
+          displayName = profile.display_name || profile.name || null;
+        } catch {
+          // Invalid JSON in profile
+        }
+      }
+
+      return {
+        pubkey: row.pubkey,
+        cohorts: typeof row.cohorts === 'string' ? JSON.parse(row.cohorts) : (row.cohorts || []),
+        addedAt: Number(row.added_at),
+        addedBy: row.added_by,
+        displayName
+      };
+    });
+
+    return { users, total };
+  }
+
+  async updateCohorts(pubkey: string, cohorts: string[], updatedBy: string): Promise<boolean> {
+    if (!this.pool) return false;
+
+    try {
+      const result = await this.pool.query(
+        `UPDATE whitelist
+         SET cohorts = $1, added_by = $2
+         WHERE pubkey = $3`,
+        [JSON.stringify(cohorts), updatedBy, pubkey]
+      );
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch {
+      return false;
+    }
+  }
+
   async getStats(): Promise<{
     eventCount: number;
     whitelistCount: number;

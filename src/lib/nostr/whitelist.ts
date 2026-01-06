@@ -298,3 +298,115 @@ export async function approveUserRegistration(
     };
   }
 }
+
+/**
+ * User entry from whitelist API
+ */
+export interface WhitelistUserEntry {
+  pubkey: string;
+  cohorts: string[];
+  addedAt: number;
+  addedBy: string | null;
+  displayName: string | null;
+}
+
+/**
+ * Fetch all whitelisted users with pagination
+ *
+ * @param options - Pagination and filter options
+ * @returns List of users and total count
+ */
+export async function fetchWhitelistUsers(options?: {
+  limit?: number;
+  offset?: number;
+  cohort?: string;
+}): Promise<{
+  users: WhitelistUserEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  try {
+    const httpUrl = getRelayHttpUrl();
+    const params = new URLSearchParams();
+
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.cohort) params.set('cohort', options.cohort);
+
+    const response = await fetch(`${httpUrl}/api/whitelist/list?${params}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        users: data.users || [],
+        total: data.total || 0,
+        limit: data.limit || 20,
+        offset: data.offset || 0
+      };
+    }
+
+    console.error('[Whitelist] Failed to fetch users:', response.status);
+    return { users: [], total: 0, limit: 20, offset: 0 };
+  } catch (error) {
+    console.error('[Whitelist] Failed to fetch users:', error);
+    return { users: [], total: 0, limit: 20, offset: 0 };
+  }
+}
+
+/**
+ * Update cohorts for a user
+ *
+ * @param pubkey - User's public key
+ * @param cohorts - New cohort list
+ * @param adminPubkey - Admin's public key for audit trail
+ * @returns Success status
+ */
+export async function updateUserCohorts(
+  pubkey: string,
+  cohorts: string[],
+  adminPubkey: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const httpUrl = getRelayHttpUrl();
+    const response = await fetch(`${httpUrl}/api/whitelist/update-cohorts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pubkey,
+        cohorts,
+        adminPubkey,
+      }),
+    });
+
+    if (response.ok) {
+      // Clear cache to force re-check
+      clearWhitelistCache(pubkey);
+
+      if (import.meta.env.DEV) {
+        console.log('[Whitelist] Updated cohorts for:', pubkey.slice(0, 8), cohorts);
+      }
+
+      return { success: true };
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: errorData.error || `HTTP ${response.status}`
+    };
+  } catch (error) {
+    console.error('[Whitelist] Failed to update cohorts:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}

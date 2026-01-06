@@ -27,6 +27,7 @@
   import ChannelJoinRequests from '$lib/components/admin/ChannelJoinRequests.svelte';
   import QuickActions from '$lib/components/admin/QuickActions.svelte';
   import UserCohortManager from '$lib/components/admin/UserCohortManager.svelte';
+  import UserManagement from '$lib/components/admin/UserManagement.svelte';
 
   // State
   let pendingRequests: SectionAccessRequest[] = [];
@@ -590,6 +591,8 @@
   <RelaySettings bind:isPrivateMode {isSwitchingMode} on:modeChange={handleRelayModeChange} />
 
   <ChannelManagement {channels} {isLoading} on:create={handleCreateChannel} />
+
+  <UserManagement />
 
   <PendingUserApproval
     {pendingUserRegistrations}

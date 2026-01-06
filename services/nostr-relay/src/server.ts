@@ -143,6 +143,102 @@ class NostrRelay {
       return;
     }
 
+    // List all whitelisted users (admin only)
+    if (url.pathname === '/api/whitelist/list' && req.method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const offset = parseInt(url.searchParams.get('offset') || '0');
+      const cohortFilter = url.searchParams.get('cohort') || undefined;
+
+      try {
+        const result = await this.db.listWhitelistFull({ limit, offset, cohortFilter });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          users: result.users,
+          total: result.total,
+          limit,
+          offset
+        }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to list users' }));
+      }
+      return;
+    }
+
+    // Add user to whitelist
+    if (url.pathname === '/api/whitelist/add' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      await new Promise<void>(resolve => req.on('end', resolve));
+
+      try {
+        const data = JSON.parse(body);
+        const { pubkey, cohorts, adminPubkey } = data;
+
+        if (!pubkey || !/^[0-9a-f]{64}$/i.test(pubkey)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid pubkey format' }));
+          return;
+        }
+
+        const success = await this.db.addToWhitelist(
+          pubkey,
+          cohorts || ['approved'],
+          adminPubkey || 'system'
+        );
+
+        if (success) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to add user' }));
+        }
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid request body' }));
+      }
+      return;
+    }
+
+    // Update user cohorts
+    if (url.pathname === '/api/whitelist/update-cohorts' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      await new Promise<void>(resolve => req.on('end', resolve));
+
+      try {
+        const data = JSON.parse(body);
+        const { pubkey, cohorts, adminPubkey } = data;
+
+        if (!pubkey || !/^[0-9a-f]{64}$/i.test(pubkey)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid pubkey format' }));
+          return;
+        }
+
+        if (!Array.isArray(cohorts)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Cohorts must be an array' }));
+          return;
+        }
+
+        const success = await this.db.updateCohorts(pubkey, cohorts, adminPubkey || 'system');
+
+        if (success) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to update cohorts' }));
+        }
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid request body' }));
+      }
+      return;
+    }
+
     // Relay info (NIP-11)
     if (url.pathname === '/.well-known/nostr.json' ||
         (req.headers.accept?.includes('application/nostr+json'))) {
