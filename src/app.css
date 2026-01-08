@@ -282,15 +282,19 @@
 	}
 
 	.message-bubble-sent {
-		@apply message-bubble bg-primary text-primary-content ml-auto;
+		@apply message-bubble ml-auto;
+		background-color: oklch(var(--p));
+		color: oklch(var(--pc));
 	}
 
 	.message-bubble-received {
-		@apply message-bubble bg-base-200 text-base-content;
+		@apply message-bubble;
+		background-color: oklch(var(--b2));
+		color: oklch(var(--bc));
 	}
 
 	.chat-input {
-		@apply textarea textarea-bordered w-full resize-none focus:textarea-primary;
+		@apply textarea w-full resize-none;
 		min-height: 2.5rem;
 		max-height: 10rem;
 	}
