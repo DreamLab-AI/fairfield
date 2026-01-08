@@ -224,16 +224,6 @@
 				</aside>
 			{/if}
 
-			<!-- Calendar Sidebar (Desktop) -->
-			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
-				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">
-					<CalendarSidebar
-						isExpanded={$sidebarExpanded}
-						isVisible={$sidebarVisible}
-					/>
-				</aside>
-			{/if}
-
 			<!-- Main Content -->
 			{#key $page.url.pathname}
 				<main
@@ -247,6 +237,16 @@
 					<slot />
 				</main>
 			{/key}
+
+			<!-- Calendar Sidebar (Desktop - Right Side) -->
+			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
+				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">
+					<CalendarSidebar
+						isExpanded={$sidebarExpanded}
+						isVisible={$sidebarVisible}
+					/>
+				</aside>
+			{/if}
 		</div>
 
 		<!-- Calendar Sheet (Mobile) -->

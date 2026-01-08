@@ -189,7 +189,7 @@
 </script>
 
 <aside
-  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-r border-base-300 dark:border-base-content/10"
+  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-l border-base-300 dark:border-base-content/10"
   class:expanded={isExpanded}
   class:collapsed={!isExpanded}
   class:hidden={!isVisible}
@@ -216,7 +216,7 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+            d="M13 5l7 7-7 7M5 5l7 7-7 7"
           />
         </svg>
       </button>
@@ -237,7 +237,7 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M13 5l7 7-7 7M5 5l7 7-7 7"
+            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
           />
         </svg>
       </button>
