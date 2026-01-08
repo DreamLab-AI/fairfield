@@ -15,9 +15,10 @@
     danger: 'btn-error'
   };
 
+  // Note: DaisyUI doesn't have btn-md, it's the default size
   $: sizeClasses = {
     sm: 'btn-sm',
-    md: 'btn-md',
+    md: '', // Default size - no class needed
     lg: 'btn-lg'
   };
 

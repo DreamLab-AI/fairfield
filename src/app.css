@@ -4,6 +4,11 @@
 
 @layer base {
 	:root {
+		/* ========================================
+		   MD3 DESIGN SYSTEM TOKENS
+		   ======================================== */
+
+		/* Brand Colors */
 		--color-primary: #5568d3;
 		--color-primary-hover: #4456c2;
 		--color-secondary: #764ba2;
@@ -11,6 +16,81 @@
 		--color-error: #ef4444;
 		--color-warning: #f59e0b;
 		--color-info: #3b82f6;
+
+		/* Z-Index Scale - Consistent layering across app */
+		--z-dropdown: 1000;
+		--z-sticky: 1020;
+		--z-fixed: 1030;
+		--z-modal-backdrop: 1040;
+		--z-modal: 1050;
+		--z-popover: 1060;
+		--z-tooltip: 1070;
+		--z-toast: 1080;
+		--z-overlay-max: 1090;
+
+		/* Spacing Scale - 8px grid system */
+		--space-0: 0;
+		--space-1: 0.25rem;  /* 4px */
+		--space-2: 0.5rem;   /* 8px */
+		--space-3: 0.75rem;  /* 12px */
+		--space-4: 1rem;     /* 16px */
+		--space-5: 1.25rem;  /* 20px */
+		--space-6: 1.5rem;   /* 24px */
+		--space-8: 2rem;     /* 32px */
+		--space-10: 2.5rem;  /* 40px */
+		--space-12: 3rem;    /* 48px */
+		--space-16: 4rem;    /* 64px */
+		--space-20: 5rem;    /* 80px */
+		--space-24: 6rem;    /* 96px */
+
+		/* Focus Ring - Accessible, consistent focus states */
+		--focus-ring-color: oklch(var(--p) / 0.5);
+		--focus-ring-width: 3px;
+		--focus-ring-offset: 2px;
+
+		/* MD3 Motion System - Easing curves */
+		--md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+		--md-sys-motion-easing-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+		--md-sys-motion-easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+		--md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+		--md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+		--md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+		--md-sys-motion-easing-legacy: cubic-bezier(0.4, 0, 0.2, 1);
+
+		/* MD3 Motion System - Durations */
+		--md-sys-motion-duration-short1: 50ms;
+		--md-sys-motion-duration-short2: 100ms;
+		--md-sys-motion-duration-short3: 150ms;
+		--md-sys-motion-duration-short4: 200ms;
+		--md-sys-motion-duration-medium1: 250ms;
+		--md-sys-motion-duration-medium2: 300ms;
+		--md-sys-motion-duration-medium3: 350ms;
+		--md-sys-motion-duration-medium4: 400ms;
+		--md-sys-motion-duration-long1: 450ms;
+		--md-sys-motion-duration-long2: 500ms;
+		--md-sys-motion-duration-long3: 550ms;
+		--md-sys-motion-duration-long4: 600ms;
+		--md-sys-motion-duration-extra-long1: 700ms;
+		--md-sys-motion-duration-extra-long2: 800ms;
+		--md-sys-motion-duration-extra-long3: 900ms;
+		--md-sys-motion-duration-extra-long4: 1000ms;
+
+		/* MD3 Elevation - Surface tint levels */
+		--md-sys-elevation-level0: 0;
+		--md-sys-elevation-level1: 1px;
+		--md-sys-elevation-level2: 3px;
+		--md-sys-elevation-level3: 6px;
+		--md-sys-elevation-level4: 8px;
+		--md-sys-elevation-level5: 12px;
+
+		/* MD3 Shape - Border radius scale */
+		--md-sys-shape-corner-none: 0;
+		--md-sys-shape-corner-extra-small: 4px;
+		--md-sys-shape-corner-small: 8px;
+		--md-sys-shape-corner-medium: 12px;
+		--md-sys-shape-corner-large: 16px;
+		--md-sys-shape-corner-extra-large: 28px;
+		--md-sys-shape-corner-full: 9999px;
 	}
 
 	/* Theme-aware CSS variables for components */
@@ -407,8 +487,28 @@
 		@apply transition-all duration-300 hover:bg-base-200 hover:pl-2;
 	}
 
+	/* Standard focus ring using design tokens */
 	.focus-ring {
-		@apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-base-100;
+		@apply focus:outline-none;
+		--tw-ring-color: var(--focus-ring-color);
+		--tw-ring-offset-width: var(--focus-ring-offset);
+	}
+
+	.focus-ring:focus-visible {
+		box-shadow: 0 0 0 var(--focus-ring-offset) oklch(var(--b1)),
+		            0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color);
+	}
+
+	/* Interactive focus ring with animation */
+	.focus-ring-animated:focus-visible {
+		box-shadow: 0 0 0 var(--focus-ring-offset) oklch(var(--b1)),
+		            0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color);
+		animation: focus-ring-pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes focus-ring-pulse {
+		0%, 100% { box-shadow: 0 0 0 var(--focus-ring-offset) oklch(var(--b1)), 0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color); }
+		50% { box-shadow: 0 0 0 var(--focus-ring-offset) oklch(var(--b1)), 0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width) + 2px) var(--focus-ring-color); }
 	}
 
 	/* ========================================
@@ -763,14 +863,62 @@
 
 	/* Better focus indicators for keyboard navigation */
 	*:focus-visible {
-		outline: 2px solid oklch(var(--p));
-		outline-offset: 2px;
+		outline: none;
+		box-shadow: 0 0 0 var(--focus-ring-offset, 2px) oklch(var(--b1)),
+		            0 0 0 calc(var(--focus-ring-offset, 2px) + var(--focus-ring-width, 3px)) var(--focus-ring-color, oklch(var(--p) / 0.5));
 	}
 
 	/* Remove outline for mouse users */
 	*:focus:not(:focus-visible) {
 		outline: none;
+		box-shadow: none;
 	}
+
+	/* Skip to content link focus enhancement */
+	.skip-link:focus-visible {
+		position: fixed;
+		top: var(--space-4);
+		left: var(--space-4);
+		z-index: var(--z-overlay-max);
+		padding: var(--space-3) var(--space-4);
+		background: oklch(var(--p));
+		color: oklch(var(--pc));
+		border-radius: var(--md-sys-shape-corner-small);
+		text-decoration: none;
+		font-weight: 500;
+	}
+
+	/* Z-index utility classes */
+	.z-dropdown { z-index: var(--z-dropdown); }
+	.z-sticky { z-index: var(--z-sticky); }
+	.z-fixed { z-index: var(--z-fixed); }
+	.z-modal-backdrop { z-index: var(--z-modal-backdrop); }
+	.z-modal { z-index: var(--z-modal); }
+	.z-popover { z-index: var(--z-popover); }
+	.z-tooltip { z-index: var(--z-tooltip); }
+	.z-toast { z-index: var(--z-toast); }
+	.z-overlay-max { z-index: var(--z-overlay-max); }
+
+	/* MD3 Motion utilities */
+	.motion-standard {
+		transition-timing-function: var(--md-sys-motion-easing-standard);
+	}
+
+	.motion-emphasized {
+		transition-timing-function: var(--md-sys-motion-easing-emphasized);
+	}
+
+	.motion-emphasized-decelerate {
+		transition-timing-function: var(--md-sys-motion-easing-emphasized-decelerate);
+	}
+
+	.motion-emphasized-accelerate {
+		transition-timing-function: var(--md-sys-motion-easing-emphasized-accelerate);
+	}
+
+	.duration-short { transition-duration: var(--md-sys-motion-duration-short4); }
+	.duration-medium { transition-duration: var(--md-sys-motion-duration-medium2); }
+	.duration-long { transition-duration: var(--md-sys-motion-duration-long2); }
 
 	/* Portrait orientation optimizations */
 	@media (orientation: portrait) and (max-width: 768px) {

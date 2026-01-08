@@ -13,9 +13,10 @@
     neutral: 'badge-neutral'
   };
 
+  // Note: DaisyUI doesn't have badge-md, it's the default size
   $: sizeClasses = {
     sm: 'badge-sm',
-    md: 'badge-md',
+    md: '', // Default size - no class needed
     lg: 'badge-lg'
   };
 

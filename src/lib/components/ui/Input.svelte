@@ -31,16 +31,21 @@
     </label>
   {/if}
 
+  <!-- Input with proper ARIA attributes for accessibility -->
   {#if inputType === 'password'}
     <input
       bind:this={inputElement}
       type="password"
+      id={inputId}
       {placeholder}
       {disabled}
       {required}
       {autocomplete}
       bind:value
-      class="input input-bordered w-full {hasError ? 'input-error' : 'focus:input-primary'}"
+      class="input input-bordered w-full focus-ring {hasError ? 'input-error' : 'focus:input-primary'}"
+      aria-invalid={hasError}
+      aria-describedby={hasError ? errorId : undefined}
+      aria-required={required}
       on:input
       on:change
       on:focus
@@ -54,12 +59,16 @@
     <input
       bind:this={inputElement}
       type="email"
+      id={inputId}
       {placeholder}
       {disabled}
       {required}
       {autocomplete}
       bind:value
-      class="input input-bordered w-full {hasError ? 'input-error' : 'focus:input-primary'}"
+      class="input input-bordered w-full focus-ring {hasError ? 'input-error' : 'focus:input-primary'}"
+      aria-invalid={hasError}
+      aria-describedby={hasError ? errorId : undefined}
+      aria-required={required}
       on:input
       on:change
       on:focus
@@ -73,12 +82,16 @@
     <input
       bind:this={inputElement}
       type="number"
+      id={inputId}
       {placeholder}
       {disabled}
       {required}
       {autocomplete}
       bind:value
-      class="input input-bordered w-full {hasError ? 'input-error' : 'focus:input-primary'}"
+      class="input input-bordered w-full focus-ring {hasError ? 'input-error' : 'focus:input-primary'}"
+      aria-invalid={hasError}
+      aria-describedby={hasError ? errorId : undefined}
+      aria-required={required}
       on:input
       on:change
       on:focus
@@ -92,12 +105,16 @@
     <input
       bind:this={inputElement}
       type="url"
+      id={inputId}
       {placeholder}
       {disabled}
       {required}
       {autocomplete}
       bind:value
-      class="input input-bordered w-full {hasError ? 'input-error' : 'focus:input-primary'}"
+      class="input input-bordered w-full focus-ring {hasError ? 'input-error' : 'focus:input-primary'}"
+      aria-invalid={hasError}
+      aria-describedby={hasError ? errorId : undefined}
+      aria-required={required}
       on:input
       on:change
       on:focus
@@ -111,12 +128,16 @@
     <input
       bind:this={inputElement}
       type="text"
+      id={inputId}
       {placeholder}
       {disabled}
       {required}
       {autocomplete}
       bind:value
-      class="input input-bordered w-full {hasError ? 'input-error' : 'focus:input-primary'}"
+      class="input input-bordered w-full focus-ring {hasError ? 'input-error' : 'focus:input-primary'}"
+      aria-invalid={hasError}
+      aria-describedby={hasError ? errorId : undefined}
+      aria-required={required}
       on:input
       on:change
       on:focus

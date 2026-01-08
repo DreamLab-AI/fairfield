@@ -228,7 +228,7 @@
       <div
         class="text-center text-[10px] font-medium text-base-content/60 uppercase"
         role="columnheader"
-        abbr={dayNamesFull[i]}
+        title={dayNamesFull[i]}
         aria-label={dayNamesFull[i]}
       >
         {day}
