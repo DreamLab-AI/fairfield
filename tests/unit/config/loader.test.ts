@@ -65,7 +65,7 @@ describe('Config Loader', () => {
 			const config = loadConfig();
 
 			expect(config).toBeDefined();
-			expect(config.app.name).toBe('Fairfield - DreamLab - Cumbria');
+			expect(config.app.name).toBe('Fairfield');
 			expect(config.categories.length).toBeGreaterThan(0);
 			expect(config.roles.length).toBeGreaterThan(0);
 		});
@@ -131,7 +131,7 @@ describe('Config Loader', () => {
 			clearConfigCache();
 
 			const config = loadConfig();
-			expect(config.app.name).toBe('Fairfield - DreamLab - Cumbria');
+			expect(config.app.name).toBe('Fairfield');
 		});
 
 		it('should cache config after first load', () => {
@@ -216,7 +216,7 @@ describe('Config Loader', () => {
 	describe('accessor functions', () => {
 		it('should get app config', () => {
 			const appConfig = getAppConfig();
-			expect(appConfig.name).toBe('Fairfield - DreamLab - Cumbria');
+			expect(appConfig.name).toBe('Fairfield');
 			expect(appConfig.version).toBeDefined();
 		});
 
@@ -380,12 +380,11 @@ describe('Config Loader', () => {
 			expect(config.superuser?.name).toBe('Super Admin');
 		});
 
-		it('should return undefined or empty if no superuser configured', () => {
+		it('should return superuser if configured', () => {
 			const superuser = getSuperuser();
-			// Superuser may be defined but with empty pubkey
-			if (superuser) {
-				expect(superuser.pubkey).toBe('');
-			}
+			// Default config has superuser with pubkey
+			expect(superuser).toBeDefined();
+			expect(superuser?.pubkey).toBe('11ed64225dd5e2c5e18f61ad43d5ad9272d08739d3a20dd25886197b0738663c');
 		});
 
 		it('should identify superuser by pubkey', () => {
@@ -412,12 +411,14 @@ describe('Config Loader', () => {
 			// So this test verifies that loadConfig() returns the correct config
 		});
 
-		it('should handle empty superuser pubkey correctly', () => {
-			// Default config has superuser with empty pubkey
-			// Non-empty pubkeys should not match
+		it('should correctly identify superuser by pubkey', () => {
+			// Default config has a real superuser pubkey
+			// Non-matching pubkeys should return false
 			expect(isSuperuser('a'.repeat(64))).toBe(false);
-			// Empty string matches empty superuser pubkey
-			expect(isSuperuser('')).toBe(true);
+			// Empty string should not match configured superuser
+			expect(isSuperuser('')).toBe(false);
+			// Real superuser pubkey should match
+			expect(isSuperuser('11ed64225dd5e2c5e18f61ad43d5ad9272d08739d3a20dd25886197b0738663c')).toBe(true);
 		});
 	});
 

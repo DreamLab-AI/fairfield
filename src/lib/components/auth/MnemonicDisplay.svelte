@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
   import SecurityTooltip from '$lib/components/ui/SecurityTooltip.svelte';
+  import { SecureClipboard } from '$lib/security/secureMemory';
 
   export let mnemonic: string;
 
@@ -11,18 +12,52 @@
   let hasAcknowledged = false;
   let copied = false;
   let showMnemonic = false;
+  let clipboardWarning = false;
+  let clipboardCleared = false;
+  let cancelClipboardClear: (() => void) | null = null;
 
   const words = mnemonic.split(' ');
 
   async function copyToClipboard() {
     try {
-      await navigator.clipboard.writeText(mnemonic);
+      // Cancel any existing clipboard clear
+      if (cancelClipboardClear) {
+        cancelClipboardClear();
+      }
+
+      const result = await SecureClipboard.copyWithAutoClear(
+        mnemonic,
+        60000, // 60 seconds
+        () => {
+          // Warning callback - 10 seconds before clear
+          clipboardWarning = true;
+        },
+        () => {
+          // Cleared callback
+          clipboardCleared = true;
+          clipboardWarning = false;
+          copied = false;
+          // Auto-hide the cleared message after 5 seconds
+          setTimeout(() => {
+            clipboardCleared = false;
+          }, 5000);
+        }
+      );
+
+      cancelClipboardClear = result.cancel;
       copied = true;
-      setTimeout(() => { copied = false; }, 2000);
     } catch (error) {
       console.error('Failed to copy:', error);
     }
   }
+
+  onDestroy(() => {
+    // Cancel clipboard clear and clear clipboard when component unmounts
+    if (cancelClipboardClear) {
+      cancelClipboardClear();
+    }
+    SecureClipboard.clearClipboard();
+  });
 
   function handleContinue() {
     if (hasSaved) {
@@ -125,7 +160,7 @@
             </div>
           </div>
 
-          <div class="flex justify-center mb-4">
+          <div class="flex flex-col items-center gap-2 mb-4">
             <button
               class="btn btn-outline btn-sm gap-2"
               on:click={copyToClipboard}
@@ -134,7 +169,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Copied!
+                Copied! (auto-clears in 60s)
               {:else}
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -142,6 +177,26 @@
                 Copy to Clipboard
               {/if}
             </button>
+
+            <!-- Clipboard warning toast -->
+            {#if clipboardWarning}
+              <div class="alert alert-warning py-2 px-4 text-sm animate-pulse">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>Clipboard will be cleared in 10 seconds for security</span>
+              </div>
+            {/if}
+
+            <!-- Clipboard cleared toast -->
+            {#if clipboardCleared}
+              <div class="alert alert-info py-2 px-4 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Clipboard cleared for security</span>
+              </div>
+            {/if}
           </div>
 
           <div class="form-control mb-4">

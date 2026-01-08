@@ -254,15 +254,17 @@
       }
 
       // Create local message object for optimistic UI update
+      const messageId = messageEvent.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const message: Message = {
-        id: messageEvent.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: messageId,
         channelId: channelId,
         authorPubkey: $authStore.publicKey,
         content: content,
         createdAt: Date.now(),
         isEncrypted: $selectedChannel.isEncrypted,
         decryptedContent: $selectedChannel.isEncrypted ? content : undefined,
-        event: isEvent && eventData ? eventData : undefined
+        event: isEvent && eventData ? eventData : undefined,
+        sendStatus: 'sent' // Published successfully to relay
       };
 
       channelStore.addMessage(message);

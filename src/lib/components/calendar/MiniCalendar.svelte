@@ -26,11 +26,37 @@
   $: sections = getSections();
 
   const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const monthNamesShort = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
 
   const dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  const dayNamesFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  function formatDateForScreenReader(date: Date): string {
+    const dayName = dayNamesFull[(date.getDay() + 6) % 7]; // Adjust for Monday start
+    const monthName = monthNames[date.getMonth()];
+    const dayNum = date.getDate();
+    const year = date.getFullYear();
+    return `${dayName}, ${monthName} ${dayNum}, ${year}`;
+  }
+
+  function getAriaLabel(date: Date, dayEvents: EventWithSection[], dayBlocks: AvailabilityBlock[], today: boolean, selected: boolean): string {
+    const parts: string[] = [formatDateForScreenReader(date)];
+
+    if (today) parts.push('today');
+    if (selected) parts.push('selected');
+    if (dayEvents.length > 0) parts.push(`${dayEvents.length} event${dayEvents.length > 1 ? 's' : ''}`);
+    if (dayBlocks.some(b => b.blockType === 'hard')) parts.push('unavailable');
+    else if (dayBlocks.some(b => b.blockType === 'soft')) parts.push('limited availability');
+
+    return parts.join(', ');
+  }
 
   function getWeeksInMonth(year: number, month: number): Date[][] {
     const weeks: Date[][] = [];
@@ -197,78 +223,95 @@
   </div>
 
   <!-- Day of Week Headers -->
-  <div class="grid grid-cols-7 gap-px mb-1">
-    {#each dayNames as day}
-      <div class="text-center text-[10px] font-medium text-base-content/60 uppercase">
+  <div class="grid grid-cols-7 gap-px mb-1" role="row">
+    {#each dayNames as day, i}
+      <div
+        class="text-center text-[10px] font-medium text-base-content/60 uppercase"
+        role="columnheader"
+        abbr={dayNamesFull[i]}
+        aria-label={dayNamesFull[i]}
+      >
         {day}
       </div>
     {/each}
   </div>
 
   <!-- Calendar Grid -->
-  <div class="grid grid-cols-7 gap-px bg-base-300 rounded-lg overflow-hidden">
-    {#each weeks as week}
-      {#each week as date}
-        {@const dayEvents = getEventsForDate(date)}
-        {@const dayBlocks = getBlocksForDate(date)}
-        {@const today = isToday(date)}
-        {@const selected = isSelected(date)}
-        {@const currentMonth = isCurrentMonth(date)}
-        {@const hasHardBlock = dayBlocks.some(b => b.blockType === 'hard')}
-        {@const hasSoftBlock = dayBlocks.some(b => b.blockType === 'soft')}
-        {@const hasAnyBlock = hasHardBlock || hasSoftBlock}
-        <button
-          class="aspect-square p-1 bg-base-100 dark:bg-base-200 hover:bg-base-200 dark:hover:bg-base-300 transition-colors flex flex-col items-center justify-start relative"
-          class:bg-primary={selected}
-          class:text-primary-content={selected}
-          class:ring-2={today && !selected}
-          class:ring-primary={today && !selected}
-          class:ring-inset={today && !selected}
-          class:opacity-40={!currentMonth}
-          class:bg-error={hasHardBlock && !selected}
-          class:bg-warning={hasSoftBlock && !hasHardBlock && !selected}
-          class:bg-opacity-10={hasAnyBlock && !selected}
-          on:click={() => handleDayClick(date)}
-          aria-label={`Select ${date.toLocaleDateString()}`}
-        >
-          <span
-            class="text-[11px] font-medium"
-            class:text-primary={today && !selected}
+  <div
+    class="grid grid-cols-7 gap-px bg-base-300 rounded-lg overflow-hidden"
+    role="grid"
+    aria-label={`Calendar for ${monthNames[month]} ${year}`}
+  >
+    {#each weeks as week, weekIndex}
+      <div class="contents" role="row">
+        {#each week as date}
+          {@const dayEvents = getEventsForDate(date)}
+          {@const dayBlocks = getBlocksForDate(date)}
+          {@const today = isToday(date)}
+          {@const selected = isSelected(date)}
+          {@const currentMonth = isCurrentMonth(date)}
+          {@const hasHardBlock = dayBlocks.some(b => b.blockType === 'hard')}
+          {@const hasSoftBlock = dayBlocks.some(b => b.blockType === 'soft')}
+          {@const hasAnyBlock = hasHardBlock || hasSoftBlock}
+          <button
+            class="touch-target-44 p-1 bg-base-100 dark:bg-base-200 hover:bg-base-200 dark:hover:bg-base-300 transition-colors flex flex-col items-center justify-start relative"
+            class:bg-primary={selected}
+            class:text-primary-content={selected}
+            class:ring-2={today && !selected}
+            class:ring-primary={today && !selected}
+            class:ring-inset={today && !selected}
+            class:opacity-40={!currentMonth}
+            class:bg-error={hasHardBlock && !selected}
+            class:bg-warning={hasSoftBlock && !hasHardBlock && !selected}
+            class:bg-opacity-10={hasAnyBlock && !selected}
+            on:click={() => handleDayClick(date)}
+            role="gridcell"
+            aria-selected={selected}
+            aria-current={today ? 'date' : undefined}
+            aria-label={getAriaLabel(date, dayEvents, dayBlocks, today, selected)}
+            tabindex={currentMonth ? 0 : -1}
           >
-            {date.getDate()}
-          </span>
+            <span
+              class="text-[11px] font-medium"
+              class:text-primary={today && !selected}
+              aria-hidden="true"
+            >
+              {date.getDate()}
+            </span>
 
-          <!-- Event and Block Dots -->
-          {#if dayEvents.length > 0 || dayBlocks.length > 0}
-            <div class="flex gap-[2px] mt-auto flex-wrap justify-center">
-              <!-- Event Dots -->
-              {#each dayEvents.slice(0, 2) as event}
-                <div
-                  class="w-1 h-1 rounded-full {getSectionColor(event.section)}"
-                  class:opacity-50={!currentMonth}
-                  title={event.title || 'Event'}
-                />
-              {/each}
-              <!-- Availability Block Dots -->
-              {#if dayBlocks.length > 0}
-                <AvailabilityBlockRenderer
-                  blocks={dayBlocks}
-                  variant="dot"
-                  maxBlocks={2}
-                  onClick={onBlockClick}
-                />
-              {/if}
-            </div>
-          {/if}
-        </button>
-      {/each}
+            <!-- Event and Block Dots -->
+            {#if dayEvents.length > 0 || dayBlocks.length > 0}
+              <div class="flex gap-[2px] mt-auto flex-wrap justify-center" aria-hidden="true">
+                <!-- Event Dots -->
+                {#each dayEvents.slice(0, 2) as event}
+                  <div
+                    class="w-1 h-1 rounded-full {getSectionColor(event.section)}"
+                    class:opacity-50={!currentMonth}
+                    title={event.title || 'Event'}
+                  />
+                {/each}
+                <!-- Availability Block Dots -->
+                {#if dayBlocks.length > 0}
+                  <AvailabilityBlockRenderer
+                    blocks={dayBlocks}
+                    variant="dot"
+                    maxBlocks={2}
+                    onClick={onBlockClick}
+                  />
+                {/if}
+              </div>
+            {/if}
+          </button>
+        {/each}
+      </div>
     {/each}
   </div>
 </div>
 
 <style>
-  /* Ensure grid items maintain aspect ratio */
-  .aspect-square {
-    aspect-ratio: 1 / 1;
+  /* Touch-friendly calendar cells with minimum 44x44px touch targets */
+  .touch-target-44 {
+    min-width: 44px;
+    min-height: 44px;
   }
 </style>

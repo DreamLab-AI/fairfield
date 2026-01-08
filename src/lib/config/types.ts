@@ -209,7 +209,8 @@ export interface ChannelVisibilityConfig {
 export interface AppConfig {
 	name: string;
 	version: string;
-	defaultPath: string; // e.g., '/fairfield/fairfield-guests'
+	defaultPath?: string; // e.g., '/fairfield/fairfield-guests' (for category-based routing)
+	defaultSection?: string; // e.g., 'fairfield-guests' (for flat section routing)
 	tiers?: TierConfig[];
 }
 
@@ -233,8 +234,10 @@ export interface BBSConfig {
 	roles: RoleConfig[];
 	cohorts: CohortConfig[];
 	categories: CategoryConfig[];
-	calendarAccessLevels: CalendarAccessLevelConfig[];
-	channelVisibility: ChannelVisibilityConfig[];
+	/** Flat sections array (alternative to categories[].sections for simpler setups) */
+	sections?: SectionConfig[];
+	calendarAccessLevels?: CalendarAccessLevelConfig[];
+	channelVisibility?: ChannelVisibilityConfig[];
 }
 
 // Alias for backward compatibility during migration

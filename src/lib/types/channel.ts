@@ -108,6 +108,8 @@ export interface Message {
 	replyTo?: string;
 	quotedMessages?: string[];
 	event?: EventMetadata; // Optional event data
+	/** Send status for own messages: sending → sent → delivered */
+	sendStatus?: 'sending' | 'sent' | 'delivered';
 }
 
 export interface JoinRequest {

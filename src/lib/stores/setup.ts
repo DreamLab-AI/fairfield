@@ -8,9 +8,9 @@ import { browser } from '$app/environment';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { BBSConfig, SectionConfig, CategoryConfig } from '$lib/config/types';
 
-const SETUP_KEY = 'nostr_bbs_setup_complete';
-const CONFIG_KEY = 'nostr_bbs_custom_config';
-const DEPLOYMENT_KEY = 'nostr_bbs_deployment_config';
+const SETUP_KEY = 'minimoonoir-setup-complete';
+const CONFIG_KEY = 'minimoonoir-custom-config';
+const DEPLOYMENT_KEY = 'minimoonoir-deployment-config';
 
 export type SetupStep =
 	| 'welcome'
@@ -133,10 +133,13 @@ function createSetupStore() {
 				if (!parsed.app?.name) {
 					errors.push('Missing app.name');
 				}
-				// Check for categories (new structure) or sections (legacy)
-				const allSections = parsed.categories?.flatMap((c) => c.sections || []) || [];
+				// Check for sections (can be flat or in categories)
+				let allSections = parsed.sections || [];
+				if (!allSections.length && parsed.categories) {
+					allSections = parsed.categories.flatMap((c) => c.sections || []);
+				}
 				if (!allSections.length) {
-					errors.push('No sections defined in categories');
+					errors.push('No sections defined');
 				}
 				if (!parsed.roles?.length) {
 					errors.push('No roles defined');
@@ -177,13 +180,10 @@ function createSetupStore() {
 		/**
 		 * Update app settings
 		 */
-		setAppSettings(settings: { name: string; version?: string; defaultPath?: string }): void {
+		setAppSettings(settings: { name: string; version?: string; defaultSection?: string }): void {
 			update((state) => {
-				const allSections = state.config.categories?.flatMap((c) => c.sections || []) || [];
-				const firstSectionId = allSections[0]?.id;
-				const firstCategoryId = state.config.categories?.[0]?.id;
-				const defaultPath = settings.defaultPath ||
-					(firstCategoryId && firstSectionId ? `/${firstCategoryId}/${firstSectionId}` : '/');
+				const firstSectionId = state.config.sections?.[0]?.id;
+				const defaultSection = settings.defaultSection || firstSectionId || '';
 
 				return {
 					...state,
@@ -192,7 +192,7 @@ function createSetupStore() {
 						app: {
 							name: settings.name,
 							version: settings.version || '1.0.0',
-							defaultPath
+							defaultSection
 						}
 					}
 				};
@@ -200,57 +200,35 @@ function createSetupStore() {
 		},
 
 		/**
-		 * Add or update a section in a category
+		 * Add or update a section
 		 */
 		addSection(section: SectionConfig, categoryId?: string): void {
 			update((state) => {
-				const categories = [...(state.config.categories || [])];
-				// Use first category if none specified
-				const targetCategoryId = categoryId || categories[0]?.id;
+				const sections = [...(state.config.sections || [])];
+				const existingIndex = sections.findIndex((s) => s.id === section.id);
 
-				if (!targetCategoryId) {
-					// Create default category if none exists
-					categories.push({
-						id: 'default',
-						name: 'Default',
-						description: 'Default category',
-						icon: '📁',
-						order: 0,
-						sections: [section]
-					});
+				if (existingIndex >= 0) {
+					sections[existingIndex] = section;
 				} else {
-					const categoryIndex = categories.findIndex((c) => c.id === targetCategoryId);
-					if (categoryIndex >= 0) {
-						const sections = [...(categories[categoryIndex].sections || [])];
-						const existingIndex = sections.findIndex((s) => s.id === section.id);
-						if (existingIndex >= 0) {
-							sections[existingIndex] = section;
-						} else {
-							sections.push(section);
-						}
-						categories[categoryIndex] = { ...categories[categoryIndex], sections };
-					}
+					sections.push(section);
 				}
 
 				return {
 					...state,
-					config: { ...state.config, categories }
+					config: { ...state.config, sections }
 				};
 			});
 		},
 
 		/**
-		 * Remove a section from all categories
+		 * Remove a section
 		 */
 		removeSection(sectionId: string): void {
 			update((state) => ({
 				...state,
 				config: {
 					...state.config,
-					categories: (state.config.categories || []).map((cat) => ({
-						...cat,
-						sections: (cat.sections || []).filter((s) => s.id !== sectionId)
-					}))
+					sections: (state.config.sections || []).filter((s) => s.id !== sectionId)
 				}
 			}));
 		},

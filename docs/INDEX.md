@@ -3,15 +3,15 @@ title: Nostr-BBS Documentation Index
 description: Master documentation hub for Nostr-BBS with guides, architecture, features, and deployment documentation
 category: reference
 tags: [documentation, index, navigation]
-last_updated: 2025-12-23
+last_updated: 2026-01-08
 ---
 
 # Nostr-BBS Documentation Index
 
 **Master documentation hub for Nostr-BBS** - A decentralised community bulletin board system built on the Nostr protocol with NIP-52 calendar events, NIP-28 public chat channels, NIP-17/59 encrypted direct messages, and AI-powered semantic search.
 
-**Version:** 1.0.0
-**Last Updated:** 2025-12-21
+**Version:** 2.0.0
+**Last Updated:** 2026-01-08
 
 ---
 
@@ -214,80 +214,8 @@ Maintenance procedures, dependency updates, security patches, and operational gu
 
 ### Quality Assurance
 
-**[Link Validation Summary](link-validation-summary.md)**
-Executive summary of documentation link validation results (489 broken links identified).
-
-**[Link Validation Report](working/link-validation-report.md)**
-Detailed link validation report with broken links categorised by type.
-
-**[Link Validation Index](link-validation-index.md)**
-Index of all documentation links with validation status and recommendations.
-
-**[Link Validation Actionable](link-validation-actionable.md)**
-Actionable remediation plan for fixing broken documentation links.
-
 **[Diagram Audit Report](diagram-audit-report.md)**
 Audit of Mermaid diagrams for correctness, accessibility, and documentation alignment.
-
----
-
-## Working Documents
-
-These documents track ongoing documentation improvement efforts:
-
-### Quality Improvement Process
-
-**[CLEANING_SUMMARY.md](working/CLEANING_SUMMARY.md)**
-Summary of documentation cleaning, validation, and quality improvement efforts.
-
-**[Cleaning Actions Applied](working/cleaning-actions-applied.md)**
-Detailed log of specific cleaning actions performed on documentation files.
-
-**[Content Audit](working/content-audit.md)**
-Content quality audit results including spelling, grammar, and consistency checks.
-
-**[Content Cleaning Report](working/content-cleaning-report.md)**
-Report on content cleaning operations with before/after metrics.
-
-**[Corpus Analysis](working/corpus-analysis.md)**
-Analysis of documentation corpus structure, coverage, and completeness.
-
-**[Final Quality Report](working/final-quality-report.md)**
-Final comprehensive quality assessment after all improvements applied.
-
-### Infrastructure Improvements
-
-**[Automation Setup Report](working/automation-setup-report.md)**
-Setup and configuration of automated documentation quality checks.
-
-**[Diagram Modernisation Report](working/diagram-modernisation-report.md)**
-Report on upgrading Mermaid diagrams to latest syntax and best practices.
-
-**[Metadata Implementation Report](working/metadata-implementation-report.md)**
-Implementation of YAML frontmatter and metadata in documentation files.
-
-**[Spelling Audit Report](working/spelling-audit-report.md)**
-UK English spelling audit and standardisation report.
-
-**[Structure Normalisation Report](working/structure-normalisation-report.md)**
-Report on normalising document structure following Diataxis framework.
-
-### Documentation Architecture
-
-**[IA Architecture Spec](working/ia-architecture-spec.md)**
-Information architecture specification defining documentation structure and taxonomy.
-
-**[Link Infrastructure Spec](working/link-infrastructure-spec.md)**
-Specification for link management, validation, and automated checking infrastructure.
-
-**[Navigation Design Spec](working/navigation-design-spec.md)**
-Navigation design patterns and wayfinding improvements for documentation.
-
-**[Reference Consolidation Report](working/reference-consolidation-report.md)**
-Report on consolidating and organising reference documentation.
-
-**[Tag Vocabulary](working/tag-vocabulary.md)**
-Controlled vocabulary for document tags and metadata classification.
 
 ---
 
@@ -314,7 +242,7 @@ This documentation follows the [Diataxis framework](https://diataxis.fr/) for sy
 
 ```
 docs/
-├── INDEX.md                    # This file - master hub
+├── INDEX.md                   # This file - master hub
 ├── CONTRIBUTION.md            # Contributing guidelines
 ├── MAINTENANCE.md             # Maintenance procedures
 ├── architecture/              # System design (SPARC)
@@ -322,7 +250,9 @@ docs/
 ├── development/               # Development guides
 ├── features/                  # Feature documentation
 ├── reference/                 # API and configuration
-└── working/                   # Quality improvement tracking
+├── screenshots/               # Application screenshots
+├── scripts/                   # Documentation scripts
+└── solid/                     # Solid pod integration docs
 ```
 
 ---
@@ -344,6 +274,5 @@ docs/
 
 ---
 
-**Last validated:** 2025-12-21
-**Link validation status:** 489 broken links identified, remediation in progress
-**Documentation version:** 1.0.0
+**Last validated:** 2026-01-08
+**Documentation version:** 2.0.0

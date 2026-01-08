@@ -437,7 +437,7 @@ export function getCohort(cohortId: CohortId): CohortConfig | undefined {
 // ============================================================================
 
 export function getCalendarAccessLevel(level: CalendarAccessLevel) {
-	return config.calendarAccessLevels.find((l) => l.id === level);
+	return config.calendarAccessLevels?.find((l) => l.id === level);
 }
 
 // ============================================================================

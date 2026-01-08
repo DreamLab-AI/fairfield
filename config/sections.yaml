@@ -38,8 +38,8 @@ roles:
     level: 2
     description: 'Can manage channels and moderate content'
     capabilities:
-      - 'channel.create'
-      - 'channel.delete'
+      - 'forum.create'
+      - 'forum.delete'
       - 'message.pin'
       - 'message.delete'
 
@@ -51,8 +51,8 @@ roles:
       - 'section.manage'
       - 'member.approve'
       - 'member.remove'
-      - 'channel.create'
-      - 'channel.delete'
+      - 'forum.create'
+      - 'forum.delete'
       - 'message.pin'
       - 'message.delete'
 
@@ -67,8 +67,8 @@ roles:
       - 'section.manage'
       - 'member.approve'
       - 'member.remove'
-      - 'channel.create'
-      - 'channel.delete'
+      - 'forum.create'
+      - 'forum.delete'
       - 'message.pin'
       - 'message.delete'
       - 'user.whitelist'

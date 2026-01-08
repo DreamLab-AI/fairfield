@@ -12,6 +12,9 @@
 
 	let showNsec = false;
 	let confirmReveal = false;
+	let nsecAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
+	const NSEC_AUTO_HIDE_SECONDS = 30;
+	let nsecTimeRemaining = NSEC_AUTO_HIDE_SECONDS;
 	let copiedNpub = false;
 	let copiedNsec = false;
 	let editNickname = '';
@@ -53,10 +56,33 @@
 	}
 	$: lastModalState = open;
 
-	function closeModal() {
-		open = false;
+	function startNsecAutoHideTimer() {
+		nsecTimeRemaining = NSEC_AUTO_HIDE_SECONDS;
+		nsecAutoHideTimer = setInterval(() => {
+			nsecTimeRemaining--;
+			if (nsecTimeRemaining <= 0) {
+				hideNsec();
+			}
+		}, 1000);
+	}
+
+	function clearNsecTimer() {
+		if (nsecAutoHideTimer) {
+			clearInterval(nsecAutoHideTimer);
+			nsecAutoHideTimer = null;
+		}
+		nsecTimeRemaining = NSEC_AUTO_HIDE_SECONDS;
+	}
+
+	function hideNsec() {
 		showNsec = false;
 		confirmReveal = false;
+		clearNsecTimer();
+	}
+
+	function closeModal() {
+		open = false;
+		hideNsec();
 		profileSaved = false;
 		if (previousFocusElement) {
 			previousFocusElement.focus();
@@ -441,7 +467,10 @@
 					</div>
 					<button
 						class="btn btn-outline btn-error btn-sm w-full"
-						on:click={() => (showNsec = true)}
+						on:click={() => {
+							showNsec = true;
+							startNsecAutoHideTimer();
+						}}
 						disabled={!confirmReveal}
 					>
 						Reveal Private Key
@@ -461,7 +490,12 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 							/></svg
 						>
-						<span class="text-sm font-semibold">Your private key is now visible. Never share it!</span>
+						<div class="flex-1">
+							<span class="text-sm font-semibold">Your private key is now visible. Never share it!</span>
+							<div class="text-xs opacity-80 mt-1">
+								Auto-hiding in <span class="font-mono font-bold">{nsecTimeRemaining}s</span>
+							</div>
+						</div>
 					</div>
 					<div class="flex gap-2 mb-2">
 						<input
@@ -507,10 +541,7 @@
 						</button>
 						<button
 							class="btn btn-square btn-outline"
-							on:click={() => {
-								showNsec = false;
-								confirmReveal = false;
-							}}
+							on:click={hideNsec}
 							title="Hide private key"
 						>
 							<svg
