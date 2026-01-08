@@ -42,7 +42,7 @@
 	let sessionCleanup: (() => void) | undefined = undefined;
 	let isMobile = false;
 	let calendarSheetOpen = false;
-	let zoneNavCollapsed = false;
+	let zoneNavCollapsed = true;
 
 	$: showNav = $page.url.pathname !== `${base}/` && $page.url.pathname !== base && $page.url.pathname !== `${base}/signup` && $page.url.pathname !== `${base}/login` && $page.url.pathname !== `${base}/pending`;
 
@@ -220,6 +220,7 @@
 						{currentCategoryId}
 						{currentSectionId}
 						collapsed={zoneNavCollapsed}
+						onToggle={() => zoneNavCollapsed = !zoneNavCollapsed}
 					/>
 				</aside>
 			{/if}

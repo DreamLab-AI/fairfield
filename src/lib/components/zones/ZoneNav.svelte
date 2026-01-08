@@ -8,6 +8,7 @@
   export let currentCategoryId: string | null = null;
   export let currentSectionId: string | null = null;
   export let collapsed: boolean = false;
+  export let onToggle: (() => void) | undefined = undefined;
 
   $: categories = getCategories();
   $: userCohorts = $userStore.profile?.cohorts || [];
@@ -45,11 +46,43 @@
 </script>
 
 <nav class="zone-nav" class:collapsed>
-  {#if !collapsed}
-    <div class="px-3 py-2 text-xs font-semibold text-base-content/50 uppercase tracking-wider">
-      Zones
-    </div>
-  {/if}
+  <!-- Header with toggle -->
+  <div class="zone-nav-header flex items-center justify-between p-3 border-b border-base-300 dark:border-base-content/10">
+    {#if !collapsed}
+      <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">
+        Zones
+      </span>
+    {/if}
+    <button
+      class="btn btn-ghost btn-sm btn-square {collapsed ? 'mx-auto' : ''}"
+      on:click={onToggle}
+      aria-label={collapsed ? 'Expand zones' : 'Collapse zones'}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-4 w-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        {#if collapsed}
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 5l7 7-7 7M5 5l7 7-7 7"
+          />
+        {:else}
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+          />
+        {/if}
+      </svg>
+    </button>
+  </div>
 
   <ul class="menu menu-sm gap-1">
     {#each visibleCategories as category (category.id)}
