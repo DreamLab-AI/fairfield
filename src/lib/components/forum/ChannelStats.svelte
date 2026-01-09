@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { channelStatsStore, type ChannelStats, type HourActivity } from '$lib/stores/channelStats';
   import ActivityGraph from './ActivityGraph.svelte';
+  import { profileCache } from '$lib/stores/profiles';
 
   export let channelId: string;
   export let isExpanded: boolean = false;
@@ -20,6 +21,11 @@
 
     try {
       stats = await channelStatsStore.getStats(channelId);
+      // Prefetch profiles for top posters
+      if (stats?.topPosters?.length) {
+        const pubkeys = stats.topPosters.map(p => p.pubkey);
+        profileCache.prefetchProfiles(pubkeys);
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load statistics';
       console.error('Failed to load stats:', err);
@@ -160,20 +166,23 @@
             <h4>Top Contributors</h4>
             <div class="top-posters">
               {#each stats.topPosters as poster, i}
+                {@const cached = profileCache.getCachedSync(poster.pubkey)}
+                {@const displayName = cached?.displayName || poster.name || `${poster.pubkey.slice(0, 8)}...`}
+                {@const avatar = cached?.avatar || poster.avatar}
                 <div class="poster-item">
                   <div class="poster-rank">#{i + 1}</div>
                   <div class="poster-avatar">
-                    {#if poster.avatar}
-                      <img src={poster.avatar} alt={poster.name || 'User'} />
+                    {#if avatar}
+                      <img src={avatar} alt={displayName} />
                     {:else}
                       <div class="avatar-placeholder">
-                        {(poster.name || poster.pubkey.slice(0, 2)).charAt(0).toUpperCase()}
+                        {displayName.charAt(0).toUpperCase()}
                       </div>
                     {/if}
                   </div>
                   <div class="poster-info">
                     <div class="poster-name">
-                      {poster.name || `${poster.pubkey.slice(0, 8)}...`}
+                      {displayName}
                     </div>
                     <div class="poster-stats">
                       {poster.messageCount} messages • {poster.percentage.toFixed(1)}%

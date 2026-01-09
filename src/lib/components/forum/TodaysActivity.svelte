@@ -4,12 +4,14 @@
   import { base } from '$app/paths';
   import { ndk, isConnected } from '$lib/nostr/relay';
   import { browser } from '$app/environment';
+  import { profileCache } from '$lib/stores/profiles';
 
   interface ActiveTopic {
     channelId: string;
     channelName: string;
     lastMessage: string;
     lastAuthor: string;
+    lastAuthorPubkey: string;
     lastTimestamp: number;
     messageCount: number;
   }
@@ -92,12 +94,19 @@
             channelName: channelNames.get(channelId) || channelId.substring(0, 8) + '...',
             lastMessage: latest.content.substring(0, 50) + (latest.content.length > 50 ? '...' : ''),
             lastAuthor: latest.pubkey.substring(0, 8) + '...',
+            lastAuthorPubkey: latest.pubkey,
             lastTimestamp: latest.timestamp,
             messageCount: data.messages.length,
           };
         })
         .sort((a, b) => b.messageCount - a.messageCount)
         .slice(0, 5);
+
+      // Prefetch profiles for all authors
+      const authorPubkeys = activeTopics.map(t => t.lastAuthorPubkey);
+      if (authorPubkeys.length > 0) {
+        profileCache.prefetchProfiles([...new Set(authorPubkeys)]);
+      }
 
     } catch (e) {
       console.error('Failed to fetch today\'s activity:', e);
@@ -110,6 +119,11 @@
   function formatTime(timestamp: number): string {
     const date = new Date(timestamp * 1000);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function getAuthorName(pubkey: string): string {
+    const cached = profileCache.getCachedSync(pubkey);
+    return cached?.displayName || pubkey.substring(0, 8) + '...';
   }
 
   function goToChannel(channelId: string) {
@@ -144,7 +158,7 @@
                   {topic.lastMessage}
                 </div>
                 <div class="text-xs text-base-content/40 mt-1">
-                  by {topic.lastAuthor} at {formatTime(topic.lastTimestamp)}
+                  by {getAuthorName(topic.lastAuthorPubkey)} at {formatTime(topic.lastTimestamp)}
                 </div>
               </div>
             </div>

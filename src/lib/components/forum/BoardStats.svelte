@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { ndk, isConnected } from '$lib/nostr/relay';
   import { browser } from '$app/environment';
+  import { profileCache } from '$lib/stores/profiles';
 
   // Board statistics
   export let totalPosts = 0;
@@ -10,6 +11,7 @@
   export let activeUsers = 0;
 
   let loading = true;
+  let newestMemberPubkey = '';
 
   onMount(async () => {
     if (!browser) return;
@@ -56,7 +58,13 @@
           seenAuthors.add(event.pubkey);
           if (seenAuthors.size === authors.size) {
             // This is the newest member
-            newestMember = event.pubkey.substring(0, 8) + '...';
+            newestMemberPubkey = event.pubkey;
+            // Fetch profile and display name
+            profileCache.getProfile(event.pubkey).then(() => {
+              const cached = profileCache.getCachedSync(event.pubkey);
+              newestMember = cached?.displayName || event.pubkey.substring(0, 8) + '...';
+            });
+            newestMember = event.pubkey.substring(0, 8) + '...'; // Initial fallback
             break;
           }
         }

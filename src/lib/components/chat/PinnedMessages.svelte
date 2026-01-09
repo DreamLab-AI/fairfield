@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { isAdmin } from '$lib/stores/user';
   import { pinnedStore, getPinnedForChannel } from '$lib/stores/pinnedMessages';
+  import { profileCache } from '$lib/stores/profiles';
+  import { authStore } from '$lib/stores/auth';
   import type { Message } from '$lib/types/channel';
 
   export let channelId: string;
@@ -18,6 +20,14 @@
   $: pinnedMessages = messages.filter(msg => $pinnedMessageIds.includes(msg.id));
   $: hasPinnedMessages = pinnedMessages.length > 0;
 
+  // Prefetch profiles for pinned message authors
+  $: if (pinnedMessages.length > 0) {
+    const pubkeys = pinnedMessages.map(m => m.authorPubkey).filter(pk => pk !== $authStore.publicKey);
+    if (pubkeys.length > 0) {
+      profileCache.prefetchProfiles(pubkeys);
+    }
+  }
+
   async function handleUnpin(messageId: string) {
     const success = await pinnedStore.unpinMessage(channelId, messageId);
     if (success) {
@@ -30,7 +40,11 @@
   }
 
   function getAuthorName(pubkey: string): string {
-    return pubkey.slice(0, 8) + '...' + pubkey.slice(-4);
+    if ($authStore.publicKey === pubkey) {
+      return 'You';
+    }
+    const cached = profileCache.getCachedSync(pubkey);
+    return cached?.displayName || pubkey.slice(0, 8) + '...' + pubkey.slice(-4);
   }
 
   function truncateContent(content: string, maxLength: number = 80): string {

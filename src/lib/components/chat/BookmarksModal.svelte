@@ -3,6 +3,7 @@
   import { bookmarkStore } from '$lib/stores/bookmarks';
   import { channelStore } from '$lib/stores/channelStore';
   import { authStore } from '$lib/stores/auth';
+  import { profileCache } from '$lib/stores/profiles';
   import { getAvatarUrl } from '$lib/utils/identicon';
 
   const dispatch = createEventDispatcher<{ close: void; navigate: { channelId: string; messageId: string } }>();
@@ -16,6 +17,11 @@
     const firstButton = document.querySelector('.modal.modal-open button') as HTMLElement;
     if (firstButton) {
       firstButton.focus();
+    }
+    // Prefetch profiles for bookmarked authors
+    const pubkeys = $bookmarks.map(b => b.authorPubkey).filter(pk => pk !== $authStore.publicKey);
+    if (pubkeys.length > 0) {
+      profileCache.prefetchProfiles([...new Set(pubkeys)]);
     }
     return () => {
       if (previousFocusElement) {
@@ -40,11 +46,13 @@
     if ($authStore.publicKey === pubkey) {
       return 'You';
     }
-    return pubkey.slice(0, 8) + '...' + pubkey.slice(-4);
+    const cached = profileCache.getCachedSync(pubkey);
+    return cached?.displayName || pubkey.slice(0, 8) + '...' + pubkey.slice(-4);
   }
 
   function getAuthorAvatar(pubkey: string): string {
-    return getAvatarUrl(pubkey, 48);
+    const cached = profileCache.getCachedSync(pubkey);
+    return cached?.avatar || getAvatarUrl(pubkey, 48);
   }
 
   function handleNavigate(channelId: string, messageId: string) {

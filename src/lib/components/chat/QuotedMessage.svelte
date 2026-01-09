@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import type { Message } from '$lib/types/channel';
   import { authStore } from '$lib/stores/auth';
+  import { profileCache } from '$lib/stores/profiles';
 
   export let message: Message;
   export let compact: boolean = false;
@@ -9,16 +10,25 @@
 
   const dispatch = createEventDispatcher<{ click: { messageId: string } }>();
 
+  let authorDisplayName: string = '';
+
   $: displayContent = message.isEncrypted && message.decryptedContent
     ? message.decryptedContent
     : message.content;
 
-  function getAuthorName(pubkey: string): string {
-    if ($authStore.publicKey === pubkey) {
-      return 'You';
-    }
-    return pubkey.slice(0, 8) + '...' + pubkey.slice(-4);
+  $: if ($authStore.publicKey === message.authorPubkey) {
+    authorDisplayName = 'You';
+  } else {
+    const cached = profileCache.getCachedSync(message.authorPubkey);
+    authorDisplayName = cached?.displayName || message.authorPubkey.slice(0, 8) + '...' + message.authorPubkey.slice(-4);
   }
+
+  onMount(() => {
+    // Fetch profile if not current user
+    if ($authStore.publicKey !== message.authorPubkey) {
+      profileCache.getProfile(message.authorPubkey);
+    }
+  });
 
   function formatTime(timestamp: number): string {
     const date = new Date(timestamp);
@@ -66,7 +76,7 @@
     <div class="flex-1 min-w-0">
       <div class="flex items-baseline gap-2 mb-1">
         <span class="font-semibold text-primary/80 truncate">
-          {getAuthorName(message.authorPubkey)}
+          {authorDisplayName}
         </span>
         {#if showTimestamp}
           <span class="text-xs text-base-content/50 flex-shrink-0">

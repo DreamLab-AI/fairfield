@@ -7,6 +7,7 @@
   import { getAvatarUrl } from '$lib/utils/identicon';
   import { lastReadStore } from '$lib/stores/readPosition';
   import { formatUnreadCount } from '$lib/utils/readPosition';
+  import { profileCache } from '$lib/stores/profiles';
   import type { CreatedChannel } from '$lib/nostr/channels';
   import type { Message } from '$lib/types/channel';
 
@@ -16,6 +17,7 @@
   let lastPost: {
     content: string;
     author: string;
+    authorPubkey: string;
     timestamp: number;
   } | null = null;
   let loading = true;
@@ -111,9 +113,13 @@
       }
 
       if (latest) {
+        // Fetch profile for author
+        profileCache.getProfile(latest.pubkey);
+        const cached = profileCache.getCachedSync(latest.pubkey);
         lastPost = {
           content: latest.content.substring(0, 60) + (latest.content.length > 60 ? '...' : ''),
-          author: latest.pubkey.substring(0, 8) + '...',
+          author: cached?.displayName || latest.pubkey.substring(0, 8) + '...',
+          authorPubkey: latest.pubkey,
           timestamp: latest.created_at,
         };
       }
@@ -192,13 +198,17 @@
 
         <!-- Last Post Info -->
         {#if lastPost}
+          {@const cached = profileCache.getCachedSync(lastPost.authorPubkey)}
+          {@const authorName = cached?.displayName || lastPost.authorPubkey.substring(0, 8) + '...'}
+          {@const authorAvatar = cached?.avatar || getAvatarUrl(lastPost.authorPubkey, 32)}
           <div class="mt-2 pt-2 border-t border-base-300 text-xs text-base-content/60">
             <div class="flex items-center gap-2">
               <img
-                src={getAvatarUrl(lastPost.author, 32)}
-                alt=""
+                src={authorAvatar}
+                alt={authorName}
                 class="w-4 h-4 rounded-full"
               />
+              <span class="font-medium">{authorName}:</span>
               <span class="truncate flex-1">{lastPost.content}</span>
               <span class="flex-shrink-0">{formatRelativeTime(lastPost.timestamp)}</span>
             </div>
