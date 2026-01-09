@@ -39,7 +39,7 @@ const initialState: CalendarState = {
     venueTypes: [],
   },
   isLoading: false,
-  sidebarExpanded: true,
+  sidebarExpanded: false,
   sidebarVisible: true,
   error: null,
 };
