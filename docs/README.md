@@ -22,9 +22,18 @@
 
 </div>
 
-<table>
-<tr>
-<td width="50%" valign="top">
+<details>
+<summary><strong>📱 View All Device Sizes — Signup Flow</strong></summary>
+
+| Desktop | Tablet | Mobile |
+|:-------:|:------:|:------:|
+| ![Desktop](../static/images/screenshots/signup-gateway-desktop.png) | ![Tablet](../static/images/screenshots/signup-gateway-tablet.png) | ![Mobile](../static/images/screenshots/signup-gateway-mobile.png) |
+
+</details>
+
+---
+
+<div align="center">
 
 ### Channels Hub
 
@@ -32,8 +41,20 @@
 
 ![Chat Hub](../static/images/screenshots/06-chat-hub.png)
 
-</td>
-<td width="50%" valign="top">
+</div>
+
+<details>
+<summary><strong>📱 View All Device Sizes — Channels</strong></summary>
+
+| Desktop | Tablet | Mobile |
+|:-------:|:------:|:------:|
+| ![Desktop](../static/images/screenshots/chat-hub-desktop.png) | ![Tablet](../static/images/screenshots/chat-hub-tablet.png) | ![Mobile](../static/images/screenshots/chat-hub-mobile.png) |
+
+</details>
+
+---
+
+<div align="center">
 
 ### Forums Overview
 
@@ -41,10 +62,20 @@
 
 ![Forums](../static/images/screenshots/07-forums.png)
 
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
+</div>
+
+<details>
+<summary><strong>📱 View All Device Sizes — Forums</strong></summary>
+
+| Desktop | Tablet | Mobile |
+|:-------:|:------:|:------:|
+| ![Desktop](../static/images/screenshots/forums-overview-desktop.png) | ![Tablet](../static/images/screenshots/forums-overview-tablet.png) | ![Mobile](../static/images/screenshots/forums-overview-mobile.png) |
+
+</details>
+
+---
+
+<div align="center">
 
 ### Events Calendar
 
@@ -52,18 +83,58 @@
 
 ![Events](../static/images/screenshots/08-events.png)
 
-</td>
-<td width="50%" valign="top">
+</div>
 
-### Mobile Responsive
+<details>
+<summary><strong>📱 View All Device Sizes — Events</strong></summary>
 
-*Full functionality on any device*
+| Desktop | Tablet | Mobile |
+|:-------:|:------:|:------:|
+| ![Desktop](../static/images/screenshots/events-page-desktop.png) | ![Tablet](../static/images/screenshots/events-page-tablet.png) | ![Mobile](../static/images/screenshots/events-page-mobile.png) |
 
-![Mobile View](../static/images/screenshots/11-chat-mobile.png)
+</details>
 
-</td>
-</tr>
-</table>
+---
+
+<div align="center">
+
+### Direct Messages
+
+*Private encrypted conversations*
+
+![DMs](../static/images/screenshots/09-dm.png)
+
+</div>
+
+<details>
+<summary><strong>📱 View All Device Sizes — Direct Messages</strong></summary>
+
+| Desktop | Tablet | Mobile |
+|:-------:|:------:|:------:|
+| ![Desktop](../static/images/screenshots/dm-list-desktop.png) | ![Tablet](../static/images/screenshots/dm-list-tablet.png) | ![Mobile](../static/images/screenshots/dm-list-mobile.png) |
+
+</details>
+
+---
+
+<div align="center">
+
+### Quick Login
+
+*Simple password-based authentication*
+
+![Login](../static/images/screenshots/10-login.png)
+
+</div>
+
+<details>
+<summary><strong>📱 View All Device Sizes — Login</strong></summary>
+
+| Desktop | Tablet | Mobile |
+|:-------:|:------:|:------:|
+| ![Desktop](../static/images/screenshots/login-simple-desktop.png) | ![Tablet](../static/images/screenshots/login-simple-tablet.png) | ![Mobile](../static/images/screenshots/login-simple-mobile.png) |
+
+</details>
 
 ---
 
