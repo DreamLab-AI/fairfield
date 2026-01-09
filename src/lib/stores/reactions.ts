@@ -5,7 +5,7 @@
 
 import { writable, derived, get } from 'svelte/store';
 import { authStore } from './auth';
-import type { NostrEvent, Filter } from '../../types/nostr';
+import type { NostrEvent } from '../../types/nostr';
 import { EventKind } from '../../types/nostr';
 import {
   createReactionEvent,

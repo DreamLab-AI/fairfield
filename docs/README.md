@@ -10,6 +10,63 @@
 
 ---
 
+## Platform Preview
+
+<div align="center">
+
+### Quick Start Signup
+
+*Get started in seconds with a simple nickname and auto-generated password*
+
+![Signup Gateway](../static/images/screenshots/02-signup-gateway.png)
+
+</div>
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### Channels Hub
+
+*Browse and join public conversation channels*
+
+![Chat Hub](../static/images/screenshots/06-chat-hub.png)
+
+</td>
+<td width="50%" valign="top">
+
+### Forums Overview
+
+*Navigate community zones and discussion areas*
+
+![Forums](../static/images/screenshots/07-forums.png)
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### Events Calendar
+
+*Plan and track community events*
+
+![Events](../static/images/screenshots/08-events.png)
+
+</td>
+<td width="50%" valign="top">
+
+### Mobile Responsive
+
+*Full functionality on any device*
+
+![Mobile View](../static/images/screenshots/11-chat-mobile.png)
+
+</td>
+</tr>
+</table>
+
+---
+
 ## Your Community
 
 This platform serves three interconnected but distinct communities, each with their own space, purpose, and character:

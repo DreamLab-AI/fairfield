@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-01-09T16:49:50.841Z",
+  "baseUrl": "http://localhost:5173",
+  "screenshots": [
+    "landing-page-desktop.png",
+    "landing-page-tablet.png",
+    "landing-page-mobile.png",
+    "signup-gateway-desktop.png",
+    "signup-gateway-tablet.png",
+    "signup-gateway-mobile.png",
+    "login-simple-desktop.png",
+    "login-simple-tablet.png",
+    "login-simple-mobile.png",
+    "chat-hub-desktop.png",
+    "chat-hub-tablet.png",
+    "chat-hub-mobile.png",
+    "forums-overview-desktop.png",
+    "forums-overview-tablet.png",
+    "forums-overview-mobile.png",
+    "zone-minimoonoir-desktop.png",
+    "zone-minimoonoir-tablet.png",
+    "zone-minimoonoir-mobile.png",
+    "section-welcome-desktop.png",
+    "section-welcome-tablet.png",
+    "section-welcome-mobile.png",
+    "events-page-desktop.png",
+    "events-page-tablet.png",
+    "events-page-mobile.png",
+    "dm-list-desktop.png",
+    "dm-list-tablet.png",
+    "dm-list-mobile.png"
+  ],
+  "viewports": {
+    "desktop": {
+      "width": 1920,
+      "height": 1080
+    },
+    "tablet": {
+      "width": 768,
+      "height": 1024
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844
+    }
+  }
+}

@@ -201,6 +201,10 @@ function computeEventHash(event: NostrEvent): string {
  */
 export function verifyEventSignature(event: NostrEvent): boolean {
   try {
+    // Ensure required fields are present
+    if (!event.id || !event.sig) {
+      return false;
+    }
     // First verify the event ID matches the content hash
     const computedId = computeEventHash(event);
     if (computedId !== event.id) {
@@ -227,7 +231,8 @@ export function parseChannelMessage(event: NostrEvent): ChannelMessage | null {
     return null;
   }
 
-  const channelTag = event.tags.find(
+  const tags = event.tags || [];
+  const channelTag = tags.find(
     tag => tag[0] === 'e' && (tag[3] === 'root' || !tag[3])
   );
 
@@ -270,7 +275,8 @@ export function parseUserMetadata(event: NostrEvent): UserProfile | null {
  * @returns Array of tag values
  */
 export function getEventTags(event: NostrEvent, tagName: string): string[] {
-  return event.tags
+  const tags = event.tags || [];
+  return tags
     .filter(tag => tag[0] === tagName)
     .map(tag => tag[1])
     .filter(Boolean);
@@ -283,7 +289,8 @@ export function getEventTags(event: NostrEvent, tagName: string): string[] {
  * @returns Tag value or undefined
  */
 export function getEventTag(event: NostrEvent, tagName: string): string | undefined {
-  const tag = event.tags.find(tag => tag[0] === tagName);
+  const tags = event.tags || [];
+  const tag = tags.find(tag => tag[0] === tagName);
   return tag?.[1];
 }
 
@@ -672,7 +679,8 @@ export function isValidEvent(event: unknown): boolean {
  * @returns True if event is a reply
  */
 export function isReply(event: NostrEvent): boolean {
-  return event.tags.some(tag => tag[0] === 'e' && tag[3] === 'reply');
+  const tags = event.tags || [];
+  return tags.some(tag => tag[0] === 'e' && tag[3] === 'reply');
 }
 
 /**
@@ -690,7 +698,8 @@ export function isRootPost(event: NostrEvent): boolean {
  * @returns Root event ID or undefined
  */
 export function getRootEventId(event: NostrEvent): string | undefined {
-  const rootTag = event.tags.find(tag => tag[0] === 'e' && tag[3] === 'root');
+  const tags = event.tags || [];
+  const rootTag = tags.find(tag => tag[0] === 'e' && tag[3] === 'root');
   return rootTag?.[1];
 }
 
@@ -700,6 +709,7 @@ export function getRootEventId(event: NostrEvent): string | undefined {
  * @returns Reply target event ID or undefined
  */
 export function getReplyTargetId(event: NostrEvent): string | undefined {
-  const replyTag = event.tags.find(tag => tag[0] === 'e' && tag[3] === 'reply');
+  const tags = event.tags || [];
+  const replyTag = tags.find(tag => tag[0] === 'e' && tag[3] === 'reply');
   return replyTag?.[1];
 }
