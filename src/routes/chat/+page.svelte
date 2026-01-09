@@ -57,11 +57,8 @@
       return;
     }
 
-    // Redirect to pending page if user is awaiting approval
-    if ($authStore.isPending) {
-      goto(`${base}/pending`);
-      return;
-    }
+    // Open registration: no pending approval check needed
+    // Users get minimoonoir welcome level access by default
 
     try {
       // Connect to relay with authentication

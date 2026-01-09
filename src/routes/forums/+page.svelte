@@ -27,10 +27,8 @@
       return;
     }
 
-    if ($authStore.isPending) {
-      goto(`${base}/pending`);
-      return;
-    }
+    // Open registration: no pending approval check needed
+    // Users get minimoonoir welcome level access by default
 
     loading = false;
   });

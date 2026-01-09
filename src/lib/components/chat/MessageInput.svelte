@@ -9,6 +9,7 @@
   import { toast } from '$lib/stores/toast';
   import { ndk, publishEvent, isConnected } from '$lib/nostr/relay';
   import { KIND_GROUP_CHAT_MESSAGE } from '$lib/nostr/groups';
+  import { getSection } from '$lib/config';
   import MentionAutocomplete from './MentionAutocomplete.svelte';
   import EventInput from '$lib/components/events/EventInput.svelte';
   import type { Message, EventMetadata } from '$lib/types/channel';
@@ -32,7 +33,13 @@
   let eventData: EventMetadata | null = null;
   let showEventInput = false;
 
-  $: canSend = $userMemberStatus === 'member' || $userMemberStatus === 'admin';
+  // Check if section has autoApprove - allows posting without explicit channel membership
+  $: sectionConfig = $selectedChannel ? getSection($selectedChannel.section) : null;
+  $: isAutoApproveSection = sectionConfig?.access?.autoApprove === true;
+
+  // Allow posting if: member/admin of channel, OR section has autoApprove and user is authenticated
+  $: canSend = $userMemberStatus === 'member' || $userMemberStatus === 'admin' ||
+               (isAutoApproveSection && $authStore.isAuthenticated);
   $: placeholder = canSend
     ? 'Type a message... (@mention users)'
     : $userMemberStatus === 'pending'
