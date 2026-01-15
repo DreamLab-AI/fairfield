@@ -49,35 +49,35 @@ test.describe('Live Site Smoke Tests', () => {
     await expect(signupContent).toBeVisible();
   });
 
-  test('forum page loads', async ({ page }) => {
-    await page.goto(`${LIVE_URL}/forum`);
-    await page.waitForLoadState('networkidle');
-
-    // Take screenshot
-    await page.screenshot({
-      path: 'tests/screenshots/04-forum-page.png',
-      fullPage: true
-    });
-  });
-
-  test('chat page loads', async ({ page }) => {
+  test('chat/forum page loads', async ({ page }) => {
     await page.goto(`${LIVE_URL}/chat`);
     await page.waitForLoadState('networkidle');
 
     // Take screenshot
     await page.screenshot({
-      path: 'tests/screenshots/05-chat-page.png',
+      path: 'tests/screenshots/04-chat-page.png',
       fullPage: true
     });
   });
 
-  test('calendar page loads', async ({ page }) => {
-    await page.goto(`${LIVE_URL}/calendar`);
+  test('events page loads', async ({ page }) => {
+    await page.goto(`${LIVE_URL}/events`);
     await page.waitForLoadState('networkidle');
 
     // Take screenshot
     await page.screenshot({
-      path: 'tests/screenshots/06-calendar-page.png',
+      path: 'tests/screenshots/05-events-page.png',
+      fullPage: true
+    });
+  });
+
+  test('direct messages page loads', async ({ page }) => {
+    await page.goto(`${LIVE_URL}/dm`);
+    await page.waitForLoadState('networkidle');
+
+    // Take screenshot
+    await page.screenshot({
+      path: 'tests/screenshots/06-dm-page.png',
       fullPage: true
     });
   });
