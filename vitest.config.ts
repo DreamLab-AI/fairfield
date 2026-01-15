@@ -13,7 +13,8 @@ export default defineConfig({
 			$types: path.resolve('./src/lib/types'),
 			'$app/environment': path.resolve('./tests/__mocks__/$app-environment.ts'),
 			'$app/navigation': path.resolve('./tests/__mocks__/$app-navigation.ts'),
-			'$app/stores': path.resolve('./tests/__mocks__/$app-stores.ts')
+			'$app/stores': path.resolve('./tests/__mocks__/$app-stores.ts'),
+			'$app/paths': path.resolve('./tests/__mocks__/$app-paths.ts')
 		}
 	},
 	test: {
