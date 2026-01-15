@@ -4,8 +4,10 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import { authStore, isAuthenticated } from '$lib/stores/auth';
+	import { userStore, isApproved } from '$lib/stores/user';
 	import { sessionStore } from '$lib/stores/session';
 	import { calendarStore, sidebarVisible, sidebarExpanded } from '$lib/stores/calendar';
 	import { initializePWA } from '$lib/utils/pwa-init';
@@ -42,7 +44,22 @@
 	let isMobile = false;
 	let calendarSheetOpen = false;
 
-	$: showNav = $page.url.pathname !== `${base}/` && $page.url.pathname !== base && $page.url.pathname !== `${base}/signup` && $page.url.pathname !== `${base}/login` && $page.url.pathname !== `${base}/pending`;
+	// Public routes that don't require authentication or approval
+	const publicRoutes = [
+		`${base}/`,
+		base,
+		`${base}/signup`,
+		`${base}/login`,
+		`${base}/pending`
+	];
+
+	$: isPublicRoute = publicRoutes.some(route => $page.url.pathname === route);
+	$: showNav = !isPublicRoute;
+
+	// Redirect unapproved users to pending page (only when not loading and not already on pending page)
+	$: if (browser && $isAuthenticated && !$userStore.isLoading && !$isApproved && $page.url.pathname !== `${base}/pending` && $page.url.pathname !== `${base}/login` && $page.url.pathname !== `${base}/signup` && $page.url.pathname !== base && $page.url.pathname !== `${base}/`) {
+		goto(`${base}/pending`);
+	}
 
 	// Start session monitoring when authenticated
 	$: if (browser && $isAuthenticated && !sessionCleanup) {
@@ -191,7 +208,7 @@
 
 <div class="min-h-screen w-full transition-base">
 	{#if mounted}
-		{#if showNav && $isAuthenticated}
+		{#if showNav && $isAuthenticated && $isApproved}
 			<Navigation
 				{themePreference}
 				onThemeToggle={toggleTheme}
@@ -200,8 +217,8 @@
 		{/if}
 
 		<div class="flex">
-			<!-- Calendar Sidebar (Desktop) -->
-			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
+			<!-- Calendar Sidebar (Desktop) - only for approved users -->
+			{#if showNav && $isAuthenticated && $isApproved && !isMobile && $sidebarVisible}
 				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">
 					<CalendarSidebar
 						isExpanded={$sidebarExpanded}
@@ -225,8 +242,8 @@
 			{/key}
 		</div>
 
-		<!-- Calendar Sheet (Mobile) -->
-		{#if showNav && $isAuthenticated && isMobile}
+		<!-- Calendar Sheet (Mobile) - only for approved users -->
+		{#if showNav && $isAuthenticated && $isApproved && isMobile}
 			<CalendarSheet bind:isOpen={calendarSheetOpen} />
 		{/if}
 	{:else}
