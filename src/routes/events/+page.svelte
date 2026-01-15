@@ -70,13 +70,11 @@
   });
 
   function handleEventClick(event: CustomEvent<CalendarEvent>) {
-    // Could navigate to event detail page
-    console.log('Event clicked:', event.detail);
+    // Could navigate to event detail page or show modal
   }
 
   function handleDayClick(event: CustomEvent<Date>) {
     // Could open create modal for that day
-    console.log('Day clicked:', event.detail);
   }
 
   function handleEventCreated(event: CustomEvent<CalendarEvent>) {

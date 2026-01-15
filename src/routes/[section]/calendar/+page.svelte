@@ -88,8 +88,8 @@
     }
   }
 
-  function handleDayClick(event: CustomEvent<Date>) {
-    console.log('Day clicked:', event.detail);
+  function handleDayClick(_event: CustomEvent<Date>) {
+    // Could open create event modal for this day
   }
 
   function navigateToSection(targetSection: string) {

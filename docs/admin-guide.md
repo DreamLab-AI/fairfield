@@ -111,6 +111,51 @@ Users can be assigned to cohorts with different permissions:
 
 > **Warning**: You cannot remove your own admin cohort (safety feature).
 
+### User Management Panel
+
+The User Management panel (`/admin/users`) provides a comprehensive interface for managing user zone assignments:
+
+#### Zone Cohorts
+
+| Zone | Colour | Description |
+|------|--------|-------------|
+| **Family** | Green (#4a7c59) | Family community section |
+| **DreamLab** | Pink (#ec4899) | DreamLab creative space |
+| **Minimoonoir** | Purple (#8b5cf6) | Minimoonoir community |
+| **Admin** | Red (#ef4444) | Full administrative access |
+
+#### Features
+
+- **Pagination**: Navigate through users 10/20/50/100 at a time
+- **Search**: Find users by display name or pubkey
+- **Filter by Zone**: View only users in a specific zone
+- **Radio Selection**: Single-click zone assignment with visual feedback
+- **Pending State**: Loading indicators while updates process
+
+#### Using the Panel
+
+1. Navigate to **Admin Panel** > **User Management**
+2. Browse or search for users
+3. Click a zone radio button to assign that user to the zone
+4. The `approved` cohort is automatically preserved
+5. Non-zone cohorts (e.g., `business`) are preserved
+6. Success message confirms the change
+
+#### API Endpoints Used
+
+```typescript
+// Fetch paginated users
+GET /api/whitelist/list?limit=20&offset=0&cohort=family
+
+// Update user cohorts
+POST /api/whitelist/update-cohorts
+{
+  "pubkey": "<64-char-hex>",
+  "cohorts": ["family", "approved"],
+  "adminPubkey": "<admin-hex>"
+}
+```
+
 ---
 
 ## Channel Management

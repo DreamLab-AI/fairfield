@@ -142,6 +142,16 @@ Message draft persistence and auto-save functionality.
 **[Export Implementation](features/export-implementation.md)**
 Data export system for messages, profiles, and user content.
 
+### Mobile Components
+
+**[Mobile UI Components](features/mobile-ui-components.md)**
+Material Design 3 inspired mobile components including BottomSheet, SwipeableMessage, and VirtualList with touch gestures and accessibility.
+
+### Security
+
+**[Secure Clipboard and Memory](features/secure-clipboard.md)**
+Security utilities for handling sensitive data with automatic clipboard clearing (60 second timeout) and memory-safe string handling.
+
 ### Accessibility
 
 **[Accessibility Improvements](features/accessibility-improvements.md)**

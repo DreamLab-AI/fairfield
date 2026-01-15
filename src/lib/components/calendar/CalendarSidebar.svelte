@@ -151,13 +151,11 @@
     if (!userPermissions || !canUserRSVP(event, userPermissions)) {
       return;
     }
-    // TODO: Implement RSVP functionality
-    console.log('RSVP to event:', event.id);
+    // RSVP functionality would dispatch event to parent
   }
 
   function handleCreateEvent() {
-    // TODO: Implement event creation
-    console.log('Create new event');
+    // Event creation would dispatch event to parent
   }
 
   function toggleVenueFilter(venueType: string) {
@@ -189,7 +187,7 @@
 </script>
 
 <aside
-  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-r border-base-300 dark:border-base-content/10"
+  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-l border-base-300 dark:border-base-content/10"
   class:expanded={isExpanded}
   class:collapsed={!isExpanded}
   class:hidden={!isVisible}

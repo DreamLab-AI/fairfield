@@ -57,8 +57,6 @@
       // Update profile cache immediately
       profileCache.updateCurrentUserProfile(publicKey, nickname.trim(), null);
 
-      console.log('[NicknameSetup] Profile published:', metadataEvent.id);
-
       dispatch('continue', { nickname: nickname.trim() });
     } catch (err) {
       console.error('[NicknameSetup] Failed to publish profile:', err);

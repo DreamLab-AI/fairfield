@@ -100,8 +100,8 @@
     }
   }
 
-  function handleMessageDeleted(event: CustomEvent<{ messageId: string }>) {
-    console.log('Message deleted:', event.detail.messageId);
+  function handleMessageDeleted(_event: CustomEvent<{ messageId: string }>) {
+    // Message deletion handled by store
   }
 </script>
 

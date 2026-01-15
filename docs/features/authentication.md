@@ -474,11 +474,7 @@ const did = pubkeyToDID(pubkey);
 const didDoc = generateDIDDocument(pubkey);
 ```
 
-See [did:nostr Implementation](./did-nostr.md) for complete documentation.
-
 ## Related Documentation
 
-- [did:nostr Implementation](./did-nostr.md) - W3C DID integration
-- [Solid Integration](./solid-integration.md) - Decentralized storage with Solid pods
 - [Admin Security](../security/admin-security.md) - Admin workflow hardening
 - [Security Audit Report](../security-audit-report.md) - Full security findings

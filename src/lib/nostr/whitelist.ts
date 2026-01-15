@@ -294,3 +294,113 @@ export async function approveUserRegistration(
     };
   }
 }
+
+// ============================================================================
+// User Management Functions (for admin panel)
+// ============================================================================
+
+export interface WhitelistUserEntry {
+  pubkey: string;
+  cohorts: string[];
+  addedAt: number;
+  addedBy: string | null;
+  displayName: string | null;
+}
+
+/**
+ * Fetch all whitelisted users with pagination
+ *
+ * @param options - Pagination and filter options
+ * @returns List of users and total count
+ */
+export async function fetchWhitelistUsers(options?: {
+  limit?: number;
+  offset?: number;
+  cohort?: string;
+}): Promise<{
+  users: WhitelistUserEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const httpUrl = getRelayHttpUrl();
+  const params = new URLSearchParams();
+
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+  if (options?.cohort) params.set('cohort', options.cohort);
+
+  const url = `${httpUrl}/api/whitelist/list?${params}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        users: data.users || [],
+        total: data.total || 0,
+        limit: data.limit || 20,
+        offset: data.offset || 0
+      };
+    }
+
+    const errorText = await response.text().catch(() => 'Unable to read error response');
+    console.error('[Whitelist] Failed to fetch users:', response.status, errorText);
+    throw new Error(`API returned ${response.status}: ${errorText.slice(0, 100)}`);
+  } catch (error) {
+    console.error('[Whitelist] Failed to fetch users:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update cohorts for a user
+ *
+ * @param pubkey - User's public key
+ * @param cohorts - New cohort list
+ * @param adminPubkey - Admin's public key for audit trail
+ * @returns Success status
+ */
+export async function updateUserCohorts(
+  pubkey: string,
+  cohorts: string[],
+  adminPubkey: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const httpUrl = getRelayHttpUrl();
+    const response = await fetch(`${httpUrl}/api/whitelist/update-cohorts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pubkey,
+        cohorts,
+        adminPubkey,
+      }),
+    });
+
+    if (response.ok) {
+      clearWhitelistCache(pubkey);
+      return { success: true };
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: errorData.error || `HTTP ${response.status}`
+    };
+  } catch (error) {
+    console.error('[Whitelist] Failed to update cohorts:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}

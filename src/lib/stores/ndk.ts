@@ -20,15 +20,13 @@ function createNDKStore() {
     try {
       const ndk = new NDK({
         explicitRelayUrls: RELAYS,
-        autoConnectUserRelays: true,
-        autoFetchUserMutelist: true
+        autoConnectUserRelays: true
       });
 
       await ndk.connect();
       instance = ndk;
       set(ndk);
 
-      console.log('NDK connected to relays');
       return ndk;
     } catch (error) {
       console.error('Failed to initialize NDK:', error);
