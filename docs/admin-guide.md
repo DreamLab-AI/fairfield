@@ -1,0 +1,463 @@
+# Fairfield Administrator Guide
+
+This guide covers administrative functions, security management, and platform configuration for Fairfield administrators.
+
+## Table of Contents
+
+1. [Admin Overview](#admin-overview)
+2. [Accessing the Admin Panel](#accessing-the-admin-panel)
+3. [User Management](#user-management)
+4. [Channel Management](#channel-management)
+5. [Section Management](#section-management)
+6. [Calendar Management](#calendar-management)
+7. [Security Monitoring](#security-monitoring)
+8. [Whitelist Management](#whitelist-management)
+9. [Rate Limiting](#rate-limiting)
+10. [Troubleshooting Admin Issues](#troubleshooting-admin-issues)
+
+---
+
+## Admin Overview
+
+Administrators have elevated privileges to manage users, channels, sections, and monitor platform security.
+
+### Admin Capabilities
+
+| Feature | Admin Can |
+|---------|-----------|
+| User Management | Approve/reject access requests, assign cohorts |
+| Channel Management | Create, edit, delete channels |
+| Section Management | Configure section access rules |
+| Calendar | Full visibility, create/edit events |
+| Security | View activity logs, manage whitelist |
+
+### Admin Requirements
+
+- Must be whitelisted with `admin` cohort
+- Admin pubkey configured in environment variables
+- Server-side verification via relay API
+
+---
+
+## Accessing the Admin Panel
+
+### Navigation
+
+1. Log in with your admin nsec/hex key
+2. Navigate to `/admin` in the URL bar, OR
+3. Click **"Admin"** in the navigation menu (visible only to admins)
+
+### Authentication Verification
+
+Admin access is verified in two ways:
+
+1. **Client-side**: Shows admin UI elements
+2. **Server-side**: All actions verified against relay whitelist
+
+> **Security Note**: Even if someone bypasses client-side checks, all admin actions are validated server-side via `verifyWhitelistStatus()`.
+
+### Access Denied
+
+If you see "Access denied: Admin privileges required":
+- Verify your pubkey is in the admin whitelist
+- Contact another admin to check your cohort assignment
+- Wait 2 seconds - you will be redirected to chat
+
+---
+
+## User Management
+
+### Viewing Pending Requests
+
+1. Go to **Admin Panel** > **Access Requests**
+2. See all pending section access requests
+3. Each request shows:
+   - User's pubkey (truncated)
+   - Requested section
+   - Request timestamp
+   - Optional message
+
+### Approving Access
+
+1. Find the pending request
+2. Click **"Approve"**
+3. User is added to the section's whitelist
+4. User receives full section access immediately
+
+### Rejecting Access
+
+1. Find the pending request
+2. Click **"Reject"**
+3. Optionally add a rejection reason
+4. Request is removed from pending list
+
+### Cohort Management
+
+Users can be assigned to cohorts with different permissions:
+
+| Cohort | Description | Can Self-Assign |
+|--------|-------------|-----------------|
+| `admin` | Full administrative access | No |
+| `approved` | Standard approved user | No |
+| `business` | Business section access | No |
+| `moomaa-tribe` | Special community access | No |
+
+### Changing User Cohorts
+
+1. Go to **Admin Panel** > **Whitelist**
+2. Find the user by pubkey
+3. Select new cohort from dropdown
+4. Click **"Update"**
+
+> **Warning**: You cannot remove your own admin cohort (safety feature).
+
+---
+
+## Channel Management
+
+### Creating a Channel
+
+1. Go to **Admin Panel** > **Channels**
+2. Click **"Create Channel"**
+3. Fill in the form:
+   - **Name**: Channel identifier (alphanumeric, hyphens, underscores)
+   - **Section**: Which section this channel belongs to
+   - **Description**: Brief description (optional)
+   - **Access Type**: Open or Gated
+4. Click **"Create"**
+
+### Channel Access Types
+
+| Type | Who Can Post |
+|------|--------------|
+| **Open** | Anyone with section access |
+| **Gated** | Only channel members |
+
+### Editing Channels
+
+1. Navigate to the channel
+2. Click **"Edit Channel"** (gear icon)
+3. Modify settings
+4. Click **"Save"**
+
+### Deleting Channels
+
+1. Navigate to the channel
+2. Click **"Delete Channel"**
+3. Confirm the deletion
+
+> **Warning**: Deleting a channel does not delete messages. Messages remain on the relay but are no longer displayed.
+
+---
+
+## Section Management
+
+### Available Sections
+
+| Section | Default Access |
+|---------|----------------|
+| Fairfield Guests | Open (auto-approved) |
+| Fairfield | Requires approval |
+| DreamLab | Requires approval |
+
+### Section Statistics
+
+View section stats in **Admin Panel** > **Stats**:
+- Number of channels
+- Number of approved users
+- Pending access requests
+- Recent activity
+
+### Configuring Section Access
+
+Section access is controlled by the whitelist system:
+1. User requests access to a section
+2. Request appears in admin panel
+3. Admin approves or rejects
+4. User is added to section cohort
+
+---
+
+## Calendar Management
+
+### Viewing All Events
+
+Admins have full calendar visibility:
+- All event details visible
+- No masking regardless of cohort
+- Can edit/delete any event
+
+### Creating Events
+
+1. Go to **Events** > **Create Event**
+2. Fill in event details:
+   - Title
+   - Date and time
+   - Location
+   - Description
+   - Cohort visibility (optional)
+3. Click **"Create Event"**
+
+### Event Visibility
+
+Events can be tagged with cohorts to control visibility:
+
+```
+Tags: ["cohort", "business"]
+```
+
+Users not in the tagged cohort will see:
+- Date/time (availability only)
+- "Event details restricted" message
+
+### Editing Events
+
+1. Click on an event
+2. Click **"Edit"**
+3. Modify details
+4. Click **"Save"**
+
+---
+
+## Security Monitoring
+
+### Suspicious Activity Log
+
+The admin panel displays security alerts:
+
+| Severity | Type | Description |
+|----------|------|-------------|
+| HIGH | `self_admin_attempt` | User tried to self-assign admin |
+| HIGH | `invalid_signature` | Event signature verification failed |
+| MEDIUM | `unauthorized_action` | Non-admin attempted admin action |
+| LOW | `rate_limit_exceeded` | Too many requests |
+
+### Viewing Security Logs
+
+1. Go to **Admin Panel** > **Security**
+2. View recent suspicious activities
+3. Filter by severity or type
+
+### Security Events Tracked
+
+The system automatically tracks:
+- Unauthorized cohort change attempts
+- Invalid signature submissions
+- Rate limit violations
+- Author/pubkey mismatches
+- Replay attack attempts
+
+---
+
+## Whitelist Management
+
+### How Whitelisting Works
+
+The whitelist is stored on the Nostr relay using NIP-51 pin lists (kind 30001).
+
+### Viewing the Whitelist
+
+1. Go to **Admin Panel** > **Whitelist**
+2. See all whitelisted users
+3. View their cohorts and approval dates
+
+### Adding Users to Whitelist
+
+1. Click **"Add User"**
+2. Enter the user's pubkey (hex format)
+3. Select cohort(s)
+4. Click **"Add"**
+
+### Removing Users
+
+1. Find the user in the whitelist
+2. Click **"Remove"**
+3. Confirm removal
+
+> **Note**: Removed users lose section access immediately but can request again.
+
+### Whitelist API
+
+The relay provides a verification API:
+
+```
+GET /api/check-whitelist?pubkey=<64-char-hex>
+```
+
+Returns:
+```json
+{
+  "isWhitelisted": true,
+  "isAdmin": false,
+  "cohorts": ["approved", "business"]
+}
+```
+
+---
+
+## Rate Limiting
+
+### Admin Rate Limits
+
+Admin actions are rate-limited to prevent abuse:
+
+| Action | Max Attempts | Window | Backoff |
+|--------|--------------|--------|---------|
+| Section Access | 5 | 1 minute | 2x |
+| Cohort Change | 3 | 1 hour | 3x |
+| General Admin | 10 | 1 minute | 1.5x |
+
+### Exponential Backoff
+
+After exceeding limits:
+```
+Attempt 1: Immediate
+Attempt 2: windowMs * 2
+Attempt 3: windowMs * 4
+...
+Maximum: maxBackoffMs
+```
+
+### Checking Rate Limit Status
+
+If you're rate-limited:
+1. Wait for the cooldown period
+2. Try again after the specified time
+3. Contact another admin if urgent
+
+---
+
+## Troubleshooting Admin Issues
+
+### Cannot Access Admin Panel
+
+**Issue**: "Access denied" error
+- Verify your pubkey is in the admin whitelist
+- Check that `VITE_ADMIN_PUBKEY` includes your pubkey
+- Try logging out and back in
+
+### Approval Not Working
+
+**Issue**: User still cannot access section after approval
+- Check the relay connection
+- Verify the approval event was published
+- Ask the user to refresh their page
+
+### Whitelist Not Updating
+
+**Issue**: Changes not reflecting
+- Wait a few seconds for relay sync
+- Refresh the admin panel
+- Check browser console for errors
+
+### Rate Limited
+
+**Issue**: "Too many requests" error
+- Wait for the cooldown period (shown in error)
+- Admin actions have strict rate limits
+- Contact another admin if urgent
+
+### Security Alert Investigation
+
+**Issue**: Seeing HIGH severity alerts
+1. Note the pubkey involved
+2. Check if it's a legitimate user
+3. Review their recent activity
+4. Consider removing from whitelist if malicious
+
+---
+
+## Admin Security Best Practices
+
+### Key Management
+
+1. **Use a dedicated admin key** - Don't use your personal key for admin
+2. **Store admin key securely** - Hardware security key if possible
+3. **Rotate keys periodically** - Change admin key if compromised
+
+### Access Control
+
+1. **Minimize admin count** - Only grant admin to trusted users
+2. **Review admin actions** - Check security logs regularly
+3. **Verify before approving** - Confirm user identity if possible
+
+### Monitoring
+
+1. **Check security logs daily** - Look for suspicious patterns
+2. **Monitor rate limit events** - May indicate attack attempts
+3. **Review pending requests** - Don't let them accumulate
+
+---
+
+## API Reference
+
+### Admin Security Functions
+
+```typescript
+// Check rate limit before action
+import { checkRateLimit } from '$lib/nostr/admin-security';
+const result = checkRateLimit('cohortChange', pubkey);
+
+// Verify whitelist status
+import { verifyWhitelistStatus } from '$lib/nostr/whitelist';
+const status = await verifyWhitelistStatus(pubkey);
+
+// Log suspicious activity
+import { logSuspiciousActivity } from '$lib/nostr/admin-security';
+logSuspiciousActivity({
+  type: 'unauthorized_action',
+  actor: pubkey,
+  details: { action: 'attempted admin access' }
+});
+```
+
+### Cohort Validation
+
+```typescript
+import { validateCohortAssignment } from '$lib/nostr/admin-security';
+const result = validateCohortAssignment({
+  targetPubkey: userPubkey,
+  cohort: 'approved',
+  assignerPubkey: adminPubkey
+});
+```
+
+---
+
+## Environment Configuration
+
+### Required Environment Variables
+
+```bash
+# Admin public key (hex format)
+VITE_ADMIN_PUBKEY=64-character-hex-pubkey
+
+# Relay URL
+VITE_RELAY_URL=wss://relay.example.com
+
+# Optional: Multiple admin pubkeys (comma-separated)
+VITE_ADMIN_PUBKEYS=pubkey1,pubkey2,pubkey3
+```
+
+### GitHub Actions Secrets
+
+For CI/CD deployments:
+
+| Secret | Description |
+|--------|-------------|
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account for R2 storage |
+| `CLOUDFLARE_R2_ACCESS_KEY` | R2 access credentials |
+| `CLOUDFLARE_R2_SECRET_KEY` | R2 secret key |
+
+---
+
+## Related Documentation
+
+- [Authentication System](./features/authentication.md)
+- [Admin Security Hardening](./security/admin-security.md)
+- [Security Audit Report](./security-audit-report.md)
+- [Whitelist Service](./features/whitelist.md)
+
+---
+
+*Last updated: January 2025*
