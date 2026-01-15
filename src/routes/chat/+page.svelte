@@ -2,9 +2,11 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
+  import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
   import { setSigner, connectNDK } from '$lib/nostr/ndk';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
+  import { getSection } from '$lib/config';
 
   // Forum components
   import BoardStats from '$lib/components/forum/BoardStats.svelte';
@@ -21,10 +23,25 @@
   // Semantic search
   import { SemanticSearch } from '$lib/semantic';
 
-  let channels: CreatedChannel[] = [];
+  let allChannels: CreatedChannel[] = [];
   let loading = true;
   let error: string | null = null;
   let showSearch = false;
+
+  // Get active section from URL query params
+  $: activeSection = $page.url.searchParams.get('section');
+  $: sectionConfig = activeSection ? getSection(activeSection) : null;
+
+  // Filter channels by active section
+  $: channels = activeSection
+    ? allChannels.filter(c => c.section === activeSection)
+    : allChannels;
+
+  // Dynamic title based on section
+  $: pageTitle = sectionConfig ? sectionConfig.name : 'Channels';
+  $: pageDescription = sectionConfig
+    ? sectionConfig.description
+    : 'Join conversations in public channels';
 
   async function handleSearchSelect(noteId: string) {
     // Search for the message in channels and navigate to it
@@ -67,7 +84,7 @@
 
       // Connect and fetch NIP-28 channels (kind 40)
       await connectNDK();
-      channels = await fetchChannels();
+      allChannels = await fetchChannels();
     } catch (e) {
       console.error('Failed to load channels:', e);
       error = e instanceof Error ? e.message : 'Failed to load channels';
@@ -82,7 +99,7 @@
 </script>
 
 <svelte:head>
-  <title>Channels - Fairfield</title>
+  <title>{pageTitle} - Fairfield</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">
@@ -97,8 +114,8 @@
       <div class="mb-6">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h1 class="text-4xl font-bold gradient-text mb-2">Channels</h1>
-            <p class="text-base-content/70">Join conversations in public channels</p>
+            <h1 class="text-4xl font-bold gradient-text mb-2">{pageTitle}</h1>
+            <p class="text-base-content/70">{pageDescription}</p>
           </div>
           <div class="flex items-center gap-2">
             <button
@@ -145,11 +162,18 @@
           <span>{error}</span>
         </div>
       {:else if channels.length === 0}
-        <EmptyState
-          icon="💬"
-          title="No channels yet"
-          description="Create or join a channel to start chatting with the community"
-        />
+        <div class="text-center">
+          <EmptyState
+            icon="💬"
+            title={activeSection ? `No channels in ${pageTitle}` : "No channels yet"}
+            description={activeSection
+              ? "This board doesn't have any channels yet. Check back later or browse all channels."
+              : "Create or join a channel to start chatting with the community"}
+          />
+          {#if activeSection}
+            <a href="{base}/chat" class="btn btn-primary btn-sm">View All Channels</a>
+          {/if}
+        </div>
       {:else}
         <div class="space-y-3">
           {#each channels as channel (channel.id)}
