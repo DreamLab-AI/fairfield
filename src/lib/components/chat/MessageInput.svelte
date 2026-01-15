@@ -1,13 +1,17 @@
 <script lang="ts">
   import { tick, onMount, onDestroy } from 'svelte';
+  import { NDKEvent } from '@nostr-dev-kit/ndk';
   import { channelStore, selectedChannel, userMemberStatus } from '$lib/stores/channelStore';
   import { authStore } from '$lib/stores/auth';
   import { draftStore } from '$lib/stores/drafts';
   import { notificationStore } from '$lib/stores/notifications';
   import { createMentionTags, extractMentionedPubkeys, formatPubkey } from '$lib/utils/mentions';
   import { toast } from '$lib/stores/toast';
+  import { ndk, publishEvent, isConnected } from '$lib/nostr/relay';
+  import { KIND_GROUP_CHAT_MESSAGE } from '$lib/nostr/groups';
   import MentionAutocomplete from './MentionAutocomplete.svelte';
-  import type { Message } from '$lib/types/channel';
+  import EventInput from '$lib/components/events/EventInput.svelte';
+  import type { Message, EventMetadata } from '$lib/types/channel';
   import type { UserProfile } from '$lib/stores/user';
 
   let messageText = '';
@@ -23,17 +27,17 @@
   let autocompletePosition = { top: 0, left: 0 };
   let availableUsers: UserProfile[] = [];
 
-  // Allow sending if: member/admin, OR channel is 'open' access type (anyone can post)
-  $: isOpenChannel = $selectedChannel?.accessType === 'open';
-  $: canSend = ($userMemberStatus === 'member' || $userMemberStatus === 'admin') ||
-               (isOpenChannel && !!$authStore.publicKey);
+  // Event post state
+  let isEvent = false;
+  let eventData: EventMetadata | null = null;
+  let showEventInput = false;
+
+  $: canSend = $userMemberStatus === 'member' || $userMemberStatus === 'admin';
   $: placeholder = canSend
     ? 'Type a message... (@mention users)'
     : $userMemberStatus === 'pending'
       ? 'Your join request is pending...'
-      : isOpenChannel
-        ? 'Login to send messages'
-        : 'Join this channel to send messages';
+      : 'Join this channel to send messages';
 
   // Load draft when channel changes
   $: if ($selectedChannel) {
@@ -105,6 +109,7 @@
       lud16: null,
       website: null,
       banner: null,
+      birthday: null,
       createdAt: null,
       updatedAt: null
     }));
@@ -200,17 +205,64 @@
         textareaElement.style.height = 'auto';
       }
 
-      // Extract mentioned users
-      const mentionedPubkeys = extractMentionedPubkeys(content);
+      // Check relay connection
+      if (!isConnected()) {
+        throw new Error('Not connected to relay');
+      }
 
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
+        throw new Error('NDK not initialized');
+      }
+
+      // Extract mentioned users and create mention tags
+      const mentionedPubkeys = extractMentionedPubkeys(content);
+      const mentionTags = createMentionTags(content);
+
+      // Create and publish message event (kind 9 - NIP-29 group message)
+      const messageEvent = new NDKEvent(ndkInstance);
+      messageEvent.kind = KIND_GROUP_CHAT_MESSAGE;
+      messageEvent.content = content;
+      messageEvent.tags = [
+        ['h', channelId],
+        ...mentionTags
+      ];
+
+      // Add event metadata tags if this is an event post
+      if (isEvent && eventData) {
+        messageEvent.tags.push(['event', 'true']);
+        messageEvent.tags.push(['event_start', eventData.startDate.toString()]);
+        messageEvent.tags.push(['event_end', eventData.endDate.toString()]);
+        if (eventData.location) {
+          messageEvent.tags.push(['event_location', eventData.location]);
+        }
+        if (eventData.recurrence !== 'none') {
+          messageEvent.tags.push(['event_recurrence', eventData.recurrence]);
+          if (eventData.recurrenceEnd) {
+            messageEvent.tags.push(['event_recurrence_end', eventData.recurrenceEnd.toString()]);
+          }
+        }
+        if (eventData.timezone) {
+          messageEvent.tags.push(['event_timezone', eventData.timezone]);
+        }
+      }
+
+      const published = await publishEvent(messageEvent);
+
+      if (!published) {
+        throw new Error('Failed to publish message to relay');
+      }
+
+      // Create local message object for optimistic UI update
       const message: Message = {
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: messageEvent.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         channelId: channelId,
         authorPubkey: $authStore.publicKey,
         content: content,
         createdAt: Date.now(),
         isEncrypted: $selectedChannel.isEncrypted,
-        decryptedContent: $selectedChannel.isEncrypted ? content : undefined
+        decryptedContent: $selectedChannel.isEncrypted ? content : undefined,
+        event: isEvent && eventData ? eventData : undefined
       };
 
       channelStore.addMessage(message);
@@ -218,9 +270,8 @@
       // Send notifications to mentioned users
       for (const mentionedPubkey of mentionedPubkeys) {
         if (mentionedPubkey !== $authStore.publicKey) {
-          // Get sender name
-          const senderName = $authStore.profile?.displayName ||
-                            $authStore.profile?.name ||
+          // Get sender name from nickname or format pubkey
+          const senderName = $authStore.nickname ||
                             formatPubkey($authStore.publicKey);
 
           // Create preview (first 50 chars)
@@ -239,6 +290,13 @@
       // Clear draft after successful send
       draftStore.clearDraft(channelId);
       hasDraft = false;
+
+      // Reset event state after send
+      if (isEvent) {
+        isEvent = false;
+        eventData = null;
+        showEventInput = false;
+      }
 
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -354,6 +412,21 @@
     on:cancel={handleMentionCancel}
   />
 
+  <!-- Event Input Panel -->
+  {#if showEventInput}
+    <div class="mb-3">
+      <EventInput
+        bind:isEvent
+        compact={true}
+        on:change={(e) => (eventData = e.detail)}
+        on:toggle={(e) => {
+          isEvent = e.detail;
+          if (!e.detail) showEventInput = false;
+        }}
+      />
+    </div>
+  {/if}
+
   <div class="flex gap-2 items-end message-input-toolbar">
     <div class="flex-1 textarea-wrapper">
       <textarea
@@ -384,12 +457,30 @@
       </div>
     </div>
 
+    <!-- Event Toggle Button -->
+    <button
+      class="btn btn-square min-h-11 min-w-11"
+      class:btn-secondary={showEventInput || isEvent}
+      class:btn-ghost={!showEventInput && !isEvent}
+      on:click={() => {
+        showEventInput = !showEventInput;
+        if (showEventInput && !isEvent) isEvent = true;
+      }}
+      disabled={!canSend}
+      aria-label="Create event"
+      title="Create event post"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    </button>
+
     <button
       class="btn btn-primary btn-square min-h-11 min-w-11 send-button"
       on:click={sendMessage}
-      disabled={!messageText.trim() || !canSend || isSending}
+      disabled={!messageText.trim() || !canSend || isSending || (isEvent && !eventData?.startDate)}
       aria-label="Send message"
-      title="Send message"
+      title={isEvent ? 'Create event' : 'Send message'}
     >
       {#if isSending}
         <span class="loading loading-spinner loading-sm"></span>
@@ -404,13 +495,7 @@
   {#if !canSend && $userMemberStatus !== 'pending'}
     <div class="alert alert-info mt-2 text-sm">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <span>
-        {#if isOpenChannel && !$authStore.publicKey}
-          Login to send messages in this open channel.
-        {:else}
-          You must be a member to send messages in this channel.
-        {/if}
-      </span>
+      <span>You must be a member to send messages in this channel.</span>
     </div>
   {/if}
 </div>

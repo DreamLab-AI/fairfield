@@ -4,10 +4,10 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import { authStore, isAuthenticated } from '$lib/stores/auth';
 	import { sessionStore } from '$lib/stores/session';
+	import { calendarStore, sidebarVisible, sidebarExpanded } from '$lib/stores/calendar';
 	import { initializePWA } from '$lib/utils/pwa-init';
 	import {
 		canInstall,
@@ -20,20 +20,27 @@
 	import { initializeNotificationListeners } from '$lib/utils/notificationIntegration';
 	import { notificationStore } from '$lib/stores/notifications';
 	import { initSearch } from '$lib/init/searchInit';
+	import { getAppConfig } from '$lib/config/loader';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SessionTimeoutWarning from '$lib/components/ui/SessionTimeoutWarning.svelte';
 	import Navigation from '$lib/components/ui/Navigation.svelte';
 	import MyProfileModal from '$lib/components/user/MyProfileModal.svelte';
 	import ScreenReaderAnnouncer from '$lib/components/ui/ScreenReaderAnnouncer.svelte';
-	import ReadOnlyBanner from '$lib/components/ui/ReadOnlyBanner.svelte';
+	import CalendarSidebar from '$lib/components/calendar/CalendarSidebar.svelte';
+	import CalendarSheet from '$lib/components/calendar/CalendarSheet.svelte';
+
+	const appConfig = getAppConfig();
+	const appName = appConfig.name.split(' - ')[0];
 
 	let mounted = false;
 	let themePreference: 'dark' | 'light' = 'dark';
 	let showInstallBanner = false;
 	let showUpdateBanner = false;
 	let showProfileModal = false;
-	let sessionCleanup: (() => void) | null = null;
+	let sessionCleanup: (() => void) | undefined = undefined;
+	let isMobile = false;
+	let calendarSheetOpen = false;
 
 	$: showNav = $page.url.pathname !== `${base}/` && $page.url.pathname !== base && $page.url.pathname !== `${base}/signup` && $page.url.pathname !== `${base}/login` && $page.url.pathname !== `${base}/pending`;
 
@@ -45,7 +52,7 @@
 		});
 	} else if (browser && !$isAuthenticated && sessionCleanup) {
 		sessionCleanup();
-		sessionCleanup = null;
+		sessionCleanup = undefined;
 		sessionStore.stop();
 	}
 
@@ -60,40 +67,47 @@
 	onMount(() => {
 		mounted = true;
 
-		if (browser) {
-			// Handle SPA redirect from GitHub Pages 404.html
-			const spaRedirect = sessionStorage.getItem('spa-redirect');
-			if (spaRedirect) {
-				sessionStorage.removeItem('spa-redirect');
-				// Navigate to the stored path
-				const targetPath = spaRedirect.startsWith('/') ? `${base}${spaRedirect}` : `${base}/${spaRedirect}`;
-				goto(targetPath, { replaceState: true });
-			}
-
-			const savedTheme = localStorage.getItem('theme') || 'dark';
-			themePreference = savedTheme;
-			document.documentElement.setAttribute('data-theme', savedTheme);
-
-			// Initialize PWA
-			initializePWA();
-
-			// Initialize notification system
-			initializeNotificationListeners();
-
-			// Request notification permission if not already granted
-			if ('Notification' in window && Notification.permission === 'default') {
-				notificationStore.requestPermission();
-			}
-
-			// Initialize search index (async, don't block app startup)
-			initSearch();
+		if (!browser) {
+			return;
 		}
+
+		const savedTheme = localStorage.getItem('theme');
+		themePreference = savedTheme === 'light' ? 'light' : 'dark';
+		document.documentElement.setAttribute('data-theme', themePreference);
+
+		// Initialize PWA
+		initializePWA();
+
+		// Initialize notification system
+		initializeNotificationListeners();
+
+		// Request notification permission if not already granted
+		if ('Notification' in window && Notification.permission === 'default') {
+			notificationStore.requestPermission();
+		}
+
+		// Initialize search index (async, don't block app startup)
+		initSearch();
+
+		// Check for mobile viewport
+		const checkMobile = () => {
+			isMobile = window.innerWidth < 768;
+		};
+		checkMobile();
+		window.addEventListener('resize', checkMobile);
+
+		// Initialize calendar store (fetch upcoming events)
+		calendarStore.fetchUpcomingEvents(14);
+
+		return () => {
+			window.removeEventListener('resize', checkMobile);
+		};
 	});
 
 	onDestroy(() => {
 		if (sessionCleanup) {
 			sessionCleanup();
-			sessionCleanup = null;
+			sessionCleanup = undefined;
 		}
 	});
 
@@ -126,7 +140,7 @@
 </script>
 
 <svelte:head>
-	<title>Fairfield - DreamLab - Cumbria</title>
+	<title>{appConfig.name}</title>
 </svelte:head>
 
 <!-- Skip to main content link for accessibility -->
@@ -138,7 +152,7 @@
 		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6" aria-hidden="true">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 		</svg>
-		<span>Install Fairfield app for offline access</span>
+		<span>Install {appName} app for offline access</span>
 		<div class="flex gap-2">
 			<button class="btn btn-sm btn-primary" on:click={handleInstall} aria-label="Install application">Install</button>
 			<button class="btn btn-sm btn-ghost" on:click={dismissInstallBanner} aria-label="Dismiss install banner">Dismiss</button>
@@ -183,15 +197,38 @@
 				onThemeToggle={toggleTheme}
 				onProfileClick={toggleProfileModal}
 			/>
-			<div class="container mx-auto max-w-4xl px-4">
-				<ReadOnlyBanner />
-			</div>
 		{/if}
-		{#key $page.url.pathname}
-			<main id="main-content" role="main" tabindex="-1" in:fade={{ duration: 150, delay: 75 }} out:fade={{ duration: 75 }}>
-				<slot />
-			</main>
-		{/key}
+
+		<div class="flex">
+			<!-- Calendar Sidebar (Desktop) -->
+			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
+				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">
+					<CalendarSidebar
+						isExpanded={$sidebarExpanded}
+						isVisible={$sidebarVisible}
+					/>
+				</aside>
+			{/if}
+
+			<!-- Main Content -->
+			{#key $page.url.pathname}
+				<main
+					id="main-content"
+					role="main"
+					tabindex="-1"
+					class="flex-1 min-w-0"
+					in:fade={{ duration: 150, delay: 75 }}
+					out:fade={{ duration: 75 }}
+				>
+					<slot />
+				</main>
+			{/key}
+		</div>
+
+		<!-- Calendar Sheet (Mobile) -->
+		{#if showNav && $isAuthenticated && isMobile}
+			<CalendarSheet bind:isOpen={calendarSheetOpen} />
+		{/if}
 	{:else}
 		<div class="flex items-center justify-center min-h-screen" role="status" aria-live="polite" aria-label="Loading application">
 			<div class="loading loading-spinner loading-lg text-primary"></div>
@@ -203,7 +240,6 @@
 <Toast />
 <ConfirmDialog />
 <SessionTimeoutWarning />
-<ScreenReaderAnnouncer />
 
 <style>
 	:global(body) {

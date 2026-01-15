@@ -118,10 +118,11 @@
 
       <!-- Search Input -->
       <div class="form-control mb-4">
-        <label class="label">
+        <label class="label" for="dm-pubkey-input">
           <span class="label-text">Public Key (hex)</span>
         </label>
         <input
+          id="dm-pubkey-input"
           type="text"
           bind:value={searchInput}
           placeholder="Enter 64-character hex public key..."
@@ -130,20 +131,21 @@
           class:input-error={searchInput.length > 0 && !isValidPubkey}
         />
         {#if searchInput.length > 0 && !isValidPubkey}
-          <label class="label">
+          <span class="label" role="alert">
             <span class="label-text-alt text-error">
               Invalid format. Public key must be 64 hex characters.
             </span>
-          </label>
+          </span>
         {/if}
       </div>
 
       <!-- Optional Custom Name -->
       <div class="form-control mb-6">
-        <label class="label">
+        <label class="label" for="dm-display-name-input">
           <span class="label-text">Display Name (optional)</span>
         </label>
         <input
+          id="dm-display-name-input"
           type="text"
           bind:value={customName}
           placeholder="Give this contact a friendly name..."

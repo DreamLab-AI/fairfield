@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { generateKeyPair } from '$lib/nostr/keys';
+  import { generateNewIdentity } from '$lib/nostr/keys';
 
   const dispatch = createEventDispatcher<{
     complete: { publicKey: string; privateKey: string; accountStatus: 'incomplete' };
@@ -16,7 +16,7 @@
 
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const { publicKey, privateKey } = generateKeyPair();
+      const { publicKey, privateKey } = await generateNewIdentity();
 
       dispatch('complete', {
         publicKey,

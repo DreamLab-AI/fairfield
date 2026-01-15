@@ -1,9 +1,12 @@
 <script lang="ts">
   import { authStore } from '$lib/stores/auth';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 </script>
 
 <svelte:head>
-  <title>Pending Approval - Fairfield</title>
+  <title>Pending Approval - {appConfig.name}</title>
 </svelte:head>
 
 <div class="flex items-center justify-center min-h-[calc(100vh-64px)] p-4">

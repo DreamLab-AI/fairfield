@@ -16,7 +16,8 @@ interface HnswLib {
   HierarchicalNSW: new (space: string, dim: number) => HnswIndex;
 }
 
-let hnswLib: HnswLib | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let hnswLib: HnswLib | any = null;
 let searchIndex: HnswIndex | null = null;
 let labelMapping: Map<number, string> | null = null;
 let indexDimensions = 384;
@@ -25,14 +26,14 @@ let indexDimensions = 384;
  * Load hnswlib-wasm dynamically
  */
 async function loadHnswLib(): Promise<HnswLib> {
-  if (hnswLib) return hnswLib;
+  if (hnswLib) return hnswLib as HnswLib;
 
   try {
     // Dynamic import of hnswlib-wasm
     const module = await import('hnswlib-wasm');
     const { loadHnswlib } = module;
-    hnswLib = await loadHnswlib();
-    return hnswLib;
+    hnswLib = await loadHnswlib() as unknown as HnswLib;
+    return hnswLib as HnswLib;
   } catch (error) {
     console.error('Failed to load hnswlib-wasm:', error);
     throw new Error('HNSW search not available');
@@ -100,7 +101,9 @@ function parseNpzMapping(data: Uint8Array): Map<number, string> {
     const parsed = JSON.parse(text);
 
     if (Array.isArray(parsed.labels) && Array.isArray(parsed.ids)) {
-      for (let i = 0; i < parsed.labels.length; i++) {
+      // Use the minimum length to handle mismatched arrays safely
+      const length = Math.min(parsed.labels.length, parsed.ids.length);
+      for (let i = 0; i < length; i++) {
         mapping.set(parsed.labels[i], parsed.ids[i]);
       }
     }
@@ -262,4 +265,13 @@ export function getSearchStats(): { vectorCount: number; dimensions: number } | 
 export function unloadIndex(): void {
   searchIndex = null;
   labelMapping = null;
+}
+
+/**
+ * Reset all module state (for testing)
+ */
+export function resetHnswState(): void {
+  searchIndex = null;
+  labelMapping = null;
+  hnswLib = null;
 }

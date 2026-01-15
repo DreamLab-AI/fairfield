@@ -1,4 +1,12 @@
-[← Back to Main README](../README.md)
+---
+title: Message Drafts Auto-Save Implementation
+description: Implementation of automatic draft saving for channel messages with localStorage persistence
+last_updated: 2025-12-23
+category: reference
+tags: [features, messages, ui]
+---
+
+[← Back to Main README](../../README.md)
 
 # Message Drafts Auto-Save Implementation (Phase 3.2)
 
@@ -42,7 +50,7 @@ interface Draft {
 - Pencil icon for visual indication
 - Tooltip showing draft preview
 - Configurable tooltip position
-- Warning color badge
+- Warning colour badge
 
 **Usage:**
 ```svelte
@@ -207,7 +215,7 @@ handleBlur()                   // Save on blur
 1. **Debouncing**: Prevents excessive writes (1s delay)
 2. **Conditional Saves**: Only saves if content changed
 3. **Lazy Loading**: Drafts loaded only when needed
-4. **Efficient Storage**: JSON serialization with Map structure
+4. **Efficient Storage**: JSON serialisation with Map structure
 
 ### Memory Management
 - Drafts stored in localStorage (not RAM)

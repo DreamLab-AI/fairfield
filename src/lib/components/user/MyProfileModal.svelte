@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { authStore, isReadOnly } from '$lib/stores/auth';
+	import { authStore } from '$lib/stores/auth';
 	import { profileCache } from '$lib/stores/profiles';
 	import { encodePubkey, encodePrivkey } from '$lib/nostr/keys';
-	import { ndk, connectNDK, setSigner, hasSigner } from '$lib/nostr/ndk';
+	import { ndk, isConnected } from '$lib/nostr/relay';
 	import { NDKEvent } from '@nostr-dev-kit/ndk';
-	import { base } from '$app/paths';
+	import { browser } from '$app/environment';
+	import ImageUpload from '$lib/components/ui/ImageUpload.svelte';
+	import type { ImageUploadResult } from '$lib/utils/imageUpload';
 
 	export let open = false;
 
@@ -14,10 +16,23 @@
 	let copiedNsec = false;
 	let editNickname = '';
 	let editAvatar = '';
+	let editBirthday = '';
 	let profileSaved = false;
 	let profileSaving = false;
 	let profileError: string | null = null;
 	let previousFocusElement: HTMLElement | null = null;
+	let useImageUpload = false;
+
+	function handleAvatarUpload(event: CustomEvent<ImageUploadResult>) {
+		const result = event.detail;
+		if (result.success && result.url) {
+			editAvatar = result.url;
+		}
+	}
+
+	function handleAvatarError(event: CustomEvent<string>) {
+		profileError = event.detail;
+	}
 
 	$: npub = $authStore.publicKey ? encodePubkey($authStore.publicKey) : '';
 	$: nsec = $authStore.privateKey ? encodePrivkey($authStore.privateKey) : '';
@@ -27,7 +42,14 @@
 	$: if (open && !lastModalState) {
 		editNickname = $authStore.nickname || '';
 		editAvatar = $authStore.avatar || '';
+		editBirthday = '';
 		previousFocusElement = document.activeElement as HTMLElement;
+		// Load birthday from profile cache
+		if (browser && $authStore.publicKey) {
+			profileCache.getProfile($authStore.publicKey).then(cached => {
+				editBirthday = (cached.profile as any)?.birthday || '';
+			});
+		}
 	}
 	$: lastModalState = open;
 
@@ -77,21 +99,19 @@
 		profileError = null;
 
 		try {
-			// Connect NDK if not already connected
-			await connectNDK();
-
-			// Set signer from private key if not already set
-			if (!hasSigner()) {
-				setSigner($authStore.privateKey);
+			const ndkInstance = ndk();
+			if (!ndkInstance) {
+				throw new Error('NDK not connected');
 			}
 
 			// Create kind 0 metadata event
-			const metadataEvent = new NDKEvent(ndk);
+			const metadataEvent = new NDKEvent(ndkInstance);
 			metadataEvent.kind = 0;
 			metadataEvent.content = JSON.stringify({
 				name: editNickname || undefined,
 				display_name: editNickname || undefined,
 				picture: editAvatar || undefined,
+				birthday: editBirthday || undefined,
 			});
 
 			// Sign and publish to relay
@@ -157,20 +177,6 @@
 			</button>
 			<h3 id="profile-modal-title" class="font-bold text-lg mb-4">Your Profile</h3>
 
-			<!-- Incomplete Account Warning -->
-			{#if $isReadOnly}
-				<div class="alert alert-warning mb-4">
-					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-					</svg>
-					<div class="flex-1">
-						<p class="font-semibold">Account Incomplete</p>
-						<p class="text-sm">You're in read-only mode. Complete signup to post messages and create events.</p>
-					</div>
-					<a href="{base}/signup" class="btn btn-sm btn-warning" on:click={closeModal}>Complete Signup</a>
-				</div>
-			{/if}
-
 			<!-- Avatar Preview & Edit -->
 			<div class="flex items-center gap-4 mb-4">
 				<div class="avatar">
@@ -204,10 +210,11 @@
 
 			<!-- Nickname -->
 			<div class="form-control mb-3">
-				<label class="label py-1">
+				<label class="label py-1" for="profile-nickname-input">
 					<span class="label-text font-semibold">Nickname</span>
 				</label>
 				<input
+					id="profile-nickname-input"
 					type="text"
 					bind:value={editNickname}
 					placeholder="Enter a display name"
@@ -216,19 +223,55 @@
 				/>
 			</div>
 
-			<!-- Avatar URL -->
-			<div class="form-control mb-4">
+			<!-- Avatar -->
+			<div class="form-control mb-3">
 				<label class="label py-1">
-					<span class="label-text font-semibold">Avatar URL</span>
+					<span class="label-text font-semibold">Avatar</span>
+					<button
+						class="btn btn-ghost btn-xs"
+						on:click={() => (useImageUpload = !useImageUpload)}
+					>
+						{useImageUpload ? 'Use URL' : 'Upload Image'}
+					</button>
+				</label>
+
+				{#if useImageUpload}
+					<div class="flex justify-center">
+						<ImageUpload
+							category="avatar"
+							currentUrl={editAvatar}
+							on:upload={handleAvatarUpload}
+							on:error={handleAvatarError}
+						/>
+					</div>
+				{:else}
+					<input
+						id="profile-avatar-input"
+						type="url"
+						bind:value={editAvatar}
+						placeholder="https://example.com/avatar.jpg"
+						class="input input-bordered input-sm"
+					/>
+					<label class="label py-1" for="profile-avatar-input">
+						<span class="label-text-alt text-base-content/60">Direct link to an image</span>
+					</label>
+				{/if}
+			</div>
+
+			<!-- Birthday (Optional) -->
+			<div class="form-control mb-4">
+				<label class="label py-1" for="profile-birthday-input">
+					<span class="label-text font-semibold">Birthday</span>
+					<span class="label-text-alt text-base-content/60">Optional</span>
 				</label>
 				<input
-					type="url"
-					bind:value={editAvatar}
-					placeholder="https://example.com/avatar.jpg"
+					id="profile-birthday-input"
+					type="date"
+					bind:value={editBirthday}
 					class="input input-bordered input-sm"
 				/>
-				<label class="label py-1">
-					<span class="label-text-alt text-base-content/60">Direct link to an image</span>
+				<label class="label py-1" for="profile-birthday-input">
+					<span class="label-text-alt text-base-content/60">Visible to tribe members on the calendar</span>
 				</label>
 			</div>
 
@@ -271,7 +314,7 @@
 
 			<!-- npub (always visible) -->
 			<div class="form-control mb-4">
-				<label class="label">
+				<label class="label" for="profile-npub-input">
 					<span class="label-text font-semibold">Public Key (npub)</span>
 					<div
 						class="tooltip tooltip-left"
@@ -295,6 +338,7 @@
 				</label>
 				<div class="flex gap-2">
 					<input
+						id="profile-npub-input"
 						type="text"
 						readonly
 						value={formatKey(npub)}
@@ -336,7 +380,7 @@
 						{/if}
 					</button>
 				</div>
-				<label class="label">
+				<label class="label" for="profile-npub-input">
 					<span class="label-text-alt text-success">Safe to share - this is how others find you</span
 					>
 				</label>
@@ -344,7 +388,7 @@
 
 			<!-- nsec (hidden by default) -->
 			<div class="form-control">
-				<label class="label">
+				<label class="label" for="profile-nsec-input">
 					<span class="label-text font-semibold">Private Key (nsec)</span>
 					<div
 						class="tooltip tooltip-left"

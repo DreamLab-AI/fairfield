@@ -1,3 +1,19 @@
+---
+title: Semantic Vector Search SPARC Pseudocode
+description: Detailed algorithm design for the semantic search embedding generation and HNSW indexing pipeline
+last_updated: 2025-12-23
+category: reference
+tags: [semantic-search, pseudocode, sparc-methodology, architecture]
+difficulty: advanced
+version: 0.1.0-draft
+date: 2025-12-14
+status: active
+related-docs:
+  - docs/architecture/06-semantic-search-spec.md
+  - docs/architecture/07-semantic-search-architecture.md
+  - docs/architecture/09-semantic-search-risks.md
+---
+
 [← Back to Main README](../../README.md)
 
 # Semantic Vector Search - SPARC Pseudocode
@@ -12,10 +28,10 @@
 
 This document specifies the algorithms and data flows for implementing semantic vector search using:
 - **all-MiniLM-L6-v2** (384-dimensional embeddings)
-- **HNSW** (Hierarchical Navigable Small World) index for efficient nearest-neighbor search
+- **HNSW** (Hierarchical Navigable Small World) index for efficient nearest-neighbour search
 - **Cloudflare R2** for CDN-distributed index storage
 - **IndexedDB** for client-side caching
-- **int8 quantization** for bandwidth optimization
+- **int8 quantization** for bandwidth optimisation
 
 ---
 

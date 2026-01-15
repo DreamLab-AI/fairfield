@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import MiniCalendar from './MiniCalendar.svelte';
-  import { calendarStore } from '$lib/stores/calendar';
+  import { calendarStore, availabilityBlocks } from '$lib/stores/calendar';
   import { authStore } from '$lib/stores/auth';
   import { userPermissionsStore } from '$lib/stores/userPermissions';
   import type { EventVenueType } from '$lib/types/calendar';
-  import type { UserPermissions } from '$lib/config/types';
+  import type { AvailabilityBlock, UserPermissions } from '$lib/config/types';
   import type { CalendarEvent } from '$lib/nostr/calendar';
   import {
     getEventVisibilityLayer,
@@ -189,7 +189,7 @@
 </script>
 
 <aside
-  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-l border-base-300 dark:border-base-content/10"
+  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-r border-base-300 dark:border-base-content/10"
   class:expanded={isExpanded}
   class:collapsed={!isExpanded}
   class:hidden={!isVisible}
@@ -216,7 +216,7 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M13 5l7 7-7 7M5 5l7 7-7 7"
+            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
           />
         </svg>
       </button>
@@ -237,7 +237,7 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+            d="M13 5l7 7-7 7M5 5l7 7-7 7"
           />
         </svg>
       </button>
@@ -251,6 +251,7 @@
         <MiniCalendar
           selectedDate={selectedDate}
           events={upcomingEvents}
+          availabilityBlocks={$availabilityBlocks}
           onDateSelect={handleDateSelect}
         />
       </div>
@@ -593,18 +594,37 @@
 <style>
   .calendar-sidebar {
     position: relative;
+    flex-shrink: 0;
   }
 
   .calendar-sidebar.expanded {
-    width: 280px;
+    width: clamp(240px, 20vw, 320px);
+    min-width: 240px;
+    max-width: 320px;
   }
 
   .calendar-sidebar.collapsed {
     width: 48px;
+    min-width: 48px;
   }
 
   .calendar-sidebar.hidden {
     display: none;
+  }
+
+  /* Responsive breakpoints */
+  @media (max-width: 1024px) {
+    .calendar-sidebar.expanded {
+      width: 260px;
+      min-width: 240px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .calendar-sidebar.expanded {
+      width: 100%;
+      max-width: none;
+    }
   }
 
   /* Hatched pattern for busy slots */
@@ -632,6 +652,12 @@
   .calendar-sidebar,
   .sidebar-content {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Touch scroll optimization */
+  .sidebar-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   /* Scrollbar styling */

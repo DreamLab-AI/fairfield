@@ -3,8 +3,9 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
-  import { authStore, isReadOnly } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { authStore } from '$lib/stores/auth';
+  import { connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import {
     fetchChannels,
     fetchChannelMessages,
@@ -19,6 +20,9 @@
   import MessageItem from '$lib/components/chat/MessageItem.svelte';
   import type { Message } from '$lib/types/channel';
   import { getActiveRelays } from '$lib/stores/settings';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   $: channelId = $page.params.channelId;
 
@@ -57,13 +61,12 @@
     }
 
     try {
-      // Set up signer if we have a private key
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      // Connect to relay if we have a private key
+      if ($authStore.privateKey && !isConnected()) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Connect and fetch channels
-      await connectNDK();
+      // Fetch channels
       const channels = await fetchChannels();
       channel = channels.find(c => c.id === channelId) || null;
 
@@ -265,7 +268,7 @@
 </script>
 
 <svelte:head>
-  <title>{channel?.name || 'Channel'} - Fairfield</title>
+  <title>{channel?.name || 'Channel'} - {appConfig.name}</title>
 </svelte:head>
 
 {#if loading}
@@ -364,31 +367,23 @@
 
     <div class="bg-base-200 border-t border-base-300 p-4">
       <div class="container mx-auto max-w-4xl">
-        {#if $isReadOnly}
-          <div class="text-center text-base-content/60 py-2">
-            <span>Posting is disabled in read-only mode. </span>
-            <a href="{base}/signup" class="link link-primary font-semibold">Complete signup</a>
-            <span> to post messages.</span>
-          </div>
-        {:else}
-          <form on:submit|preventDefault={sendMessage} class="flex gap-2">
-            <input
-              type="text"
-              class="input input-bordered flex-1"
-              placeholder="Type a message..."
-              bind:value={messageInput}
-              on:input={handleInput}
-              disabled={sending}
-            />
-            <button
-              type="submit"
-              class="btn btn-primary"
-              disabled={sending || !messageInput.trim()}
-            >
-              {sending ? 'Sending...' : 'Send'}
-            </button>
-          </form>
-        {/if}
+        <form on:submit|preventDefault={sendMessage} class="flex gap-2">
+          <input
+            type="text"
+            class="input input-bordered flex-1 text-base-content"
+            placeholder="Type a message..."
+            bind:value={messageInput}
+            on:input={handleInput}
+            disabled={sending}
+          />
+          <button
+            type="submit"
+            class="btn btn-primary"
+            disabled={sending || !messageInput.trim()}
+          >
+            {sending ? 'Sending...' : 'Send'}
+          </button>
+        </form>
       </div>
     </div>
   </div>

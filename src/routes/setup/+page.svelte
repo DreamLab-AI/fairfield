@@ -372,16 +372,18 @@ sections:
 
 				<div class="space-y-4">
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2">Application Name</label>
+						<label for="setup-app-name" class="block text-sm font-medium text-gray-300 mb-2">Application Name</label>
 						<input
+							id="setup-app-name"
 							bind:value={appName}
 							placeholder="My Community"
 							class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2">Relay URL</label>
+						<label for="setup-relay-url" class="block text-sm font-medium text-gray-300 mb-2">Relay URL</label>
 						<input
+							id="setup-relay-url"
 							bind:value={relayUrl}
 							placeholder="wss://relay.example.com"
 							class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -414,10 +416,11 @@ sections:
 
 				<div class="space-y-4">
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2"
+						<label for="setup-admin-pubkey" class="block text-sm font-medium text-gray-300 mb-2"
 							>Admin Public Key (hex)</label
 						>
 						<input
+							id="setup-admin-pubkey"
 							bind:value={adminPubkey}
 							placeholder="64-character hex public key"
 							class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -451,20 +454,22 @@ sections:
 				</p>
 
 				<div class="space-y-4 mb-6">
-					{#if $workingConfig.sections?.length}
-						{#each $workingConfig.sections as section}
-							<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
-								<div class="flex items-center gap-3">
-									<span class="text-2xl">{section.icon}</span>
-									<div>
-										<p class="font-medium">{section.name}</p>
-										<p class="text-gray-500 text-sm">{section.description}</p>
+					{#if $workingConfig.categories?.some(c => c.sections?.length)}
+						{#each $workingConfig.categories ?? [] as category}
+							{#each category.sections ?? [] as section}
+								<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
+									<div class="flex items-center gap-3">
+										<span class="text-2xl">{section.icon}</span>
+										<div>
+											<p class="font-medium">{section.name}</p>
+											<p class="text-gray-500 text-sm">{section.description}</p>
+										</div>
 									</div>
+									<span class="text-sm text-gray-400">
+										{section.access.requiresApproval ? 'Approval required' : 'Auto-approve'}
+									</span>
 								</div>
-								<span class="text-sm text-gray-400">
-									{section.access.requiresApproval ? 'Approval required' : 'Auto-approve'}
-								</span>
-							</div>
+							{/each}
 						{/each}
 					{:else}
 						<div class="text-center py-8 text-gray-500">

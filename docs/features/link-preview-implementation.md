@@ -1,4 +1,12 @@
-[← Back to Main README](../README.md)
+---
+title: Link Preview Implementation
+description: Implementation of automatic link preview generation with metadata extraction and image thumbnails
+last_updated: 2025-12-23
+category: reference
+tags: [features, messages, ui]
+---
+
+[← Back to Main README](../../README.md)
 
 # Link Preview Implementation (Phase 2.4)
 

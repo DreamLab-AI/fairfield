@@ -1,3 +1,19 @@
+---
+title: Nostr-BBS SPARC Architecture
+description: System architecture design for Nostr-BBS including component diagrams, data flow, and technical infrastructure
+last_updated: 2025-12-23
+category: explanation
+tags: [architecture, sparc-methodology, serverless, pwa]
+difficulty: intermediate
+version: 0.1.0-draft
+date: 2024-12-11
+status: active
+related-docs:
+  - docs/architecture/01-specification.md
+  - docs/architecture/03-pseudocode.md
+  - README.md
+---
+
 [← Back to Main README](../../README.md)
 
 # Nostr-BBS - SPARC Architecture
@@ -44,7 +60,123 @@ graph TB
 
 ---
 
-## 2. Component Architecture
+## 2. Message Lifecycle & Data Flow
+
+### 2.1 Complete Message Flow (Creation to Delivery)
+
+```mermaid
+sequenceDiagram
+    participant U as User (PWA)
+    participant UI as UI Components
+    participant NDK as NDK Library
+    participant WS as WebSocket
+    participant R as Relay Worker
+    participant DO as Durable Objects
+    participant SUB as Subscribers
+
+    Note over U,SUB: Message Creation & Publishing Flow
+
+    U->>UI: 1. Type message in input
+    UI->>UI: 2. Validate content (length, format)
+    UI->>NDK: 3. Create channel message
+
+    Note over NDK: Event Construction
+    NDK->>NDK: 4. Build event object (kind 9)
+    NDK->>NDK: 5. Add channel tag ('h', channelId)
+    NDK->>NDK: 6. Add timestamp (created_at)
+    NDK->>NDK: 7. Sign with privkey (NIP-01)
+
+    NDK->>WS: 8. Publish via WebSocket
+    Note over WS: ["EVENT", {event}]
+
+    WS->>R: 9. Relay receives event
+
+    Note over R: NIP-42 Authentication
+    R->>R: 10. Verify event signature
+    R->>R: 11. Check pubkey in whitelist
+    R->>R: 12. Validate channel membership
+
+    alt User not authorised
+        R->>WS: 13a. NOTICE: Auth failed
+        WS->>UI: 14a. Show error
+    else User authorised
+        R->>DO: 13b. Store event
+
+        Note over DO: Durable Objects Storage
+        DO->>DO: 14b. Write to LMDB
+        DO->>DO: 15b. Update channel index
+        DO->>DO: 16b. Update user message count
+
+        R->>SUB: 17. Broadcast to subscribers
+        Note over SUB: All connected clients<br/>subscribed to channel
+
+        SUB->>SUB: 18. Update message list
+        SUB->>SUB: 19. Render new message
+
+        R->>WS: 20. OK response
+        WS->>UI: 21. Message confirmed
+        UI->>U: 22. Show success (green checkmark)
+    end
+
+    Note over U,SUB: ✅ Message delivered to all members
+```
+
+**Key Steps Explained:**
+
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1-3 | Client | User types message, UI validates, sends to NDK |
+| 4-7 | NDK | Event creation: build, tag, timestamp, sign |
+| 8-9 | Transport | WebSocket transmission to relay |
+| 10-12 | Relay | NIP-42 AUTH: verify signature, whitelist, membership |
+| 13-16 | Storage | Durable Objects: persist event, update indexes |
+| 17-19 | Distribution | Broadcast to all channel subscribers |
+| 20-22 | Confirmation | Relay confirms, UI shows success |
+
+### 2.2 Deletion Flow (NIP-09 + NIP-29)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as UI
+    participant NDK as NDK
+    participant R as Relay
+    participant DO as Durable Objects
+    participant SUB as Subscribers
+
+    U->>UI: Click "Delete" on message
+    UI->>UI: Confirm deletion
+
+    alt User's own message
+        UI->>NDK: Create deletion event (kind 5)
+        Note over NDK: NIP-09 deletion
+        NDK->>NDK: Add 'e' tag (event ID to delete)
+        NDK->>NDK: Sign with user's privkey
+    else Admin deletion
+        UI->>NDK: Create admin deletion (kind 9005)
+        Note over NDK: NIP-29 admin action
+        NDK->>NDK: Add 'h' tag (channel ID)
+        NDK->>NDK: Add 'e' tag (event ID)
+        NDK->>NDK: Sign with admin privkey
+    end
+
+    NDK->>R: Publish deletion event
+    R->>R: Verify deletion authority
+    R->>DO: Mark event as deleted
+    DO->>DO: Update deletion index
+
+    R->>SUB: Broadcast deletion
+    SUB->>SUB: Remove message from UI
+
+    style NDK fill:#FFB6C1,stroke:#333
+    style DO fill:#90EE90,stroke:#333
+```
+
+**Text Alternative:** User initiates deletion. For own messages, creates NIP-09 deletion event (kind 5). For admin deletions, creates NIP-29 moderation event (kind 9005). Relay verifies authority, marks event as deleted in Durable Objects, broadcasts deletion to all subscribers who remove the message from their UI.
+
+---
+
+## 3. Component Architecture
 
 ### 2.1 Frontend Components
 
@@ -56,8 +188,7 @@ graph TB
                 keys["keys.ts - NIP-06 key generation"]
                 encryption["encryption.ts - NIP-44 E2E"]
                 events["events.ts - Event creation/signing"]
-                relay["relay.ts - NDK connection"]
-                ndk["ndk.ts - NDK singleton"]
+                relay["relay.ts - RelayManager with NIP-42 AUTH"]
                 dm["dm.ts - NIP-17/59 DM handling"]
                 channels["channels.ts - Channel operations"]
                 groups["groups.ts - NIP-29 groups"]
@@ -165,7 +296,7 @@ graph TB
 | `src/lib/nostr/` | Nostr protocol implementation (NIPs 01, 06, 09, 17, 25, 28, 29, 42, 44, 52, 59) |
 | `src/lib/stores/` | Svelte stores for reactive state management |
 | `src/lib/utils/` | Helper utilities for storage, crypto, search, export |
-| `src/lib/components/` | Reusable Svelte 5 components organized by feature |
+| `src/lib/components/` | Reusable Svelte 5 components organised by feature |
 | `src/routes/` | SvelteKit file-based routing |
 | `static/` | PWA assets (manifest, icons, service worker) |
 
@@ -421,7 +552,7 @@ async function deleteMessage(eventId: string, privkey: string) {
   const signed = await signEvent(deletionEvent, privkey);
   await relay.publish(signed);
 
-  // Local relay WILL honor deletion
+  // Local relay WILL honour deletion
   // (configured to respect NIP-09 from event author)
 }
 
@@ -435,7 +566,8 @@ async function adminDeleteMessage(eventId: string, channelId: string) {
     ],
     content: "Removed by admin",
   };
-  // ... sign with admin key
+  // Sign event with admin private key
+  return finalizeEvent(event, adminPrivateKey);
 }
 ```
 
@@ -453,7 +585,7 @@ flowchart LR
     RelayB -.->|"???"| RelayC
 ```
 
-*Problem: No guarantee other relays honor deletion*
+*Problem: No guarantee other relays honour deletion*
 
 **Nostr-BBS (Closed Relay)**
 
@@ -503,27 +635,44 @@ flowchart TB
 
 ```mermaid
 graph TB
-    subgraph Cloudflare["Cloudflare Edge"]
-        subgraph Pages["Cloudflare Pages"]
-            PWA["PWA (static SPA)<br/>Global CDN"]
+    subgraph GitHub["GitHub"]
+        subgraph Pages["GitHub Pages"]
+            PWA["PWA (static SPA)<br/>Static site hosting"]
         end
-
-        subgraph Workers["Cloudflare Workers"]
-            Relay["Relay Worker<br/>WebSocket endpoint"]
-        end
-
-        subgraph DO["Durable Objects"]
-            State["Relay State<br/>Event storage"]
-        end
-
-        subgraph Storage["R2 Storage"]
-            Backup["Event Backups<br/>Snapshots"]
-        end
-
-        PWA -->|"WSS"| Relay
-        Relay --> State
-        State -->|"periodic"| Backup
+        Repo["Source Repository<br/>CI/CD via Actions"]
     end
+
+    subgraph Docker["Docker Containers"]
+        DevEnv["Development Environment<br/>Local testing"]
+    end
+
+    subgraph GCP["Google Cloud Platform"]
+        subgraph CloudRun["Cloud Run"]
+            Relay["Relay API<br/>WebSocket endpoint"]
+            EmbedAPI["Embedding API<br/>Vector generation"]
+            ImageAPI["Image API<br/>Image processing"]
+        end
+
+        subgraph Database["Cloud SQL"]
+            PostgreSQL["PostgreSQL<br/>Relational data<br/>pgvector extension"]
+        end
+
+        subgraph Storage["Cloud Storage"]
+            Vectors["Vector Storage<br/>Embeddings"]
+            Images["Image Storage<br/>Media files"]
+        end
+
+        Relay --> PostgreSQL
+        EmbedAPI --> Vectors
+        ImageAPI --> Images
+        Relay --> Vectors
+    end
+
+    PWA -->|"WSS/HTTPS"| Relay
+    PWA -->|"HTTPS"| EmbedAPI
+    PWA -->|"HTTPS"| ImageAPI
+    Repo -->|"Deploy"| Pages
+    Docker -->|"Test/Build"| Repo
 ```
 
 ---

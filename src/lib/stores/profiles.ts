@@ -1,9 +1,10 @@
 import { writable, derived, get } from 'svelte/store';
-import { ndkStore } from './ndk';
+import { ndk } from '$lib/nostr/relay';
 import { authStore } from './auth';
 import type { NDKUser, NDKUserProfile } from '@nostr-dev-kit/ndk';
 import { browser } from '$app/environment';
 import { AsyncThrottle } from '$lib/utils/asyncHelpers';
+import { KIND_USER_REGISTRATION } from '$lib/nostr/groups';
 
 /**
  * Profile cache entry
@@ -70,20 +71,38 @@ function createProfileCache() {
     };
 
     update(state => {
-      state.profiles.set(pubkey, fetchingEntry);
-      return state;
+      const profiles = new Map(state.profiles);
+      profiles.set(pubkey, fetchingEntry);
+      return { ...state, profiles };
     });
 
     // Fetch from NDK with throttling
     try {
-      const ndk = ndkStore.get();
-      if (!ndk) {
-        throw new Error('NDK not initialized');
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
+        // NDK not ready yet - return placeholder without throwing
+        console.debug('[ProfileCache] NDK not initialized, returning placeholder for', pubkey.slice(0, 8));
+        const placeholder: CachedProfile = {
+          pubkey,
+          profile: null,
+          displayName: truncatePubkey(pubkey),
+          avatar: null,
+          nip05: null,
+          about: null,
+          lastFetched: 0, // Will retry on next fetch
+          isFetching: false
+        };
+        update(state => {
+          const profiles = new Map(state.profiles);
+          profiles.set(pubkey, placeholder);
+          return { ...state, profiles };
+        });
+        return placeholder;
       }
 
       // Throttle concurrent fetches to prevent overwhelming relays
       const profile = await profileFetchThrottle.execute(async () => {
-        const user: NDKUser = ndk.getUser({ pubkey });
+        const user: NDKUser = ndkInstance.getUser({ pubkey });
         await user.fetchProfile();
         return user.profile || null;
       });
@@ -94,10 +113,29 @@ function createProfileCache() {
       const localNickname = isCurrentUser ? auth.nickname : null;
       const localAvatar = isCurrentUser ? auth.avatar : null;
 
+      // If no displayName from kind 0 profile, check for registration event
+      let registrationName: string | null = null;
+      if (!profile?.displayName && !profile?.name && !localNickname) {
+        try {
+          const registrationEvents = await ndkInstance.fetchEvents({
+            kinds: [KIND_USER_REGISTRATION as number],
+            authors: [pubkey],
+            limit: 1
+          });
+          const regEvent = Array.from(registrationEvents)[0];
+          if (regEvent) {
+            const nameTag = regEvent.tags.find((t: string[]) => t[0] === 'name');
+            registrationName = nameTag?.[1] || null;
+          }
+        } catch (e) {
+          // Ignore registration fetch errors
+        }
+      }
+
       const entry: CachedProfile = {
         pubkey,
         profile: profile || null,
-        displayName: localNickname || profile?.displayName || profile?.name || truncatePubkey(pubkey),
+        displayName: localNickname || profile?.displayName || profile?.name || registrationName || truncatePubkey(pubkey),
         avatar: localAvatar || profile?.image || profile?.picture || null,
         nip05: profile?.nip05 || null,
         about: profile?.about || null,
@@ -106,17 +144,18 @@ function createProfileCache() {
       };
 
       update(state => {
+        const profiles = new Map(state.profiles);
         // Limit cache size
-        if (state.profiles.size >= MAX_CACHE_SIZE) {
-          const oldestKey = Array.from(state.profiles.entries())
+        if (profiles.size >= MAX_CACHE_SIZE) {
+          const oldestKey = Array.from(profiles.entries())
             .sort((a, b) => a[1].lastFetched - b[1].lastFetched)[0]?.[0];
           if (oldestKey) {
-            state.profiles.delete(oldestKey);
+            profiles.delete(oldestKey);
           }
         }
 
-        state.profiles.set(pubkey, entry);
-        return state;
+        profiles.set(pubkey, entry);
+        return { ...state, profiles };
       });
 
       return entry;
@@ -135,8 +174,9 @@ function createProfileCache() {
       };
 
       update(state => {
-        state.profiles.set(pubkey, fallbackEntry);
-        return state;
+        const profiles = new Map(state.profiles);
+        profiles.set(pubkey, fallbackEntry);
+        return { ...state, profiles };
       });
 
       return fallbackEntry;
@@ -171,8 +211,9 @@ function createProfileCache() {
    */
   function remove(pubkey: string): void {
     update(state => {
-      state.profiles.delete(pubkey);
-      return state;
+      const profiles = new Map(state.profiles);
+      profiles.delete(pubkey);
+      return { ...state, profiles };
     });
   }
 
@@ -186,7 +227,8 @@ function createProfileCache() {
     avatar: string | null
   ): void {
     update(state => {
-      const existing = state.profiles.get(pubkey);
+      const profiles = new Map(state.profiles);
+      const existing = profiles.get(pubkey);
       const entry: CachedProfile = {
         pubkey,
         profile: existing?.profile || null,
@@ -197,8 +239,8 @@ function createProfileCache() {
         lastFetched: Date.now(),
         isFetching: false
       };
-      state.profiles.set(pubkey, entry);
-      return state;
+      profiles.set(pubkey, entry);
+      return { ...state, profiles };
     });
   }
 
@@ -208,12 +250,13 @@ function createProfileCache() {
   function cleanExpired(): void {
     const now = Date.now();
     update(state => {
-      for (const [pubkey, entry] of state.profiles.entries()) {
+      const profiles = new Map(state.profiles);
+      for (const [pubkey, entry] of profiles.entries()) {
         if (now - entry.lastFetched >= CACHE_DURATION) {
-          state.profiles.delete(pubkey);
+          profiles.delete(pubkey);
         }
       }
-      return state;
+      return { ...state, profiles };
     });
   }
 

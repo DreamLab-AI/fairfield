@@ -1,3 +1,19 @@
+---
+title: Nostr-BBS SPARC Specification
+description: Complete specification document for the Nostr-BBS private chatroom system including business requirements, functional requirements, and technical constraints
+last_updated: 2025-12-23
+category: reference
+tags: [specification, architecture, sparc-methodology, nostr-protocol]
+difficulty: intermediate
+version: 0.1.0-draft
+date: 2024-12-11
+status: active
+related-docs:
+  - docs/architecture/02-architecture.md
+  - docs/architecture/03-pseudocode.md
+  - README.md
+---
+
 [← Back to Main README](../../README.md)
 
 # Nostr-BBS - SPARC Specification

@@ -1,3 +1,11 @@
+---
+title: Lucide Icons Integration Guide
+description: Guide for using Lucide icon library components throughout the Nostr-BBS application
+last_updated: 2025-12-23
+category: howto
+tags: [development, ui, features]
+---
+
 # Lucide Icons Integration Guide
 
 ## Overview
@@ -323,6 +331,28 @@ If you have existing icon usage (emoji, unicode, or other), replace:
 ## Next Steps
 
 1. Update existing components with Lucide icons
-2. Create icon size/color standards in design system
+2. Create icon size/colour standards in design system
 3. Add icon usage to component documentation
 4. Test accessibility with screen readers
+
+---
+
+## Related Documentation
+
+### Feature Guides
+- [PWA Quick Start](pwa-quick-start.md) - Progressive Web App installation
+- [Search Implementation](search-implementation.md) - Semantic search features
+- [Threading Implementation](threading-implementation.md) - Conversation threading
+- [DM Implementation](dm-implementation.md) - Direct messaging system
+
+### Architecture
+- [System Architecture](../architecture/02-architecture.md) - Overall system design
+- [NIP Protocol Reference](../reference/nip-protocol-reference.md) - Nostr protocol specs
+
+### User Guides
+- [Getting Started](../INDEX.md#getting-started) - Quick start guides for new users
+- [Features Overview](../INDEX.md#features) - Complete feature documentation
+
+---
+
+[← Back to Features Documentation](../INDEX.md#features) | [← Back to Documentation Hub](../INDEX.md)

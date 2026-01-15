@@ -4,7 +4,8 @@
   import { base } from '$app/paths';
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import { getSection } from '$lib/config';
 
@@ -22,6 +23,9 @@
 
   // Semantic search
   import { SemanticSearch } from '$lib/semantic';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let allChannels: CreatedChannel[] = [];
   let loading = true;
@@ -77,13 +81,12 @@
     }
 
     try {
-      // Set up signer if we have a private key
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      // Connect to relay with authentication
+      if ($authStore.privateKey && !isConnected()) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Connect and fetch NIP-28 channels (kind 40)
-      await connectNDK();
+      // Fetch NIP-28 channels (kind 40)
       allChannels = await fetchChannels();
     } catch (e) {
       console.error('Failed to load channels:', e);
@@ -99,7 +102,7 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle} - Fairfield</title>
+  <title>{pageTitle} - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">

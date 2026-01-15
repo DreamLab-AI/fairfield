@@ -211,8 +211,8 @@
       <div class="modal-body">
         <!-- Format Selection -->
         <div class="form-group">
-          <label>Export Format</label>
-          <div class="format-options">
+          <label id="export-format-label">Export Format</label>
+          <div class="format-options" role="radiogroup" aria-labelledby="export-format-label">
             <label class="radio-label">
               <input type="radio" bind:group={format} value="json" />
               <span>JSON (Full Data)</span>
@@ -231,7 +231,7 @@
         <!-- Channel Selection -->
         {#if !channelId}
           <div class="form-group">
-            <label>Channels</label>
+            <label id="export-channels-label">Channels</label>
             <div class="channel-actions">
               <button class="link-btn" on:click={selectAllChannels}>Select All</button>
               <button class="link-btn" on:click={deselectAllChannels}>Deselect All</button>
@@ -268,7 +268,7 @@
 
         <!-- Options -->
         <div class="form-group">
-          <label>Options</label>
+          <span class="label-heading" id="export-options-label">Options</span>
           <label class="checkbox-label">
             <input type="checkbox" bind:checked={includeMetadata} />
             <span>Include Metadata (signatures, tags, etc.)</span>

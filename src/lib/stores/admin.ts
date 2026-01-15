@@ -1,20 +1,8 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
 import type { Event as NostrEvent } from 'nostr-tools';
-import type { NDKRelay } from '@nostr-dev-kit/ndk';
-import type { ChannelSection, ChannelAccessType } from '$lib/types/channel';
-import {
-  verifyPinListSignature,
-  parsePinList,
-  checkRateLimit,
-  recordRateLimitAttempt,
-  validateCohortAssignment,
-  createSignedAdminRequest,
-  verifyRelayResponse,
-  type SignedRequest,
-  type SuspiciousActivity,
-} from '$lib/nostr/admin-security';
-import { verifyWhitelistStatus, type CohortName } from '$lib/nostr/whitelist';
-import { verifyEventSignature } from '$lib/nostr/events';
+import type { NDKRelay, NDKFilter } from '@nostr-dev-kit/ndk';
+import type { ChannelSection } from '$lib/types/channel';
+import { ndk, isConnected } from '$lib/nostr/relay';
 
 export interface PendingRequest {
   id: string;
@@ -23,7 +11,6 @@ export interface PendingRequest {
   channelName: string;
   timestamp: number;
   event: NostrEvent;
-  verified?: boolean; // Whether signature was verified
 }
 
 export interface User {
@@ -34,7 +21,6 @@ export interface User {
   joinedAt: number;
   lastSeen?: number;
   isBanned?: boolean;
-  cohortChangeAttempts?: number; // Track suspicious cohort changes
 }
 
 export interface Channel {
@@ -43,7 +29,6 @@ export interface Channel {
   description?: string;
   cohorts: string[];
   visibility: 'public' | 'cohort' | 'private';
-  accessType: ChannelAccessType;
   encrypted: boolean;
   section: ChannelSection;
   createdAt: number;
@@ -191,28 +176,45 @@ export const usersByCohort = derived(
 /**
  * Fetch pending join requests from relay
  */
-export async function fetchPendingRequests(relay: NDKRelay): Promise<void> {
+export async function fetchPendingRequests(_relay: NDKRelay): Promise<void> {
   adminStore.setLoading('requests', true);
   adminStore.setError(null);
 
   try {
-    // Subscribe to kind 9021 (join request) events
-    const events = await relay.querySync([{
-      kinds: [9021],
-      limit: 100,
-    }]);
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
 
-    const requests: PendingRequest[] = events.map(event => {
-      const channelIdTag = event.tags.find(t => t[0] === 'e');
-      const channelNameTag = event.tags.find(t => t[0] === 'name');
+    // Subscribe to kind 9021 (join request) events
+    const filter: NDKFilter = {
+      kinds: [9021 as number],
+      limit: 100,
+    };
+
+    const ndkEvents = await ndkInstance.fetchEvents(filter);
+
+    const requests: PendingRequest[] = Array.from(ndkEvents).map((event) => {
+      // Join requests use 'h' tag for channel ID (NIP-29 style)
+      const channelIdTag = event.tags.find((t: string[]) => t[0] === 'h');
+
+      const nostrEvent: NostrEvent = {
+        id: event.id,
+        kind: event.kind!,
+        pubkey: event.pubkey,
+        created_at: event.created_at!,
+        tags: event.tags,
+        content: event.content,
+        sig: event.sig!
+      };
 
       return {
         id: event.id,
         pubkey: event.pubkey,
         channelId: channelIdTag?.[1] || '',
-        channelName: channelNameTag?.[1] || 'Unknown Channel',
-        timestamp: event.created_at,
-        event,
+        channelName: '', // Will be populated by the UI from channel data
+        timestamp: event.created_at!,
+        event: nostrEvent,
       };
     });
 
@@ -230,21 +232,29 @@ export async function fetchPendingRequests(relay: NDKRelay): Promise<void> {
 /**
  * Fetch all users from relay
  */
-export async function fetchAllUsers(relay: NDKRelay): Promise<void> {
+export async function fetchAllUsers(_relay: NDKRelay): Promise<void> {
   adminStore.setLoading('users', true);
   adminStore.setError(null);
 
   try {
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
+
     // Fetch user metadata (kind 0) and membership events (kind 9022)
-    const [metadataEvents, membershipEvents] = await Promise.all([
-      relay.querySync([{ kinds: [0], limit: 500 }]),
-      relay.querySync([{ kinds: [9022], limit: 1000 }]),
+    const [metadataEventsSet, membershipEventsSet] = await Promise.all([
+      ndkInstance.fetchEvents({ kinds: [0 as number], limit: 500 }),
+      ndkInstance.fetchEvents({ kinds: [9022 as number], limit: 1000 }),
     ]);
+
+    const metadataEvents = Array.from(metadataEventsSet);
+    const membershipEvents = Array.from(membershipEventsSet);
 
     // Build user map from metadata
     const userMap = new Map<string, User>();
 
-    metadataEvents.forEach(event => {
+    metadataEvents.forEach((event) => {
       try {
         const metadata = JSON.parse(event.content);
         userMap.set(event.pubkey, {
@@ -252,8 +262,8 @@ export async function fetchAllUsers(relay: NDKRelay): Promise<void> {
           name: metadata.name || metadata.display_name,
           cohorts: [],
           channels: [],
-          joinedAt: event.created_at,
-          lastSeen: event.created_at,
+          joinedAt: event.created_at!,
+          lastSeen: event.created_at!,
         });
       } catch (e) {
         console.error('Failed to parse metadata:', e);
@@ -261,11 +271,11 @@ export async function fetchAllUsers(relay: NDKRelay): Promise<void> {
     });
 
     // Add membership data
-    membershipEvents.forEach(event => {
+    membershipEvents.forEach((event) => {
       const user = userMap.get(event.pubkey);
       if (user) {
-        const channelTag = event.tags.find(t => t[0] === 'e');
-        const cohortTag = event.tags.find(t => t[0] === 'cohort');
+        const channelTag = event.tags.find((t: string[]) => t[0] === 'e');
+        const cohortTag = event.tags.find((t: string[]) => t[0] === 'cohort');
 
         if (channelTag?.[1]) {
           user.channels.push(channelTag[1]);
@@ -273,7 +283,7 @@ export async function fetchAllUsers(relay: NDKRelay): Promise<void> {
         if (cohortTag?.[1] && !user.cohorts.includes(cohortTag[1])) {
           user.cohorts.push(cohortTag[1]);
         }
-        user.lastSeen = Math.max(user.lastSeen || 0, event.created_at);
+        user.lastSeen = Math.max(user.lastSeen || 0, event.created_at!);
       }
     });
 
@@ -291,35 +301,41 @@ export async function fetchAllUsers(relay: NDKRelay): Promise<void> {
 /**
  * Fetch all channels from relay
  */
-export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
+export async function fetchAllChannels(_relay: NDKRelay): Promise<void> {
   adminStore.setLoading('channels', true);
   adminStore.setError(null);
 
   try {
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      throw new Error('NDK not initialized');
+    }
+
     // Fetch channel creation events (kind 40) and metadata (kind 41)
-    const [creationEvents, metadataEvents, memberEvents] = await Promise.all([
-      relay.querySync([{ kinds: [40], limit: 100 }]),
-      relay.querySync([{ kinds: [41], limit: 100 }]),
-      relay.querySync([{ kinds: [9022], limit: 1000 }]),
+    const [creationEventsSet, metadataEventsSet, memberEventsSet] = await Promise.all([
+      ndkInstance.fetchEvents({ kinds: [40 as number], limit: 100 }),
+      ndkInstance.fetchEvents({ kinds: [41 as number], limit: 100 }),
+      ndkInstance.fetchEvents({ kinds: [9022 as number], limit: 1000 }),
     ]);
+
+    const creationEvents = Array.from(creationEventsSet);
+    const metadataEvents = Array.from(metadataEventsSet);
+    const memberEvents = Array.from(memberEventsSet);
 
     // Build channel map
     const channelMap = new Map<string, Channel>();
 
-    creationEvents.forEach(event => {
+    creationEvents.forEach((event) => {
       try {
         const metadata = JSON.parse(event.content);
-        const cohortTag = event.tags.find(t => t[0] === 'cohort');
-        const visibilityTag = event.tags.find(t => t[0] === 'visibility');
-        const accessTypeTag = event.tags.find(t => t[0] === 'access-type');
-        const encryptedTag = event.tags.find(t => t[0] === 'encrypted');
-        const sectionTag = event.tags.find(t => t[0] === 'section');
+        const cohortTag = event.tags.find((t: string[]) => t[0] === 'cohort');
+        const visibilityTag = event.tags.find((t: string[]) => t[0] === 'visibility');
+        const encryptedTag = event.tags.find((t: string[]) => t[0] === 'encrypted');
+        const sectionTag = event.tags.find((t: string[]) => t[0] === 'section');
 
         const visibility = visibilityTag?.[1] === 'cohort' || visibilityTag?.[1] === 'private'
           ? visibilityTag[1] as 'cohort' | 'private'
           : 'public';
-
-        const accessType = accessTypeTag?.[1] === 'open' ? 'open' : 'gated';
 
         channelMap.set(event.id, {
           id: event.id,
@@ -327,10 +343,9 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
           description: metadata.about || metadata.description,
           cohorts: cohortTag?.[1]?.split(',') || [],
           visibility,
-          accessType,
           encrypted: encryptedTag?.[1] === 'true',
           section: (sectionTag?.[1] as ChannelSection) || 'public-lobby',
-          createdAt: event.created_at,
+          createdAt: event.created_at!,
           memberCount: 0,
           creatorPubkey: event.pubkey,
         });
@@ -340,8 +355,8 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
     });
 
     // Update with metadata events
-    metadataEvents.forEach(event => {
-      const channelIdTag = event.tags.find(t => t[0] === 'e');
+    metadataEvents.forEach((event) => {
+      const channelIdTag = event.tags.find((t: string[]) => t[0] === 'e');
       if (channelIdTag?.[1]) {
         const channel = channelMap.get(channelIdTag[1]);
         if (channel) {
@@ -358,8 +373,8 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
 
     // Count members
     const memberCounts = new Map<string, Set<string>>();
-    memberEvents.forEach(event => {
-      const channelTag = event.tags.find(t => t[0] === 'e');
+    memberEvents.forEach((event) => {
+      const channelTag = event.tags.find((t: string[]) => t[0] === 'e');
       if (channelTag?.[1]) {
         const members = memberCounts.get(channelTag[1]) || new Set();
         members.add(event.pubkey);
@@ -384,227 +399,3 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
     adminStore.setLoading('channels', false);
   }
 }
-
-// ============================================================================
-// Security-Enhanced Admin Operations
-// ============================================================================
-
-/**
- * Verify a NIP-51 pin list before processing
- *
- * @param event - Pin list event (kind 30001)
- * @param expectedAuthor - Expected author's pubkey
- * @returns Verification result with parsed pins
- */
-export async function verifyAndProcessPinList(
-  event: NostrEvent,
-  expectedAuthor: string
-): Promise<{ success: boolean; pins?: string[]; error?: string }> {
-  // First verify signature and author
-  const verification = verifyPinListSignature(event, expectedAuthor);
-  if (!verification.valid) {
-    console.error('[Admin] Pin list verification failed:', verification.error);
-    return { success: false, error: verification.error };
-  }
-
-  // Parse the pin list
-  const { pins, error } = parsePinList(event);
-  if (error) {
-    return { success: false, error };
-  }
-
-  return { success: true, pins };
-}
-
-/**
- * Rate-limited section access request
- *
- * @param pubkey - User's pubkey
- * @param section - Section being requested
- * @returns Whether request is allowed
- */
-export function checkSectionAccessRateLimit(
-  pubkey: string,
-  section: ChannelSection
-): { allowed: boolean; waitMs?: number; reason?: string } {
-  const actionKey = `section_access:${pubkey}:${section}`;
-  return checkRateLimit(actionKey, 'sectionAccessRequest');
-}
-
-/**
- * Record section access attempt
- *
- * @param pubkey - User's pubkey
- * @param section - Section requested
- * @param success - Whether request was successful
- */
-export function recordSectionAccessAttempt(
-  pubkey: string,
-  section: ChannelSection,
-  success: boolean
-): void {
-  const actionKey = `section_access:${pubkey}:${section}`;
-  recordRateLimitAttempt(actionKey, 'sectionAccessRequest', success);
-}
-
-/**
- * Validate and process cohort assignment change
- *
- * @param adminPubkey - Admin making the change
- * @param targetPubkey - User being modified
- * @param newCohorts - New cohorts to assign
- * @returns Validation result
- */
-export async function validateAndAssignCohorts(
-  adminPubkey: string,
-  targetPubkey: string,
-  newCohorts: CohortName[]
-): Promise<{ success: boolean; error?: string }> {
-  // Check rate limit for cohort changes
-  const rateLimitKey = `cohort_change:${adminPubkey}`;
-  const rateCheck = checkRateLimit(rateLimitKey, 'cohortChange');
-
-  if (!rateCheck.allowed) {
-    return {
-      success: false,
-      error: rateCheck.reason || 'Rate limited for cohort changes',
-    };
-  }
-
-  // Validate the cohort assignment
-  const validation = await validateCohortAssignment(
-    adminPubkey,
-    targetPubkey,
-    newCohorts
-  );
-
-  // Record the attempt
-  recordRateLimitAttempt(rateLimitKey, 'cohortChange', validation.valid);
-
-  if (!validation.valid) {
-    // Update user's suspicious activity counter
-    adminStore.updateUser(targetPubkey, {
-      cohortChangeAttempts: (adminStore as any)._getUser?.(targetPubkey)?.cohortChangeAttempts || 0 + 1,
-    });
-    return { success: false, error: validation.error };
-  }
-
-  return { success: true };
-}
-
-/**
- * Create a signed admin action request
- * Used for sensitive operations that require verification
- *
- * @param action - Action name
- * @param payload - Action payload
- * @param adminPubkey - Admin's pubkey
- * @param signFn - Signing function from NDK signer
- * @returns Signed request
- */
-export async function createSecureAdminRequest(
-  action: string,
-  payload: unknown,
-  adminPubkey: string,
-  signFn: (message: string) => Promise<string>
-): Promise<SignedRequest> {
-  // Check rate limit for admin actions
-  const rateLimitKey = `admin_action:${adminPubkey}`;
-  const rateCheck = checkRateLimit(rateLimitKey, 'adminAction');
-
-  if (!rateCheck.allowed) {
-    throw new Error(rateCheck.reason || 'Rate limited for admin actions');
-  }
-
-  return createSignedAdminRequest(action, payload, adminPubkey, signFn);
-}
-
-/**
- * Verify pending request event signatures
- *
- * @param requests - Array of pending requests
- * @returns Requests with verification status
- */
-export function verifyRequestSignatures(
-  requests: PendingRequest[]
-): PendingRequest[] {
-  return requests.map(request => {
-    const verified = verifyEventSignature(request.event as any);
-    return {
-      ...request,
-      verified,
-    };
-  });
-}
-
-/**
- * Fetch pending requests with signature verification
- */
-export async function fetchVerifiedPendingRequests(relay: NDKRelay): Promise<void> {
-  adminStore.setLoading('requests', true);
-  adminStore.setError(null);
-
-  try {
-    const events = await relay.querySync([{
-      kinds: [9021],
-      limit: 100,
-    }]);
-
-    const requests: PendingRequest[] = events.map(event => {
-      const channelIdTag = event.tags.find(t => t[0] === 'e');
-      const channelNameTag = event.tags.find(t => t[0] === 'name');
-
-      // Verify signature
-      const verified = verifyEventSignature(event as any);
-
-      return {
-        id: event.id,
-        pubkey: event.pubkey,
-        channelId: channelIdTag?.[1] || '',
-        channelName: channelNameTag?.[1] || 'Unknown Channel',
-        timestamp: event.created_at,
-        event,
-        verified,
-      };
-    });
-
-    // Filter out unverified requests and log them
-    const verifiedRequests = requests.filter(r => {
-      if (!r.verified) {
-        console.warn('[Admin] Rejecting unverified request:', r.id?.slice(0, 8));
-        return false;
-      }
-      return true;
-    });
-
-    verifiedRequests.sort((a, b) => b.timestamp - a.timestamp);
-    adminStore.setPendingRequests(verifiedRequests);
-
-  } catch (error) {
-    console.error('Failed to fetch pending requests:', error);
-    adminStore.setError('Failed to load pending requests');
-    adminStore.setLoading('requests', false);
-  }
-}
-
-/**
- * Process relay response with verification
- *
- * @param response - Relay response object
- * @returns Processed response with verification status
- */
-export function processRelayResponse<T>(
-  response: { signature?: string; timestamp?: number; data: T }
-): { data: T; verified: boolean; warning?: string } {
-  const verification = verifyRelayResponse(response);
-  return {
-    data: response.data,
-    verified: verification.valid,
-    warning: verification.warning,
-  };
-}
-
-/**
- * Security audit log - get suspicious activities from session
- */
-export { getSuspiciousActivities, clearSuspiciousActivities } from '$lib/nostr/admin-security';

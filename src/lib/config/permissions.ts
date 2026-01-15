@@ -3,8 +3,8 @@
  * Centralized permission checking using config-driven roles and sections
  */
 
-import type { RoleId, SectionId, CohortId, UserPermissions, UserSectionRole } from './types';
-import { getRole, getSection, roleHasCapability, roleIsHigherThan, getHighestRole } from './loader';
+import type { RoleId, SectionId, CohortId, CategoryId, UserPermissions, UserSectionRole, CategoryConfig } from './types';
+import { getRole, getSection, getCategory, getCategories, roleHasCapability, roleIsHigherThan, getHighestRole } from './loader';
 
 /**
  * Check if user has a specific capability
@@ -112,16 +112,16 @@ export function canModerateSection(permissions: UserPermissions, sectionId: Sect
 }
 
 /**
- * Check if user can create channels in a section
+ * Check if user can create forums/channels in a section
  */
 export function canCreateChannel(permissions: UserPermissions, sectionId: SectionId): boolean {
 	const section = getSection(sectionId);
-	if (!section?.features.allowChannelCreation) {
+	if (!section?.allowForumCreation) {
 		return false;
 	}
 
-	// Need at least moderator role or section.manage capability
-	return hasCapability(permissions, 'channel.create', sectionId);
+	// Need at least moderator role or forum.create capability
+	return hasCapability(permissions, 'forum.create', sectionId);
 }
 
 /**
@@ -131,7 +131,7 @@ export function canViewCalendar(permissions: UserPermissions, sectionId: Section
 	const section = getSection(sectionId);
 	if (!section) return false;
 
-	const calendarAccess = section.features.calendar.access;
+	const calendarAccess = section.calendar.access;
 	if (calendarAccess === 'none') return false;
 
 	return canAccessSection(permissions, sectionId);
@@ -148,7 +148,7 @@ export function canViewCalendarDetails(
 	const section = getSection(sectionId);
 	if (!section) return false;
 
-	const calendarAccess = section.features.calendar.access;
+	const calendarAccess = section.calendar.access;
 
 	// Full access level
 	if (calendarAccess === 'full') {
@@ -161,7 +161,7 @@ export function canViewCalendarDetails(
 	}
 
 	// Cohort restricted - check cohort match
-	if (calendarAccess === 'cohort' && section.features.calendar.cohortRestricted) {
+	if (calendarAccess === 'cohort' && section.calendar.cohortRestricted) {
 		if (!eventCohorts?.length) return false;
 		return eventCohorts.some((cohort) => permissions.cohorts.includes(cohort));
 	}
@@ -177,7 +177,7 @@ export function canCreateCalendarEvent(
 	sectionId: SectionId
 ): boolean {
 	const section = getSection(sectionId);
-	if (!section?.features.calendar.canCreate) {
+	if (!section?.calendar.canCreate) {
 		return false;
 	}
 
@@ -212,6 +212,79 @@ export function getAccessibleSections(
 	allSectionIds: SectionId[]
 ): SectionId[] {
 	return allSectionIds.filter((id) => canAccessSection(permissions, id));
+}
+
+/**
+ * Check if user can access a category (zone-level visibility)
+ * Categories with access.visibleToCohorts are only visible to matching cohorts
+ * Categories with access.hiddenFromCohorts are hidden from those cohorts
+ * Cross-access cohort and admin always have access
+ */
+export function canAccessCategory(permissions: UserPermissions, categoryId: CategoryId): boolean {
+	const category = getCategory(categoryId);
+	if (!category) return false;
+
+	// Global admin can access everything
+	if (permissions.globalRole === 'admin') {
+		return true;
+	}
+
+	// Cross-access cohort can access all categories
+	if (permissions.cohorts.includes('cross-access')) {
+		return true;
+	}
+
+	// If no access config, category is visible to everyone
+	if (!category.access) {
+		return true;
+	}
+
+	// Check hiddenFromCohorts - if user has ANY hidden cohort, deny access
+	if (category.access.hiddenFromCohorts?.length) {
+		const isHidden = category.access.hiddenFromCohorts.some((cohort) =>
+			permissions.cohorts.includes(cohort)
+		);
+		if (isHidden) return false;
+	}
+
+	// Check minimum role requirement
+	if (category.access.minimumRole) {
+		const userRole = getRole(permissions.globalRole);
+		const minRole = getRole(category.access.minimumRole);
+		if (userRole && minRole && userRole.level < minRole.level) {
+			return false;
+		}
+	}
+
+	// Check visibleToCohorts - if defined, user must have at least one matching cohort
+	if (category.access.visibleToCohorts?.length) {
+		const hasVisibleCohort = category.access.visibleToCohorts.some((cohort) =>
+			permissions.cohorts.includes(cohort)
+		);
+		return hasVisibleCohort;
+	}
+
+	// No visibility restrictions - allow access
+	return true;
+}
+
+/**
+ * Get all categories user can access (filtered by visibility rules)
+ */
+export function getAccessibleCategories(permissions: UserPermissions): CategoryConfig[] {
+	const allCategories = getCategories();
+	return allCategories.filter((category) => canAccessCategory(permissions, category.id));
+}
+
+/**
+ * Check if user has cross-access to all zones
+ */
+export function hasCrossZoneAccess(permissions: UserPermissions): boolean {
+	return (
+		permissions.globalRole === 'admin' ||
+		permissions.cohorts.includes('admin') ||
+		permissions.cohorts.includes('cross-access')
+	);
 }
 
 /**

@@ -3,12 +3,16 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
-  import { verifyWhitelistStatus } from '$lib/nostr/whitelist';
-  import { setSigner, connectNDK } from '$lib/nostr/ndk';
+  import { isAdminVerified } from '$lib/stores/user';
+  import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
+  import { RELAY_URL } from '$lib/config';
   import { fetchAllEvents, type CalendarEvent } from '$lib/nostr/calendar';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import EventCard from '$lib/components/events/EventCard.svelte';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   let events: CalendarEvent[] = [];
   let channels: CreatedChannel[] = [];
@@ -46,29 +50,16 @@
       return;
     }
 
-    // Verify admin status via relay (server-side source of truth)
-    try {
-      const status = await verifyWhitelistStatus($authStore.publicKey);
-      if (!status.isAdmin) {
-        error = 'Access denied: Admin privileges required';
-        loading = false;
-        setTimeout(() => goto(`${base}/events`), 2000);
-        return;
-      }
-    } catch (err) {
-      console.error('Failed to verify admin status:', err);
-      error = 'Failed to verify admin privileges';
-      loading = false;
-      setTimeout(() => goto(`${base}/events`), 2000);
+    // Check admin access using relay-verified store (authoritative check)
+    if (!$isAdminVerified) {
+      goto(`${base}/events`);
       return;
     }
 
     try {
-      if ($authStore.privateKey) {
-        setSigner($authStore.privateKey);
+      if (!isConnected() && $authStore.privateKey) {
+        await connectRelay(RELAY_URL, $authStore.privateKey);
       }
-
-      await connectNDK();
 
       // Fetch channels and events in parallel
       const [channelResults, eventResults] = await Promise.all([fetchChannels(), fetchAllEvents()]);
@@ -114,7 +105,7 @@
 </script>
 
 <svelte:head>
-  <title>Admin Calendar - Fairfield</title>
+  <title>Admin Calendar - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-7xl">

@@ -1,3 +1,19 @@
+---
+title: Nostr-BBS Semantic Vector Search Specification
+description: Specification for AI-powered semantic search feature enabling natural language message discovery across Nostr-BBS
+last_updated: 2025-12-23
+category: reference
+tags: [semantic-search, specification, search, architecture]
+difficulty: advanced
+version: 0.1.0-draft
+date: 2024-12-14
+status: active
+related-docs:
+  - docs/architecture/07-semantic-search-architecture.md
+  - docs/architecture/08-semantic-search-pseudocode.md
+  - docs/features/search-implementation.md
+---
+
 [← Back to Main README](../../README.md)
 
 # Nostr-BBS - Semantic Vector Search Specification
@@ -18,7 +34,7 @@ Semantic Vector Search enhances the Nostr-BBS chat system with intelligent simil
 - **Semantic message search** across 100k+ historical messages
 - **Client-side vector search** (privacy-preserving, no server queries)
 - **Nightly embedding generation** via GitHub Actions
-- **WiFi-optimized lazy loading** (~15MB compressed index)
+- **WiFi-optimised lazy loading** (~15MB compressed index)
 - **O(log n) HNSW search** using hnswlib-wasm (247KB bundle)
 - **R2-backed storage** (Cloudflare free tier: 10GB, 1M reads/month)
 
@@ -433,7 +449,7 @@ Quantization: int8 scalar
 
 ```
 hnswlib-wasm: 247KB gzipped
-  - SIMD optimized for modern browsers
+  - SIMD optimised for modern browsers
   - No external dependencies
   - WebAssembly module + JS glue code
 ```
@@ -576,7 +592,7 @@ When index is unavailable:
 - Image/media content search (text messages only)
 - Real-time incremental index updates (nightly batch only)
 - Federated search across external relays
-- User-specific index customization
+- User-specific index customisation
 - Query autocomplete/suggestions
 - Search analytics/trending queries
 - Voice-to-text query input
@@ -629,7 +645,7 @@ When index is unavailable:
 
 | Term | Definition |
 |------|------------|
-| **HNSW** | Hierarchical Navigable Small World - fast approximate nearest neighbor search |
+| **HNSW** | Hierarchical Navigable Small World - fast approximate nearest neighbour search |
 | **Embedding** | Numerical vector representation of text (384 dimensions) |
 | **Quantization** | Converting float32 to int8 to reduce storage (75% compression) |
 | **R2** | Cloudflare object storage (S3-compatible) |

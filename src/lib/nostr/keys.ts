@@ -1,44 +1,62 @@
+import { generateMnemonic, mnemonicToSeed, validateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english';
+import { HDKey } from '@scure/bip32';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { getPublicKey, generateSecretKey } from 'nostr-tools';
+import { getPublicKey } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 
+const NIP06_PATH = "m/44'/1237'/0'/0/0";
+
 export interface KeyPair {
+  mnemonic: string;
   privateKey: string;
   publicKey: string;
 }
 
-/**
- * Generate a new secp256k1 keypair for Nostr
- * @returns KeyPair with hex-encoded privateKey and publicKey
- */
-export function generateKeyPair(): KeyPair {
-  const secretKey = generateSecretKey();
-  const privateKey = bytesToHex(secretKey);
-  const publicKey = getPublicKey(secretKey);
+export async function generateNewIdentity(): Promise<KeyPair> {
+  const mnemonic = generateMnemonic(wordlist, 128);
+  const seed = await mnemonicToSeed(mnemonic, '');
+  const hdKey = HDKey.fromMasterSeed(seed);
+  const derived = hdKey.derive(NIP06_PATH);
+
+  if (!derived.privateKey) {
+    throw new Error('Failed to derive private key');
+  }
+
+  const privateKey = bytesToHex(derived.privateKey);
+  const publicKey = getPublicKey(hexToBytes(privateKey));
+
+  return { mnemonic, privateKey, publicKey };
+}
+
+export async function restoreFromMnemonic(mnemonic: string): Promise<Omit<KeyPair, 'mnemonic'>> {
+  if (!validateMnemonic(mnemonic.trim(), wordlist)) {
+    throw new Error('Invalid mnemonic phrase');
+  }
+
+  const seed = await mnemonicToSeed(mnemonic.trim(), '');
+  const hdKey = HDKey.fromMasterSeed(seed);
+  const derived = hdKey.derive(NIP06_PATH);
+
+  if (!derived.privateKey) {
+    throw new Error('Failed to derive private key');
+  }
+
+  const privateKey = bytesToHex(derived.privateKey);
+  const publicKey = getPublicKey(hexToBytes(privateKey));
 
   return { privateKey, publicKey };
 }
 
-/**
- * Encode a hex public key to npub bech32 format
- */
 export function encodePubkey(pubkey: string): string {
   return nip19.npubEncode(pubkey);
 }
 
-/**
- * Encode a hex private key to nsec bech32 format
- */
 export function encodePrivkey(privkey: string): string {
   return nip19.nsecEncode(hexToBytes(privkey));
 }
 
-/**
- * Restore keys from nsec bech32 or hex format
- * @param input - nsec1... or 64-character hex string
- * @returns KeyPair with hex-encoded keys
- */
-export function restoreFromNsecOrHex(input: string): KeyPair {
+export function restoreFromNsecOrHex(input: string): { privateKey: string; publicKey: string } {
   const trimmed = input.trim();
   let privateKey: string;
 
@@ -59,48 +77,4 @@ export function restoreFromNsecOrHex(input: string): KeyPair {
 
   const publicKey = getPublicKey(hexToBytes(privateKey));
   return { privateKey, publicKey };
-}
-
-/**
- * @deprecated SECURITY RISK - Stores keys in PLAINTEXT
- * This function is deprecated and will be removed in v2.0
- * Use authStore.setKeys() which encrypts keys with AES-256-GCM
- *
- * DO NOT USE - Kept only for migration purposes
- */
-export function saveKeysToStorage(_publicKey: string, _privateKey: string): void {
-  console.error(
-    '[SECURITY] saveKeysToStorage is DEPRECATED and disabled. ' +
-    'Use authStore.setKeys() for secure encrypted storage.'
-  );
-  // Intentionally disabled - do not store plaintext keys
-  return;
-}
-
-/**
- * @deprecated SECURITY RISK - May return plaintext keys from legacy storage
- * Use authStore for secure key access
- * This function only exists to support migration from legacy plaintext storage
- */
-export function loadKeysFromStorage(): KeyPair | null {
-  if (typeof localStorage === 'undefined') return null;
-
-  const stored = localStorage.getItem('nostr_bbs_keys');
-  if (!stored) return null;
-
-  try {
-    const parsed = JSON.parse(stored);
-    // If this is legacy plaintext storage, warn and return for migration
-    if (parsed.privateKey && !parsed.encryptedPrivateKey) {
-      console.warn(
-        '[SECURITY] Legacy plaintext keys detected. ' +
-        'Please re-authenticate to migrate to encrypted storage.'
-      );
-      return { publicKey: parsed.publicKey, privateKey: parsed.privateKey };
-    }
-    // For encrypted storage, return null - use authStore instead
-    return null;
-  } catch {
-    return null;
-  }
 }

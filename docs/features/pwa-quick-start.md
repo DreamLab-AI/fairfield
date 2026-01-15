@@ -1,4 +1,12 @@
-[← Back to Main README](../README.md)
+---
+title: PWA Quick Start Guide
+description: Quick start guide for installing and using Nostr-BBS as a Progressive Web App
+last_updated: 2025-12-23
+category: tutorial
+tags: [features, deployment, setup]
+---
+
+[← Back to Main README](../../README.md)
 
 # PWA Quick Start Guide
 
@@ -24,13 +32,13 @@ The PWA service worker has been fully implemented with 855 lines of production-r
 - Service worker registration
 
 ### Initialization Utils (`src/lib/utils/pwa-init.ts` - 87 lines)
-- PWA initialization on app mount
+- PWA initialisation on app mount
 - Offline message sending with auto-queue
 - Queue restoration on startup
 
 ## Quick Usage
 
-### 1. The app already initializes PWA automatically
+### 1. The app already initialises PWA automatically
 
 The `+layout.svelte` now calls `initializePWA()` on mount.
 
@@ -196,4 +204,4 @@ See `docs/pwa-implementation.md` for complete documentation including:
 - Integration patterns
 - Advanced configuration
 - Security considerations
-- Performance optimization
+- Performance optimisation

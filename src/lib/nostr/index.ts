@@ -9,12 +9,11 @@ export * from '../../types/nostr';
 
 // Key management
 export {
-  generateKeyPair,
+  generateNewIdentity,
+  restoreFromMnemonic,
   encodePrivkey,
   encodePubkey,
   restoreFromNsecOrHex,
-  loadKeysFromStorage,
-  saveKeysToStorage,
   type KeyPair
 } from './keys';
 

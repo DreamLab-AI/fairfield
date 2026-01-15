@@ -1,14 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { generateKeyPair } from '$lib/nostr/keys';
+  import { generateNewIdentity } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
+  import { getAppConfig } from '$lib/config/loader';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
   import WelcomeModal from '$lib/components/ui/WelcomeModal.svelte';
 
-  const dispatch = createEventDispatcher<{
-    next: { publicKey: string; privateKey: string };
-    login: void;
-  }>();
+  const appConfig = getAppConfig();
+  const appName = appConfig.name.split(' - ')[0];
+
+  const dispatch = createEventDispatcher<{ next: { mnemonic: string; publicKey: string; privateKey: string } }>();
 
   let isGenerating = false;
 
@@ -18,9 +19,9 @@
 
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const { publicKey, privateKey } = generateKeyPair();
+      const { mnemonic, publicKey, privateKey } = await generateNewIdentity();
 
-      dispatch('next', { publicKey, privateKey });
+      dispatch('next', { mnemonic, publicKey, privateKey });
     } catch (error) {
       authStore.setError(error instanceof Error ? error.message : 'Failed to generate keys');
     } finally {
@@ -34,16 +35,16 @@
 <div class="flex flex-col items-center justify-center min-h-screen p-4 bg-base-200 gradient-mesh">
   <div class="card w-full max-w-md bg-base-100 shadow-xl">
     <div class="card-body">
-      <h2 class="card-title text-2xl justify-center mb-4">Welcome to Fairfield</h2>
+      <h2 class="card-title text-2xl justify-center mb-4">Welcome to {appName}</h2>
 
       <div class="alert alert-info mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <div class="flex items-center gap-2">
-          <span class="text-sm">You'll receive a private key (nsec) to backup. Keep it safe!</span>
+          <span class="text-sm">You'll receive a 12-word recovery phrase. Keep it safe!</span>
           <InfoTooltip
-            text="Your private key (nsec) is the secret that proves you own your account. It's essential for recovery - we cannot restore lost keys."
+            text="A recovery phrase (also called a mnemonic or seed phrase) is a set of words that can restore your account. It's derived from your private key and provides a human-friendly backup method."
             position="top"
           />
         </div>
@@ -77,9 +78,9 @@
 
       <button
         class="btn btn-ghost btn-sm"
-        on:click={() => dispatch('login')}
+        on:click={() => dispatch('next', { mnemonic: '', publicKey: '', privateKey: '' })}
       >
-        Already have an account? Log in
+        Already have a recovery phrase?
       </button>
     </div>
   </div>

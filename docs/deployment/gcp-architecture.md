@@ -1,3 +1,11 @@
+---
+title: GCP Migration Architecture Specification
+description: Architecture specification for migrating Nostr-BBS Embedding API from Cloudflare to Google Cloud Platform
+last_updated: 2025-12-23
+category: explanation
+tags: [architecture, deployment, search]
+---
+
 # GCP Migration Architecture Specification
 
 **Project**: Nostr-BBS Embedding API Migration
@@ -10,7 +18,7 @@
 
 ## Executive Summary
 
-This document outlines three architecture options for migrating the Nostr-BBS embedding API from Cloudflare Workers to Google Cloud Platform, with emphasis on maximizing free tier usage and minimizing costs for a small private community application.
+This document outlines three architecture options for migrating the Nostr-BBS embedding API from Cloudflare Workers to Google Cloud Platform, with emphasis on maximising free tier usage and minimising costs for a small private community application.
 
 **Recommended**: **Option A - Cloud Run + Cloud Storage** (Self-hosted ONNX)
 
@@ -1016,3 +1024,24 @@ If issues arise, rollback to Cloudflare Workers:
 **Last Updated**: 2025-12-14
 **Author**: Infrastructure Architect Agent
 **Status**: Ready for Review
+
+---
+
+## Related Documentation
+
+### Deployment Guides
+- [GCP Deployment Guide](gcp-deployment.md) - Step-by-step Cloud Run deployment
+- [General Deployment Guide](DEPLOYMENT.md) - Complete deployment overview
+- [GitHub Workflows](github-workflows.md) - CI/CD pipeline configuration
+
+### Architecture Documentation
+- [System Architecture](../architecture/02-architecture.md) - Overall system design
+- [Semantic Search Architecture](../architecture/07-semantic-search-architecture.md) - Embedding service design
+
+### Feature Implementation
+- [Semantic Search Specification](../architecture/06-semantic-search-spec.md) - Search feature requirements
+- [Search Implementation](../features/search-implementation.md) - Search feature implementation details
+
+---
+
+[← Back to Deployment Documentation](DEPLOYMENT.md) | [← Back to Documentation Hub](../INDEX.md)

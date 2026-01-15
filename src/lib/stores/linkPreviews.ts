@@ -1,9 +1,15 @@
 /**
  * Link preview store with caching
- * Fetches OpenGraph metadata for URLs
+ * Fetches OpenGraph metadata for URLs via Cloud Run proxy
  */
 
 import { writable, get } from 'svelte/store';
+import { browser } from '$app/environment';
+
+// Link preview API URL - use Cloud Run service in production, local proxy in dev
+const LINK_PREVIEW_API = browser
+	? (import.meta.env.VITE_LINK_PREVIEW_API_URL || '/api/proxy')
+	: '/api/proxy';
 
 export interface LinkPreviewData {
 	url: string;
@@ -14,6 +20,11 @@ export interface LinkPreviewData {
 	domain: string;
 	favicon?: string;
 	error?: boolean;
+	// Twitter/X specific
+	type?: 'opengraph' | 'twitter';
+	html?: string; // Twitter embed HTML
+	authorName?: string;
+	authorUrl?: string;
 }
 
 interface PreviewCache {
@@ -24,7 +35,7 @@ interface PreviewCache {
 }
 
 const CACHE_KEY = 'nostr_bbs_link_previews';
-const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 days
 const MAX_CACHE_SIZE = 100;
 
 // Load cache from localStorage
@@ -77,7 +88,20 @@ previewCache.subscribe(cache => {
 });
 
 /**
+ * Check if URL is Twitter/X
+ */
+function isTwitterUrl(url: string): boolean {
+	try {
+		const parsed = new URL(url);
+		return ['twitter.com', 'x.com', 'www.twitter.com', 'www.x.com', 'mobile.twitter.com', 'mobile.x.com'].includes(parsed.hostname);
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Fetch preview data for a URL
+ * Uses the proxy endpoint for CORS-free fetching and Twitter oEmbed support
  */
 export async function fetchPreview(url: string): Promise<LinkPreviewData> {
 	// Check cache first
@@ -91,23 +115,59 @@ export async function fetchPreview(url: string): Promise<LinkPreviewData> {
 	const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 
 	try {
-		// Try to fetch OpenGraph data
-		// NOTE: This requires a CORS proxy or backend endpoint
-		// For now, we'll use a simple fetch and parse approach
-		const response = await fetch(url, {
+		// Use Cloud Run proxy endpoint for fetching (or local proxy in dev)
+		const proxyUrl = `${LINK_PREVIEW_API}${LINK_PREVIEW_API.includes('/api/proxy') ? '?' : '/preview?'}url=${encodeURIComponent(url)}`;
+		const response = await fetch(proxyUrl, {
 			method: 'GET',
 			headers: {
-				'Accept': 'text/html',
+				'Accept': 'application/json',
 			},
-			signal: AbortSignal.timeout(5000), // 5 second timeout
+			signal: AbortSignal.timeout(15000), // 15 second timeout for proxy
 		});
 
 		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}`);
+			throw new Error(`Proxy returned ${response.status}`);
 		}
 
-		const html = await response.text();
-		const preview = parseOpenGraphTags(html, url);
+		const data = await response.json();
+
+		// Handle Twitter/X embeds
+		if (data.type === 'twitter') {
+			const preview: LinkPreviewData = {
+				url,
+				domain,
+				favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+				type: 'twitter',
+				html: data.html,
+				title: data.author_name ? `Post by ${data.author_name}` : 'X Post',
+				authorName: data.author_name,
+				authorUrl: data.author_url,
+				siteName: data.provider_name || 'X',
+			};
+
+			// Cache the result
+			previewCache.update(cache => {
+				cache[url] = {
+					data: preview,
+					timestamp: Date.now(),
+				};
+				return cache;
+			});
+
+			return preview;
+		}
+
+		// Handle OpenGraph data
+		const preview: LinkPreviewData = {
+			url: data.url || url,
+			domain: data.domain || domain,
+			favicon: data.favicon || favicon,
+			title: data.title,
+			description: data.description,
+			image: data.image,
+			siteName: data.siteName,
+			type: 'opengraph',
+		};
 
 		// Cache the result
 		previewCache.update(cache => {
@@ -122,6 +182,35 @@ export async function fetchPreview(url: string): Promise<LinkPreviewData> {
 	} catch (error) {
 		console.warn('Failed to fetch preview for', url, error);
 
+		// Fallback: Try direct fetch for same-origin or CORS-enabled URLs
+		try {
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Accept': 'text/html',
+				},
+				signal: AbortSignal.timeout(5000),
+			});
+
+			if (response.ok) {
+				const html = await response.text();
+				const preview = parseOpenGraphTags(html, url);
+				preview.type = 'opengraph';
+
+				previewCache.update(cache => {
+					cache[url] = {
+						data: preview,
+						timestamp: Date.now(),
+					};
+					return cache;
+				});
+
+				return preview;
+			}
+		} catch {
+			// Direct fetch also failed
+		}
+
 		// Create fallback preview
 		const fallback: LinkPreviewData = {
 			url,
@@ -130,7 +219,7 @@ export async function fetchPreview(url: string): Promise<LinkPreviewData> {
 			error: true,
 		};
 
-		// Cache the error result (with shorter duration)
+		// Cache the error result
 		previewCache.update(cache => {
 			cache[url] = {
 				data: fallback,

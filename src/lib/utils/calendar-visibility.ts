@@ -3,8 +3,20 @@
  * Implements permission-based event visibility with progressive disclosure
  */
 
-import type { UserPermissions, SectionId, CohortId, RoleId } from '$lib/config/types';
-import { canAccessSection, canCreateCalendarEvent } from '$lib/config/permissions';
+import type {
+	UserPermissions,
+	SectionId,
+	CohortId,
+	RoleId,
+	CategoryId,
+	AvailabilityBlock,
+	CalendarBlockType,
+	BLOCK_COLOURS,
+	CalendarConfig,
+	CategoryConfig
+} from '$lib/config/types';
+import { canAccessSection, canCreateCalendarEvent, canAccessCategory, hasCrossZoneAccess } from '$lib/config/permissions';
+import { getCategory, getSection, getSections, getSectionsByCategory } from '$lib/config/loader';
 import type {
 	FairfieldEvent,
 	EventCategory,
@@ -510,4 +522,323 @@ export function formatEventTimeRange(start: number, end: number): string {
 	} else {
 		return `${dateFormat.format(startDate)} ${timeFormat.format(startDate)} - ${dateFormat.format(endDate)} ${timeFormat.format(endDate)}`;
 	}
+}
+
+// ============================================================================
+// CROSS-ZONE CALENDAR BLOCK AGGREGATION
+// ============================================================================
+
+/**
+ * Default block colours by zone type
+ */
+const DEFAULT_BLOCK_COLOURS: Record<string, string> = {
+	'fairfield-family': '#991b1b',  // dark red - house unavailable
+	'dreamlab': '#c2410c',          // dark orange - reduced capacity
+	'minimoonoir': '#6366f1',       // purple - guests present
+	'default': '#6b7280'            // grey
+};
+
+/**
+ * Determine block type based on source zone
+ * Family bookings = hard block (house less available)
+ * Business bookings = soft block (reduced capacity, 2 beds still available)
+ * Minimoonoir bookings = tentative (guests may be around)
+ */
+function getBlockTypeForZone(sourceZone: CategoryId): CalendarBlockType {
+	switch (sourceZone) {
+		case 'fairfield-family':
+			return 'hard';
+		case 'dreamlab':
+			return 'soft';
+		case 'minimoonoir':
+			return 'tentative';
+		default:
+			return 'soft';
+	}
+}
+
+/**
+ * Get display colour for a zone block
+ */
+function getBlockColour(
+	sourceZone: CategoryId,
+	zoneColours?: Record<CategoryId, string>
+): string {
+	// Use configured colour if available
+	if (zoneColours?.[sourceZone]) {
+		return zoneColours[sourceZone];
+	}
+	// Fall back to defaults
+	return DEFAULT_BLOCK_COLOURS[sourceZone] || DEFAULT_BLOCK_COLOURS['default'];
+}
+
+/**
+ * Get display label for a zone (if showSourceZone is enabled)
+ */
+function getZoneLabel(sourceZone: CategoryId): string {
+	const category = getCategory(sourceZone);
+	// Use branding displayName if available, otherwise category name
+	return category?.branding?.displayName || category?.name || sourceZone;
+}
+
+/**
+ * Convert a calendar event to an availability block
+ */
+export function convertEventToBlock(
+	event: CalendarDisplayEvent,
+	sourceZone: CategoryId,
+	config: {
+		showSourceZone?: boolean;
+		showReason?: boolean;
+		zoneColours?: Record<CategoryId, string>;
+	}
+): AvailabilityBlock {
+	const blockType = getBlockTypeForZone(sourceZone);
+	const displayColour = getBlockColour(sourceZone, config.zoneColours);
+
+	return {
+		id: `block-${sourceZone}-${event.id}`,
+		start: event.start,
+		end: event.end,
+		sourceZone,
+		blockType,
+		displayColour,
+		label: config.showSourceZone ? getZoneLabel(sourceZone) : undefined,
+		reason: config.showReason ? (event.title || event.name) : undefined
+	};
+}
+
+/**
+ * Fetch events from a specific zone (category) that create availability blocks
+ * This filters to only events that would impact availability
+ */
+export function getEventsFromZone(
+	allEvents: CalendarDisplayEvent[],
+	zoneId: CategoryId
+): CalendarDisplayEvent[] {
+	const zoneSections = getSectionsByCategory(zoneId);
+	const sectionIds = new Set(zoneSections.map(s => s.id));
+
+	return allEvents.filter(event => {
+		const eventSection = getEventSectionId(event);
+		if (!eventSection) return false;
+		return sectionIds.has(eventSection);
+	});
+}
+
+/**
+ * Get cross-zone availability blocks for a section
+ * Aggregates blocks from zones configured in showBlocksFrom
+ */
+export function getCrossZoneBlocks(
+	sectionId: SectionId,
+	allEvents: CalendarDisplayEvent[],
+	userPermissions: UserPermissions
+): AvailabilityBlock[] {
+	const section = getSection(sectionId);
+	if (!section?.calendar?.showBlocksFrom?.length) {
+		return [];
+	}
+
+	const blocks: AvailabilityBlock[] = [];
+	const blockDisplay = section.calendar.blockDisplay || {};
+
+	for (const sourceZone of section.calendar.showBlocksFrom) {
+		// Skip if user can't access the source zone
+		if (!canAccessCategory(userPermissions, sourceZone)) {
+			continue;
+		}
+
+		// Get events from this zone
+		const zoneEvents = getEventsFromZone(allEvents, sourceZone);
+
+		// Convert each event to a block
+		for (const event of zoneEvents) {
+			// Only include published events
+			if (event.status && event.status !== 'published') {
+				continue;
+			}
+
+			const block = convertEventToBlock(event, sourceZone, {
+				showSourceZone: blockDisplay.showSourceZone,
+				showReason: blockDisplay.showReason,
+				zoneColours: blockDisplay.zoneColours
+			});
+
+			blocks.push(block);
+		}
+	}
+
+	// Sort blocks by start time
+	return blocks.sort((a, b) => a.start - b.start);
+}
+
+/**
+ * Check if a time slot conflicts with any availability blocks
+ */
+export function hasBlockConflict(
+	start: number,
+	end: number,
+	blocks: AvailabilityBlock[]
+): { hasConflict: boolean; conflictType: CalendarBlockType | null; blocks: AvailabilityBlock[] } {
+	const conflictingBlocks = blocks.filter(block => {
+		// Check if there's any overlap
+		return start < block.end && end > block.start;
+	});
+
+	if (conflictingBlocks.length === 0) {
+		return { hasConflict: false, conflictType: null, blocks: [] };
+	}
+
+	// Determine the most restrictive conflict type
+	let conflictType: CalendarBlockType = 'tentative';
+	for (const block of conflictingBlocks) {
+		if (block.blockType === 'hard') {
+			conflictType = 'hard';
+			break;
+		}
+		if (block.blockType === 'soft') {
+			conflictType = 'soft';
+		}
+	}
+
+	return { hasConflict: true, conflictType, blocks: conflictingBlocks };
+}
+
+/**
+ * Get availability summary for a date range
+ */
+export function getAvailabilitySummary(
+	start: number,
+	end: number,
+	blocks: AvailabilityBlock[]
+): {
+	status: 'available' | 'reduced' | 'unavailable';
+	message: string;
+	blocks: AvailabilityBlock[];
+} {
+	const { hasConflict, conflictType, blocks: conflictingBlocks } = hasBlockConflict(start, end, blocks);
+
+	if (!hasConflict) {
+		return {
+			status: 'available',
+			message: 'Available',
+			blocks: []
+		};
+	}
+
+	if (conflictType === 'hard') {
+		return {
+			status: 'unavailable',
+			message: 'House unavailable',
+			blocks: conflictingBlocks
+		};
+	}
+
+	if (conflictType === 'soft') {
+		return {
+			status: 'reduced',
+			message: 'Reduced capacity (2 beds available)',
+			blocks: conflictingBlocks
+		};
+	}
+
+	return {
+		status: 'available',
+		message: 'Available (guests may be present)',
+		blocks: conflictingBlocks
+	};
+}
+
+/**
+ * Filter availability blocks by date range
+ */
+export function filterBlocksByDateRange(
+	blocks: AvailabilityBlock[],
+	startDate: Date,
+	endDate: Date
+): AvailabilityBlock[] {
+	const startTimestamp = startDate.getTime();
+	const endTimestamp = endDate.getTime();
+
+	return blocks.filter(block => {
+		// Block overlaps with the date range
+		return block.start < endTimestamp && block.end > startTimestamp;
+	});
+}
+
+/**
+ * Group availability blocks by date (for calendar rendering)
+ */
+export function groupBlocksByDate(
+	blocks: AvailabilityBlock[]
+): Map<string, AvailabilityBlock[]> {
+	const blockMap = new Map<string, AvailabilityBlock[]>();
+
+	for (const block of blocks) {
+		const date = new Date(block.start);
+		const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+
+		if (!blockMap.has(dateString)) {
+			blockMap.set(dateString, []);
+		}
+		blockMap.get(dateString)!.push(block);
+	}
+
+	return blockMap;
+}
+
+/**
+ * Get the most restrictive block type for a date
+ */
+export function getMostRestrictiveBlockType(
+	blocks: AvailabilityBlock[]
+): CalendarBlockType | null {
+	if (blocks.length === 0) return null;
+
+	for (const block of blocks) {
+		if (block.blockType === 'hard') return 'hard';
+	}
+	for (const block of blocks) {
+		if (block.blockType === 'soft') return 'soft';
+	}
+	return 'tentative';
+}
+
+/**
+ * Check if user can see block details (source zone, reason)
+ */
+export function canSeeBlockDetails(
+	userPermissions: UserPermissions,
+	block: AvailabilityBlock
+): boolean {
+	// Admin and cross-access users can see everything
+	if (hasCrossZoneAccess(userPermissions)) {
+		return true;
+	}
+
+	// Users can see details for blocks from zones they have access to
+	return canAccessCategory(userPermissions, block.sourceZone);
+}
+
+/**
+ * Get visible block information based on user permissions
+ */
+export function getVisibleBlockInfo(
+	block: AvailabilityBlock,
+	userPermissions: UserPermissions
+): Partial<AvailabilityBlock> {
+	const canSeeDetails = canSeeBlockDetails(userPermissions, block);
+
+	return {
+		id: block.id,
+		start: block.start,
+		end: block.end,
+		blockType: block.blockType,
+		displayColour: block.displayColour,
+		// Only include label and reason if user has permission
+		label: canSeeDetails ? block.label : undefined,
+		reason: canSeeDetails ? block.reason : undefined,
+		sourceZone: canSeeDetails ? block.sourceZone : undefined
+	};
 }

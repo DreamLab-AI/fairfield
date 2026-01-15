@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { authStore, isAuthenticated, isAdmin } from '$lib/stores/auth';
+  import { authStore, isAuthenticated } from '$lib/stores/auth';
+  import { isAdminVerified, userStore } from '$lib/stores/user';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { bookmarkCount } from '$lib/stores/bookmarks';
@@ -8,9 +9,16 @@
   import BookmarksModal from '$lib/components/chat/BookmarksModal.svelte';
   import GlobalSearch from '$lib/components/chat/GlobalSearch.svelte';
   import { goto } from '$app/navigation';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   $: isAuth = $isAuthenticated;
-  $: isAdminUser = $isAdmin;
+  $: isAdminUser = $isAdminVerified;
+
+  // Subscribe to userStore to trigger whitelist verification
+  // This ensures the derived callback runs and populates whitelistStatusStore
+  $: void $userStore;
 
   let showBookmarksModal = false;
   let isSearchOpen = false;
@@ -101,8 +109,8 @@
 
 <nav class="navbar" role="navigation" aria-label="Main navigation">
   <div class="nav-container">
-    <a href="{base}/" class="logo" aria-label="Fairfield - Home">
-      Fairfield
+    <a href="{base}/" class="logo" aria-label="{appConfig.name} - Home">
+      {appConfig.name.split(' - ')[0]}
     </a>
 
     <!-- Hamburger Menu Button (Mobile Only) -->

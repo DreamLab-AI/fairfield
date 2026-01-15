@@ -37,7 +37,7 @@ export const ADMIN_PUBKEY = getEnv('VITE_ADMIN_PUBKEY', '');
 /**
  * Application name for Nostr events
  */
-export const APP_NAME = getEnv('VITE_APP_NAME', 'Fairfield - DreamLab - Cumbria');
+export const APP_NAME = getEnv('VITE_APP_NAME', 'Nostr BBS');
 
 /**
  * Application version
@@ -81,6 +81,22 @@ export const TIMEOUTS = {
 	publish: 5000,
 	subscribe: 30000
 } as const;
+
+/**
+ * Solid Pod Server URL
+ * For user file storage with Nostr DID authentication
+ */
+export const SOLID_SERVER_URL = getEnv('VITE_SOLID_SERVER_URL', 'http://localhost:3030');
+
+/**
+ * Solid pod integration enabled
+ */
+export const SOLID_ENABLED = getEnv('VITE_SOLID_ENABLED', 'false') === 'true';
+
+/**
+ * Solid storage backend
+ */
+export const SOLID_STORAGE_BACKEND = getEnv('VITE_SOLID_STORAGE_BACKEND', 'filesystem');
 
 /**
  * Validate configuration

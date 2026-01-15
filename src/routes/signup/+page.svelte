@@ -1,35 +1,51 @@
 <script lang="ts">
   import Signup from '$lib/components/auth/Signup.svelte';
-  import NsecBackup from '$lib/components/auth/NsecBackup.svelte';
+  import MnemonicDisplay from '$lib/components/auth/MnemonicDisplay.svelte';
+  import KeyBackup from '$lib/components/auth/KeyBackup.svelte';
+  import NicknameSetup from '$lib/components/auth/NicknameSetup.svelte';
   import PendingApproval from '$lib/components/auth/PendingApproval.svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
-  import { checkWhitelistStatus } from '$lib/nostr/whitelist';
+  import { checkWhitelistStatus, publishRegistrationRequest } from '$lib/nostr/whitelist';
+  import { getAppConfig } from '$lib/config/loader';
 
-  type FlowStep = 'signup' | 'nsec-backup' | 'pending';
+  const appConfig = getAppConfig();
+
+  type FlowStep = 'signup' | 'mnemonic' | 'backup' | 'nickname' | 'pending';
   let step: FlowStep = 'signup';
+  let mnemonic = '';
   let publicKey = '';
   let privateKey = '';
+  let nickname = '';
   let isApproved = false;
 
-  function handleNext(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
+  function handleNext(event: CustomEvent<{ mnemonic: string; publicKey: string; privateKey: string }>) {
     const data = event.detail;
-    if (data.publicKey && data.privateKey) {
+    if (data.mnemonic) {
+      mnemonic = data.mnemonic;
       publicKey = data.publicKey;
       privateKey = data.privateKey;
-      step = 'nsec-backup';
+      step = 'mnemonic';
+    } else {
+      goto(`${base}/login`);
     }
   }
 
-  function handleLogin() {
-    goto(`${base}/login`);
+  function handleMnemonicContinue() {
+    step = 'backup';
   }
 
-  async function handleNsecBackupContinue() {
-    // Full signup - mark as complete with nsec backed up
-    await authStore.setKeys(publicKey, privateKey, 'complete', true);
-    authStore.confirmNsecBackup();
+  async function handleBackupContinue() {
+    await authStore.setKeys(publicKey, privateKey, mnemonic);
+    authStore.confirmMnemonicBackup();
+
+    // Move to nickname setup step
+    step = 'nickname';
+  }
+
+  async function handleNicknameContinue(event: CustomEvent<{ nickname: string }>) {
+    nickname = event.detail.nickname;
 
     // Check if user is pre-approved (admin or on whitelist)
     const whitelistStatus = await checkWhitelistStatus(publicKey);
@@ -39,6 +55,16 @@
       // Skip pending approval for pre-approved users
       goto(`${base}/chat`);
     } else {
+      // Publish registration request so admin can see this user
+      try {
+        const result = await publishRegistrationRequest(privateKey, nickname || undefined);
+        if (!result.success) {
+          console.warn('[Signup] Failed to publish registration request:', result.error);
+        }
+      } catch (error) {
+        console.warn('[Signup] Error publishing registration request:', error);
+      }
+
       // Show pending approval screen
       authStore.setPending(true);
       step = 'pending';
@@ -52,13 +78,17 @@
 </script>
 
 <svelte:head>
-  <title>Sign Up - Fairfield</title>
+  <title>Sign Up - {appConfig.name}</title>
 </svelte:head>
 
 {#if step === 'signup'}
-  <Signup on:next={handleNext} on:login={handleLogin} />
-{:else if step === 'nsec-backup'}
-  <NsecBackup {publicKey} {privateKey} on:continue={handleNsecBackupContinue} />
+  <Signup on:next={handleNext} />
+{:else if step === 'mnemonic'}
+  <MnemonicDisplay {mnemonic} on:continue={handleMnemonicContinue} />
+{:else if step === 'backup'}
+  <KeyBackup {publicKey} {mnemonic} on:continue={handleBackupContinue} />
+{:else if step === 'nickname'}
+  <NicknameSetup {publicKey} {privateKey} on:continue={handleNicknameContinue} />
 {:else if step === 'pending'}
   <PendingApproval {publicKey} on:approved={handleApproved} />
 {/if}

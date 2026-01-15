@@ -33,8 +33,8 @@ export interface WhitelistStatus {
 const statusCache = new Map<string, { status: WhitelistStatus; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Get relay URL from environment
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://nosflare.solitary-paper-764d.workers.dev';
+// Get relay URL from environment (GCP Cloud Run relay)
+const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app';
 
 /**
  * Convert WebSocket URL to HTTP URL for API calls
@@ -108,12 +108,13 @@ export async function verifyWhitelistStatus(pubkey: string): Promise<WhitelistSt
  * Create fallback status using client-side admin check
  */
 function createFallbackStatus(pubkey: string): WhitelistStatus {
-  const adminPubkeys = (import.meta.env.VITE_ADMIN_PUBKEY || '')
+  const envAdminPubkeys = (import.meta.env.VITE_ADMIN_PUBKEY || '')
     .split(',')
     .map((k: string) => k.trim())
     .filter(Boolean);
 
-  const isAdmin = adminPubkeys.includes(pubkey);
+  // If no admin pubkey configured, deny admin access
+  const isAdmin = envAdminPubkeys.length > 0 && envAdminPubkeys.includes(pubkey);
 
   return {
     isWhitelisted: isAdmin, // Assume admin is whitelisted
@@ -180,4 +181,116 @@ export async function checkWhitelistStatus(pubkey: string): Promise<{ isApproved
     isApproved: status.isWhitelisted,
     isAdmin: status.isAdmin
   };
+}
+
+/**
+ * Publish a user registration request event
+ *
+ * Creates a kind 9024 event to announce a new user wants system access.
+ * Admin will see this in the pending registrations list.
+ *
+ * @param privateKey - User's private key (hex string)
+ * @param displayName - Optional display name
+ * @returns Promise resolving to success status
+ */
+export async function publishRegistrationRequest(
+  privateKey: string,
+  displayName?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!browser) {
+    return { success: false, error: 'Not in browser environment' };
+  }
+
+  try {
+    // Dynamic import to avoid SSR issues
+    const { ndk, connectRelay, isConnected } = await import('./relay');
+    const { RELAY_URL } = await import('$lib/config');
+    const { NDKEvent } = await import('@nostr-dev-kit/ndk');
+    const { KIND_USER_REGISTRATION } = await import('./groups');
+
+    // Connect if not already connected
+    if (!isConnected()) {
+      await connectRelay(RELAY_URL, privateKey);
+    }
+
+    const ndkInstance = ndk();
+    if (!ndkInstance?.signer) {
+      return { success: false, error: 'Failed to set up signer' };
+    }
+
+    // Create registration request event
+    const event = new NDKEvent(ndkInstance);
+    event.kind = KIND_USER_REGISTRATION;
+    event.content = 'New user registration request';
+    event.tags = [
+      ['t', 'registration'],
+    ];
+
+    if (displayName) {
+      event.tags.push(['name', displayName]);
+    }
+
+    // Sign and publish
+    await event.sign();
+    await event.publish();
+
+    if (import.meta.env.DEV) {
+      console.log('[Registration] Published registration request:', event.id);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Registration] Failed to publish registration request:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Approve a user registration via relay API
+ *
+ * Adds the user to the whitelist with 'approved' cohort.
+ *
+ * @param pubkey - User's public key to approve
+ * @param adminPubkey - Admin's public key (for authorization)
+ * @returns Promise resolving to success status
+ */
+export async function approveUserRegistration(
+  pubkey: string,
+  adminPubkey: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const httpUrl = getRelayHttpUrl();
+    const response = await fetch(`${httpUrl}/api/whitelist/add`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pubkey,
+        cohorts: ['approved'],
+        adminPubkey,
+      }),
+    });
+
+    if (response.ok) {
+      // Clear cache to force re-check
+      clearWhitelistCache(pubkey);
+      return { success: true };
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: errorData.error || `HTTP ${response.status}`
+    };
+  } catch (error) {
+    console.error('[Whitelist] Failed to approve registration:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
 }

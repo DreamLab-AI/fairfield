@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import { restoreFromNsecOrHex } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
   import { checkWhitelistStatus } from '$lib/nostr/whitelist';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
 
   const dispatch = createEventDispatcher<{
-    success: { publicKey: string; privateKey: string };
-    pending: { publicKey: string; privateKey: string };
+    success: { publicKey: string; privateKey: string; keepSignedIn: boolean };
+    pending: { publicKey: string; privateKey: string; keepSignedIn: boolean };
     signup: void;
   }>();
 
@@ -15,6 +16,17 @@
   let isRestoring = false;
   let validationError = '';
   let isCheckingWhitelist = false;
+  let keepSignedIn = true; // Default to yes
+
+  onMount(() => {
+    // Check if user previously opted out
+    if (browser) {
+      const savedPref = localStorage.getItem('nostr_bbs_keep_signed_in');
+      if (savedPref !== null) {
+        keepSignedIn = savedPref === 'true';
+      }
+    }
+  });
 
   async function handleRestore() {
     isRestoring = true;
@@ -31,6 +43,11 @@
 
       const { publicKey, privateKey } = restoreFromNsecOrHex(privateKeyInput);
 
+      // Save preference
+      if (browser) {
+        localStorage.setItem('nostr_bbs_keep_signed_in', String(keepSignedIn));
+      }
+
       // Check whitelist status before allowing login
       isCheckingWhitelist = true;
       const whitelistStatus = await checkWhitelistStatus(publicKey);
@@ -38,10 +55,10 @@
 
       if (whitelistStatus.isApproved || whitelistStatus.isAdmin) {
         // User is approved - proceed with login
-        dispatch('success', { publicKey, privateKey });
+        dispatch('success', { publicKey, privateKey, keepSignedIn });
       } else {
         // User is NOT approved - dispatch pending event
-        dispatch('pending', { publicKey, privateKey });
+        dispatch('pending', { publicKey, privateKey, keepSignedIn });
       }
     } catch (error) {
       validationError = error instanceof Error ? error.message : 'Invalid private key';
@@ -111,7 +128,25 @@
         </div>
       {/if}
 
-      <div class="card-actions justify-center">
+      <!-- Keep me signed in toggle -->
+      <div class="form-control mt-4">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            class="toggle toggle-primary"
+            bind:checked={keepSignedIn}
+            disabled={isRestoring}
+          />
+          <div class="flex flex-col">
+            <span class="label-text font-medium">Keep me signed in</span>
+            <span class="label-text-alt text-base-content/60">
+              Stay logged in on this browser using a secure cookie
+            </span>
+          </div>
+        </label>
+      </div>
+
+      <div class="card-actions justify-center mt-4">
         <button
           class="btn btn-primary btn-lg w-full"
           on:click={handleRestore}

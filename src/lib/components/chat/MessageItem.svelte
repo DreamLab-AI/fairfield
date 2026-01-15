@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { NDKEvent } from '@nostr-dev-kit/ndk';
   import { authStore } from '$lib/stores/auth';
   import { channelStore, userMemberStatus } from '$lib/stores/channelStore';
   import { getAvatarUrl } from '$lib/utils/identicon';
@@ -7,6 +8,8 @@
   import { bookmarkStore, isBookmarked } from '$lib/stores/bookmarks';
   import { pinnedStore, isPinnedMessage } from '$lib/stores/pinnedMessages';
   import { toast } from '$lib/stores/toast';
+  import { ndk, publishEvent, isConnected } from '$lib/nostr/relay';
+  import { KIND_DELETE_EVENT } from '$lib/nostr/groups';
   import type { Message } from '$lib/types/channel';
   import { extractUrls, getMediaType } from '$lib/utils/linkPreview';
   import LinkPreview from './LinkPreview.svelte';
@@ -21,6 +24,7 @@
   export let channelName: string | undefined = undefined;
   export let messageElement: HTMLDivElement | undefined = undefined;
   export let relayUrl: string = '';
+  export let searchQuery: string = '';
 
   const dispatch = createEventDispatcher<{
     deleted: { messageId: string };
@@ -82,6 +86,32 @@
     if (!confirm('Are you sure you want to delete this message?')) return;
 
     try {
+      // Check relay connection
+      if (!isConnected()) {
+        throw new Error('Not connected to relay');
+      }
+
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
+        throw new Error('NDK not initialized');
+      }
+
+      // Create and publish deletion event (kind 9005 - NIP-29 group delete)
+      const deleteEvent = new NDKEvent(ndkInstance);
+      deleteEvent.kind = KIND_DELETE_EVENT;
+      deleteEvent.content = 'Deleted by user';
+      deleteEvent.tags = [
+        ['h', message.channelId],
+        ['e', message.id]
+      ];
+
+      const published = await publishEvent(deleteEvent);
+
+      if (!published) {
+        throw new Error('Failed to publish deletion to relay');
+      }
+
+      // Update local state after successful relay publish
       channelStore.deleteMessage(message.channelId, message.id);
       dispatch('deleted', { messageId: message.id });
       toast.success('Message deleted');
@@ -107,20 +137,26 @@
     );
   }
 
-  function handlePin() {
+  async function handlePin() {
     if ($isPinned) {
-      if (pinnedStore.unpinMessage(message.channelId, message.id)) {
+      const success = await pinnedStore.unpinMessage(message.channelId, message.id);
+      if (success) {
         dispatch('unpinned', { messageId: message.id });
         toast.success('Message unpinned');
+      } else {
+        toast.error('Failed to unpin message');
       }
     } else {
       if (!canPinMore) {
         toast.warning('Maximum of 5 messages can be pinned per channel');
         return;
       }
-      if (pinnedStore.pinMessage(message.channelId, message.id)) {
+      const success = await pinnedStore.pinMessage(message.channelId, message.id);
+      if (success) {
         dispatch('pinned', { messageId: message.id });
         toast.success('Message pinned');
+      } else {
+        toast.error('Failed to pin message');
       }
     }
   }
@@ -192,7 +228,7 @@
       </span>
     </div>
 
-    <div class="{isOwnMessage ? 'bg-primary text-primary-content' : 'bg-base-200'} rounded-2xl px-4 py-2 break-words {$isPinned ? 'ring-1 ring-warning/30' : ''}">
+    <div class="rounded-2xl px-4 py-2 break-words {$isPinned ? 'ring-1 ring-warning/30' : ''}" style="{isOwnMessage ? 'background-color: oklch(var(--p)); color: oklch(var(--pc));' : 'background-color: oklch(var(--b2)); color: oklch(var(--bc));'}">
       {#if message.isEncrypted && !isDecrypted}
         <div class="flex items-center gap-2 text-sm opacity-70">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

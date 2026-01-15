@@ -1,3 +1,18 @@
+---
+title: Nostr-BBS SPARC Refinement & Technology Selection
+description: Technology stack decisions, TDD planning, and implementation refinement for Nostr-BBS
+last_updated: 2025-12-23
+category: reference
+tags: [refinement, sparc-methodology, pwa, testing]
+difficulty: intermediate
+version: 0.1.0-draft
+date: 2024-12-11
+status: active
+related-docs:
+  - docs/architecture/03-pseudocode.md
+  - docs/architecture/05-completion.md
+---
+
 [← Back to Main README](../../README.md)
 
 # Nostr-BBS Nostr - SPARC Refinement & Technology Selection
@@ -327,7 +342,7 @@ Nostr-BBS-nostr/
 |---------|------|------|
 | **Shadcn-svelte** | Radix-based, accessible, copy-paste | Heavy, complex |
 | **Skeleton UI** | Svelte-native, theming | Opinionated |
-| **DaisyUI** | Tailwind plugin, simple | Less customizable |
+| **DaisyUI** | Tailwind plugin, simple | Less customisable |
 | **Custom** | Full control, minimal | More work |
 
 ### 4.2 Recommendation: **DaisyUI + Custom**

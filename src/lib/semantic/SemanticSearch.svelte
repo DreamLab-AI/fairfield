@@ -181,6 +181,8 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
+    background: oklch(var(--b1));
+    color: oklch(var(--bc));
   }
 
   .search-header {
@@ -197,11 +199,21 @@
   .search-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 1px solid var(--border-color, #e0e0e0);
+    border: 1px solid oklch(var(--b3));
     border-radius: 8px;
     font-size: 1rem;
-    background: var(--input-bg, #fff);
-    color: var(--text-color, #333);
+    background: oklch(var(--b2));
+    color: oklch(var(--bc));
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: oklch(var(--p));
+    box-shadow: 0 0 0 2px oklch(var(--p) / 0.2);
+  }
+
+  .search-input::placeholder {
+    color: oklch(var(--bc) / 0.5);
   }
 
   .search-input:disabled {
@@ -214,6 +226,7 @@
     right: 1rem;
     top: 50%;
     transform: translateY(-50%);
+    color: oklch(var(--bc) / 0.6);
     animation: pulse 1s infinite;
   }
 
@@ -224,11 +237,18 @@
 
   .sync-btn {
     padding: 0.75rem;
-    border: 1px solid var(--border-color, #e0e0e0);
+    border: 1px solid oklch(var(--b3));
     border-radius: 8px;
-    background: var(--btn-bg, #f5f5f5);
+    background: oklch(var(--b2));
+    color: oklch(var(--bc));
     cursor: pointer;
     font-size: 1.2rem;
+    transition: all 0.2s ease;
+  }
+
+  .sync-btn:hover:not(:disabled) {
+    background: oklch(var(--b3));
+    border-color: oklch(var(--p));
   }
 
   .sync-btn:disabled {
@@ -238,39 +258,57 @@
 
   .error-message {
     padding: 0.5rem;
-    background: #fee;
-    color: #c00;
+    background: oklch(var(--er) / 0.1);
+    color: oklch(var(--er));
+    border: 1px solid oklch(var(--er) / 0.3);
     border-radius: 4px;
     font-size: 0.875rem;
   }
 
   .info-message {
     padding: 1rem;
-    background: var(--info-bg, #f0f7ff);
+    background: oklch(var(--in) / 0.1);
+    border: 1px solid oklch(var(--in) / 0.3);
     border-radius: 8px;
     text-align: center;
+    color: oklch(var(--bc));
+  }
+
+  .info-message p {
+    margin: 0 0 0.5rem 0;
   }
 
   .info-message button {
     margin-top: 0.5rem;
     padding: 0.5rem 1rem;
-    background: var(--primary-color, #0066cc);
-    color: white;
+    background: oklch(var(--p));
+    color: oklch(var(--pc));
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+
+  .info-message button:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .info-message button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .wifi-notice {
     font-size: 0.875rem;
-    color: var(--muted-color, #666);
+    color: oklch(var(--bc) / 0.6);
   }
 
   .stats {
     display: flex;
     justify-content: space-between;
     font-size: 0.75rem;
-    color: var(--muted-color, #666);
+    color: oklch(var(--bc) / 0.6);
   }
 
   .results {
@@ -285,27 +323,31 @@
     display: flex;
     justify-content: space-between;
     padding: 0.75rem;
-    background: var(--result-bg, #fafafa);
-    border: 1px solid var(--border-color, #e0e0e0);
+    background: oklch(var(--b2));
+    border: 1px solid oklch(var(--b3));
     border-radius: 4px;
     cursor: pointer;
     text-align: left;
     width: 100%;
+    color: oklch(var(--bc));
+    transition: all 0.2s ease;
   }
 
   .result-item:hover {
-    background: var(--result-hover-bg, #f0f0f0);
+    background: oklch(var(--b3));
+    border-color: oklch(var(--p));
   }
 
   .note-id {
     font-family: monospace;
     font-size: 0.875rem;
+    color: oklch(var(--bc));
   }
 
   .score {
     font-size: 0.75rem;
-    color: var(--muted-color, #666);
-    background: var(--score-bg, #e8f5e9);
+    color: oklch(var(--suc));
+    background: oklch(var(--su) / 0.2);
     padding: 0.125rem 0.5rem;
     border-radius: 4px;
   }
@@ -313,6 +355,6 @@
   .no-results {
     text-align: center;
     padding: 1rem;
-    color: var(--muted-color, #666);
+    color: oklch(var(--bc) / 0.6);
   }
 </style>

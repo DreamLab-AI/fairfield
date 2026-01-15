@@ -33,6 +33,31 @@ export const swRegistration = writable<ServiceWorkerRegistration | null>(null);
 export const isPWAInstalled = writable<boolean>(false);
 
 /**
+ * Check if app is running as installed PWA
+ */
+export function checkIfPWA(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  // Check display-mode media query (most reliable)
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+  if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+
+  // Check iOS Safari standalone mode
+  if ((navigator as Navigator & { standalone?: boolean }).standalone === true) return true;
+
+  // Check if launched from home screen on Android
+  if (document.referrer.includes('android-app://')) return true;
+
+  return false;
+}
+
+/**
+ * PWA mode storage key
+ */
+const PWA_MODE_KEY = 'nostr_bbs_pwa_mode';
+
+/**
  * Message queue count
  */
 export const queuedMessageCount = writable<number>(0);
@@ -70,11 +95,15 @@ export function initPWA(): void {
   window.addEventListener('appinstalled', () => {
     isPWAInstalled.set(true);
     installPrompt.set(null);
+    // Persist PWA mode for future sessions
+    localStorage.setItem(PWA_MODE_KEY, 'true');
   });
 
-  // Check if running as PWA
-  if (window.matchMedia('(display-mode: standalone)').matches) {
+  // Check if running as PWA (current session or previously installed)
+  const isPWA = checkIfPWA() || localStorage.getItem(PWA_MODE_KEY) === 'true';
+  if (isPWA) {
     isPWAInstalled.set(true);
+    localStorage.setItem(PWA_MODE_KEY, 'true');
   }
 
   // Listen for service worker messages
@@ -116,6 +145,12 @@ export async function triggerInstall(): Promise<boolean> {
   }
 }
 
+// Update check interval (1 hour for PWA, 4 hours for browser)
+const UPDATE_CHECK_INTERVAL_PWA = 60 * 60 * 1000; // 1 hour
+const UPDATE_CHECK_INTERVAL_BROWSER = 4 * 60 * 60 * 1000; // 4 hours
+
+let updateCheckInterval: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Register service worker
  */
@@ -135,7 +170,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     console.log('[PWA] Service worker registered:', registration);
     swRegistration.set(registration);
 
-    // Check for updates
+    // Listen for updatefound event (per MDN spec)
     registration.addEventListener('updatefound', () => {
       const newWorker = registration.installing;
 
@@ -143,17 +178,77 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
         return;
       }
 
+      console.log('[PWA] New service worker installing...');
+
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          updateAvailable.set(true);
+        if (newWorker.state === 'installed') {
+          if (navigator.serviceWorker.controller) {
+            // New update available
+            console.log('[PWA] New version available');
+            updateAvailable.set(true);
+          } else {
+            // First install
+            console.log('[PWA] Service worker installed for the first time');
+          }
         }
       });
     });
 
+    // Start periodic update checks
+    startUpdateChecks(registration);
+
     return registration;
   } catch (error) {
-    console.error('[PWA] Service worker registration failed:', error);
+    // In dev mode, service worker may fail due to missing Workbox manifest injection
+    // This is expected behavior - only log at debug level
+    const isDev = import.meta.env.DEV;
+    if (isDev) {
+      console.debug('[PWA] Service worker unavailable in dev mode (expected)');
+    } else {
+      console.error('[PWA] Service worker registration failed:', error);
+    }
     return null;
+  }
+}
+
+/**
+ * Start periodic update checks
+ */
+function startUpdateChecks(registration: ServiceWorkerRegistration): void {
+  // Clear any existing interval
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval);
+  }
+
+  // Use shorter interval for PWA mode
+  const isPWA = checkIfPWA() || localStorage.getItem(PWA_MODE_KEY) === 'true';
+  const interval = isPWA ? UPDATE_CHECK_INTERVAL_PWA : UPDATE_CHECK_INTERVAL_BROWSER;
+
+  // Check for updates periodically
+  updateCheckInterval = setInterval(() => {
+    checkForUpdates(registration);
+  }, interval);
+
+  // Also check on visibility change (when user returns to app)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkForUpdates(registration);
+    }
+  });
+}
+
+/**
+ * Manually check for service worker updates
+ */
+export async function checkForUpdates(registration?: ServiceWorkerRegistration): Promise<void> {
+  const reg = registration || get(swRegistration);
+  if (!reg) return;
+
+  try {
+    await reg.update();
+    console.log('[PWA] Update check completed');
+  } catch (error) {
+    console.error('[PWA] Update check failed:', error);
   }
 }
 
@@ -207,7 +302,7 @@ export async function queueMessage(
       }
     };
 
-    registration.active.postMessage(
+    registration.active!.postMessage(
       { type: 'QUEUE_MESSAGE', payload: message },
       [messageChannel.port2]
     );
@@ -236,7 +331,7 @@ export async function getQueuedMessages(): Promise<QueuedMessage[]> {
       }
     };
 
-    registration.active.postMessage(
+    registration.active!.postMessage(
       { type: 'GET_QUEUE' },
       [messageChannel.port2]
     );
@@ -265,7 +360,7 @@ export async function clearMessageQueue(): Promise<void> {
       }
     };
 
-    registration.active.postMessage(
+    registration.active!.postMessage(
       { type: 'CLEAR_QUEUE' },
       [messageChannel.port2]
     );
@@ -284,16 +379,13 @@ export async function triggerBackgroundSync(): Promise<void> {
   }
 
   try {
-    interface SyncManager {
-      register(tag: string): Promise<void>;
+    // Background Sync API types are not in standard TypeScript lib
+    // Cast to any to access the sync property
+    const syncManager = (registration as { sync?: { register: (tag: string) => Promise<void> } }).sync;
+    if (syncManager) {
+      await syncManager.register('sync-messages');
+      console.log('[PWA] Background sync registered');
     }
-
-    interface ServiceWorkerRegistrationWithSync extends ServiceWorkerRegistration {
-      sync: SyncManager;
-    }
-
-    await (registration as ServiceWorkerRegistrationWithSync).sync.register('sync-messages');
-    console.log('[PWA] Background sync registered');
   } catch (error) {
     console.error('[PWA] Background sync failed:', error);
   }

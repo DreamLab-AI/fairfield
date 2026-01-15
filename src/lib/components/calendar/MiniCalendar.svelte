@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { ChannelSection } from '$lib/types/channel';
+  import type { AvailabilityBlock } from '$lib/config/types';
   import { getSections } from '$lib/config';
+  import AvailabilityBlockRenderer from './AvailabilityBlockRenderer.svelte';
 
   interface EventWithSection {
     id: string;
@@ -12,7 +14,9 @@
 
   export let selectedDate: Date = new Date();
   export let events: EventWithSection[] = [];
+  export let availabilityBlocks: AvailabilityBlock[] = [];
   export let onDateSelect: (date: Date) => void = () => {};
+  export let onBlockClick: ((block: AvailabilityBlock) => void) | undefined = undefined;
 
   let currentViewDate: Date = new Date(selectedDate);
 
@@ -68,6 +72,22 @@
 
     return events.filter((event) => {
       return event.start >= dayStartTs && event.start <= dayEndTs;
+    });
+  }
+
+  function getBlocksForDate(date: Date): AvailabilityBlock[] {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const dayStartMs = dayStart.getTime();
+    const dayEndMs = dayEnd.getTime();
+
+    return availabilityBlocks.filter((block) => {
+      // Block overlaps with this day if:
+      // block.start < dayEnd AND block.end > dayStart
+      return block.start < dayEndMs && block.end > dayStartMs;
     });
   }
 
@@ -190,9 +210,13 @@
     {#each weeks as week}
       {#each week as date}
         {@const dayEvents = getEventsForDate(date)}
+        {@const dayBlocks = getBlocksForDate(date)}
         {@const today = isToday(date)}
         {@const selected = isSelected(date)}
         {@const currentMonth = isCurrentMonth(date)}
+        {@const hasHardBlock = dayBlocks.some(b => b.blockType === 'hard')}
+        {@const hasSoftBlock = dayBlocks.some(b => b.blockType === 'soft')}
+        {@const hasAnyBlock = hasHardBlock || hasSoftBlock}
         <button
           class="aspect-square p-1 bg-base-100 dark:bg-base-200 hover:bg-base-200 dark:hover:bg-base-300 transition-colors flex flex-col items-center justify-start relative"
           class:bg-primary={selected}
@@ -201,6 +225,9 @@
           class:ring-primary={today && !selected}
           class:ring-inset={today && !selected}
           class:opacity-40={!currentMonth}
+          class:bg-error={hasHardBlock && !selected}
+          class:bg-warning={hasSoftBlock && !hasHardBlock && !selected}
+          class:bg-opacity-10={hasAnyBlock && !selected}
           on:click={() => handleDayClick(date)}
           aria-label={`Select ${date.toLocaleDateString()}`}
         >
@@ -211,16 +238,26 @@
             {date.getDate()}
           </span>
 
-          <!-- Event Dots -->
-          {#if dayEvents.length > 0}
-            <div class="flex gap-[2px] mt-auto">
-              {#each dayEvents.slice(0, 3) as event}
+          <!-- Event and Block Dots -->
+          {#if dayEvents.length > 0 || dayBlocks.length > 0}
+            <div class="flex gap-[2px] mt-auto flex-wrap justify-center">
+              <!-- Event Dots -->
+              {#each dayEvents.slice(0, 2) as event}
                 <div
                   class="w-1 h-1 rounded-full {getSectionColor(event.section)}"
                   class:opacity-50={!currentMonth}
                   title={event.title || 'Event'}
                 />
               {/each}
+              <!-- Availability Block Dots -->
+              {#if dayBlocks.length > 0}
+                <AvailabilityBlockRenderer
+                  blocks={dayBlocks}
+                  variant="dot"
+                  maxBlocks={2}
+                  onClick={onBlockClick}
+                />
+              {/if}
             </div>
           {/if}
         </button>

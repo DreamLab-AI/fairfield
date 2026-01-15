@@ -1,0 +1,492 @@
+# Fairfield Multi-Tenant Configuration
+# Zone-based isolation for Family, Friends, and Business areas
+# Each zone has its own branding, visibility rules, and access control
+
+# Application metadata
+app:
+  name: 'Fairfield'
+  version: '2.0.0'
+  defaultPath: '/fairfield-family/home'
+
+# Superuser configuration
+superuser:
+  pubkey: 'YOUR_ADMIN_PUBKEY_HERE'
+  name: 'Instance Owner'
+  relayUrl: 'wss://your-relay.example.com'
+
+# Deployment URLs
+deployment:
+  relayUrl: 'wss://your-relay.example.com'
+  embeddingApiUrl: 'https://your-embedding-api.example.com'
+  frontendUrl: 'https://your-frontend.example.com'
+
+# Role definitions (hierarchical from lowest to highest)
+roles:
+  - id: 'guest'
+    name: 'Guest'
+    level: 0
+    description: 'Basic authenticated user'
+
+  - id: 'member'
+    name: 'Member'
+    level: 1
+    description: 'Approved zone member'
+
+  - id: 'moderator'
+    name: 'Moderator'
+    level: 2
+    description: 'Can manage channels and moderate content'
+    capabilities:
+      - 'channel.create'
+      - 'channel.delete'
+      - 'message.pin'
+      - 'message.delete'
+
+  - id: 'section-admin'
+    name: 'Section Admin'
+    level: 3
+    description: 'Administrator for a specific section'
+    capabilities:
+      - 'section.manage'
+      - 'member.approve'
+      - 'member.remove'
+      - 'channel.create'
+      - 'channel.delete'
+      - 'message.pin'
+      - 'message.delete'
+
+  - id: 'admin'
+    name: 'Admin'
+    level: 4
+    description: 'Global administrator with cross-zone access'
+    capabilities:
+      - 'admin.global'
+      - 'section.create'
+      - 'section.delete'
+      - 'section.manage'
+      - 'member.approve'
+      - 'member.remove'
+      - 'channel.create'
+      - 'channel.delete'
+      - 'message.pin'
+      - 'message.delete'
+      - 'user.whitelist'
+
+# Cohort definitions - Zone membership groups
+cohorts:
+  # Administrative cohorts
+  - id: 'admin'
+    name: 'Administrators'
+    description: 'Global system administrators'
+
+  # Cross-zone access (owners who see everything)
+  - id: 'cross-access'
+    name: 'Cross-Zone Access'
+    description: 'Users who can access all zones (owners)'
+
+  # Zone-specific cohorts
+  - id: 'family'
+    name: 'Family Members'
+    description: 'Direct family with access to family zone'
+
+  - id: 'family-only'
+    name: 'Family Only'
+    description: 'Family members who should NOT see business content'
+
+  - id: 'minimoonoir'
+    name: 'Minimoonoir Guests'
+    description: 'Friends and guests staying at Fairfield'
+
+  - id: 'minimoonoir-only'
+    name: 'Minimoonoir Only'
+    description: 'Guests who should NOT see business content'
+
+  - id: 'minimoonoir-business'
+    name: 'Minimoonoir with Business Access'
+    description: 'Guests who can also access business/training boards'
+
+  - id: 'business'
+    name: 'Business Partners'
+    description: 'DreamLab business collaborators and trainees'
+
+  - id: 'business-only'
+    name: 'Business Only'
+    description: 'Business users who should NOT see family/friends content'
+
+  - id: 'trainers'
+    name: 'Trainers'
+    description: 'Training providers and facilitators'
+
+  - id: 'trainees'
+    name: 'Trainees'
+    description: 'Users receiving training'
+
+# 3-Tier Structure: Categories (Zones) → Sections → Forums
+categories:
+  # ============================================
+  # ZONE 1: FAMILY (Completely Isolated)
+  # ============================================
+  - id: 'fairfield-family'
+    name: 'Fairfield Family'
+    description: 'Private family zone - visible only to family members'
+    icon: '🏠'
+    order: 1
+
+    # Zone-level access control
+    access:
+      visibleToCohorts: ['family', 'cross-access']
+      hiddenFromCohorts: ['business-only', 'friends-only']
+      strictIsolation: true
+
+    # Zone branding
+    branding:
+      displayName: 'Fairfield Home'
+      tagline: 'Our Family Space'
+      primaryColor: '#4a7c59'
+      accentColor: '#8fbc8f'
+      heroImageUrl: '/images/zones/family-hero.jpg'
+      logoUrl: '/images/zones/family-logo.png'
+
+    ui:
+      color: '#4a7c59'
+
+    sections:
+      - id: 'family-home'
+        name: 'Home'
+        description: 'Main family discussion area'
+        icon: '🏡'
+        order: 1
+        access:
+          requiresApproval: false
+          defaultRole: 'member'
+          autoApprove: true
+          requiredCohorts: ['family', 'cross-access']
+        calendar:
+          access: 'full'
+          canCreate: true
+          # Reciprocal: family sees when house is busy from other zones
+          showBlocksFrom: ['minimoonoir', 'dreamlab']
+          blockDisplay:
+            showSourceZone: false     # Just show colour, not who
+            showReason: false          # No event details
+            zoneColours:
+              minimoonoir: '#6366f1'   # Purple - guests visiting
+              dreamlab: '#c2410c'      # Orange - training in progress
+        ui:
+          color: '#4a7c59'
+        showStats: true
+        allowForumCreation: true
+
+      - id: 'family-events'
+        name: 'Family Events'
+        description: 'Birthdays, gatherings, and family occasions'
+        icon: '🎂'
+        order: 2
+        access:
+          requiresApproval: false
+          defaultRole: 'member'
+          autoApprove: true
+          requiredCohorts: ['family', 'cross-access']
+        calendar:
+          access: 'full'
+          canCreate: true
+          showBlocksFrom: ['minimoonoir', 'dreamlab']
+          blockDisplay:
+            showSourceZone: false
+            showReason: false
+            zoneColours:
+              minimoonoir: '#6366f1'
+              dreamlab: '#c2410c'
+        ui:
+          color: '#6b8e23'
+        showStats: true
+        allowForumCreation: true
+
+      - id: 'family-photos'
+        name: 'Photos & Memories'
+        description: 'Photo sharing and family memories'
+        icon: '📸'
+        order: 3
+        access:
+          requiresApproval: false
+          defaultRole: 'member'
+          autoApprove: true
+          requiredCohorts: ['family', 'cross-access']
+        calendar:
+          access: 'none'
+          canCreate: false
+        ui:
+          color: '#8b4513'
+        showStats: false
+        allowForumCreation: false
+
+  # ============================================
+  # ZONE 2: MINIMOONOIR (Friends & Visitors)
+  # ============================================
+  - id: 'minimoonoir'
+    name: 'Minimoonoir'
+    description: 'For friends and visitors staying with us'
+    icon: '🌙'
+    order: 2
+
+    # Zone-level access control
+    access:
+      visibleToCohorts: ['minimoonoir', 'minimoonoir-business', 'cross-access']
+      hiddenFromCohorts: ['business-only']
+      strictIsolation: false
+
+    # Zone branding
+    branding:
+      displayName: 'Minimoonoir'
+      tagline: 'Guest Stays & Adventures'
+      primaryColor: '#8b5cf6'
+      accentColor: '#a78bfa'
+      heroImageUrl: '/images/zones/minimoonoir-hero.jpg'
+      logoUrl: '/images/zones/minimoonoir-logo.png'
+
+    ui:
+      color: '#8b5cf6'
+
+    sections:
+      - id: 'minimoonoir-welcome'
+        name: 'Welcome'
+        description: 'Essential information for guests staying with us'
+        icon: '🏠'
+        order: 1
+        access:
+          requiresApproval: false
+          defaultRole: 'guest'
+          autoApprove: true
+        calendar:
+          access: 'full'
+          canCreate: false
+          # Cross-zone visibility: see blocks from family and business zones
+          showBlocksFrom: ['fairfield-family', 'dreamlab']
+          blockDisplay:
+            showSourceZone: true      # Show "Family" or "DreamLab" label
+            showReason: false          # Don't show event titles/details
+            zoneColours:
+              fairfield-family: '#991b1b'   # Dark red - unavailable
+              dreamlab: '#c2410c'            # Dark orange - reduced capacity
+        ui:
+          color: '#8b5cf6'
+        showStats: true
+        allowForumCreation: false
+
+      - id: 'minimoonoir-events'
+        name: 'Events & Activities'
+        description: 'Plan visits, activities, and local adventures'
+        icon: '🎯'
+        order: 2
+        access:
+          requiresApproval: false
+          defaultRole: 'member'
+          autoApprove: true
+          requiredCohorts: ['minimoonoir', 'minimoonoir-business', 'cross-access']
+        calendar:
+          access: 'full'
+          canCreate: true
+          showBlocksFrom: ['fairfield-family', 'dreamlab']
+          blockDisplay:
+            showSourceZone: true
+            showReason: false
+            zoneColours:
+              fairfield-family: '#991b1b'
+              dreamlab: '#c2410c'
+        ui:
+          color: '#a78bfa'
+        showStats: true
+        allowForumCreation: true
+
+      - id: 'minimoonoir-booking'
+        name: 'Stay Booking'
+        description: 'Book your stay - 2 guest beds available in main house'
+        icon: '🛏️'
+        order: 3
+        access:
+          requiresApproval: false
+          defaultRole: 'member'
+          autoApprove: true
+          requiredCohorts: ['minimoonoir', 'minimoonoir-business', 'cross-access']
+        calendar:
+          access: 'full'
+          canCreate: true
+          # Full cross-zone visibility for booking conflicts
+          showBlocksFrom: ['fairfield-family', 'dreamlab']
+          blockDisplay:
+            showSourceZone: true
+            showReason: false
+            zoneColours:
+              fairfield-family: '#991b1b'   # Family stay - beds likely taken
+              dreamlab: '#c2410c'            # Training - reduced capacity but possible
+        ui:
+          color: '#f59e0b'
+        showStats: false
+        allowForumCreation: false
+
+  # ============================================
+  # ZONE 3: DREAMLAB BUSINESS
+  # ============================================
+  - id: 'dreamlab'
+    name: 'DreamLab'
+    description: 'Business training and collaboration space'
+    icon: '✨'
+    order: 3
+
+    # Zone-level access control - Business isolation
+    access:
+      visibleToCohorts: ['business', 'minimoonoir-business', 'trainers', 'trainees', 'cross-access']
+      hiddenFromCohorts: ['family-only', 'minimoonoir-only']
+      strictIsolation: true
+
+    # Zone branding - DreamLab identity
+    branding:
+      displayName: 'DreamLab'
+      tagline: 'Training & Innovation Hub'
+      primaryColor: '#ec4899'
+      accentColor: '#f472b6'
+      heroImageUrl: '/images/zones/dreamlab-hero.jpg'
+      logoUrl: '/images/zones/dreamlab-logo.png'
+
+    ui:
+      color: '#ec4899'
+
+    sections:
+      - id: 'dreamlab-lobby'
+        name: 'DreamLab Lobby'
+        description: 'Welcome area for business visitors and trainees'
+        icon: '🚪'
+        order: 1
+        access:
+          requiresApproval: false
+          defaultRole: 'guest'
+          autoApprove: true
+          requiredCohorts: ['business', 'minimoonoir-business', 'trainers', 'trainees', 'cross-access']
+        calendar:
+          # Business users see sparse calendar - only their booking + blocks
+          access: 'cohort'
+          canCreate: false
+          cohortRestricted: true
+          showBlocksFrom: ['fairfield-family', 'minimoonoir']
+          blockDisplay:
+            showSourceZone: false     # Business doesn't see family/friends labels
+            showReason: false
+            zoneColours:
+              fairfield-family: '#991b1b'   # Red - house unavailable
+              minimoonoir: '#6366f1'         # Purple - guests present
+        ui:
+          color: '#ec4899'
+        showStats: true
+        allowForumCreation: false
+
+      - id: 'dreamlab-training'
+        name: 'Training Rooms'
+        description: 'Active training sessions and courses'
+        icon: '📚'
+        order: 2
+        access:
+          requiresApproval: true
+          defaultRole: 'member'
+          autoApprove: false
+          requiredCohorts: ['trainers', 'trainees', 'cross-access']
+        calendar:
+          # Trainers/trainees see their sessions only
+          access: 'cohort'
+          canCreate: true
+          cohortRestricted: true
+          showBlocksFrom: ['fairfield-family']
+          blockDisplay:
+            showSourceZone: false
+            showReason: false
+            zoneColours:
+              fairfield-family: '#991b1b'
+        ui:
+          color: '#db2777'
+        showStats: true
+        allowForumCreation: true
+        branding:
+          tagline: 'Active Training Sessions'
+
+      - id: 'dreamlab-projects'
+        name: 'Projects'
+        description: 'Collaborative business projects'
+        icon: '🚀'
+        order: 3
+        access:
+          requiresApproval: true
+          defaultRole: 'member'
+          autoApprove: false
+          requiredCohorts: ['business', 'cross-access']
+        calendar:
+          access: 'cohort'
+          canCreate: false        # Only admin creates project milestones
+          cohortRestricted: true
+        ui:
+          color: '#a855f7'
+        showStats: true
+        allowForumCreation: true
+
+      - id: 'dreamlab-bookings'
+        name: 'Facility Booking'
+        description: 'Book training rooms and equipment - admin managed'
+        icon: '📅'
+        order: 4
+        access:
+          requiresApproval: true
+          defaultRole: 'member'
+          autoApprove: false
+          requiredCohorts: ['business', 'trainers', 'cross-access']
+        calendar:
+          # Sparse calendar: business sees only their booking
+          access: 'cohort'
+          canCreate: false        # Only admin creates bookings
+          cohortRestricted: true
+          showBlocksFrom: ['fairfield-family', 'minimoonoir']
+          blockDisplay:
+            showSourceZone: false
+            showReason: false
+            zoneColours:
+              fairfield-family: '#991b1b'
+              minimoonoir: '#6366f1'
+        ui:
+          color: '#f97316'
+        showStats: false
+        allowForumCreation: false
+
+# Calendar access levels
+calendarAccessLevels:
+  - id: 'full'
+    name: 'Full Access'
+    description: 'See all event details'
+    canView: true
+    canViewDetails: true
+
+  - id: 'availability'
+    name: 'Availability Only'
+    description: 'See when slots are booked, not event details'
+    canView: true
+    canViewDetails: false
+
+  - id: 'cohort'
+    name: 'Cohort Restricted'
+    description: 'Full details only for matching cohort members'
+    canView: true
+    canViewDetails: 'cohort-match'
+
+  - id: 'none'
+    name: 'No Access'
+    description: 'Calendar hidden'
+    canView: false
+    canViewDetails: false
+
+# Channel visibility options
+channelVisibility:
+  - id: 'public'
+    name: 'Public'
+    description: 'Visible to all section members'
+  - id: 'cohort'
+    name: 'Cohort Only'
+    description: 'Visible only to specific cohorts'
+  - id: 'invite'
+    name: 'Invite Only'
+    description: 'Private channel, invite required'

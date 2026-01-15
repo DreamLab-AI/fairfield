@@ -4,6 +4,9 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   type PageState = 'login' | 'pending';
   let pageState: PageState = 'login';
@@ -36,7 +39,7 @@
 </script>
 
 <svelte:head>
-  <title>Login - Fairfield</title>
+  <title>Login - {appConfig.name}</title>
 </svelte:head>
 
 {#if pageState === 'login'}

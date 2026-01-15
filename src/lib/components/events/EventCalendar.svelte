@@ -1,9 +1,13 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { CalendarEvent } from '$lib/nostr/calendar';
+  import type { AvailabilityBlock } from '$lib/config/types';
+  import AvailabilityBlockRenderer from '$lib/components/calendar/AvailabilityBlockRenderer.svelte';
 
   export let events: CalendarEvent[] = [];
+  export let availabilityBlocks: AvailabilityBlock[] = [];
   export let currentDate: Date = new Date();
+  export let onBlockClick: ((block: AvailabilityBlock) => void) | undefined = undefined;
 
   const dispatch = createEventDispatcher();
 
@@ -66,6 +70,32 @@
     return events.filter((event) => {
       return event.start >= dayStartTs && event.start <= dayEndTs;
     });
+  }
+
+  function getBlocksForDate(date: Date): AvailabilityBlock[] {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const dayStartMs = dayStart.getTime();
+    const dayEndMs = dayEnd.getTime();
+
+    return availabilityBlocks.filter((block) => {
+      return block.start < dayEndMs && block.end > dayStartMs;
+    });
+  }
+
+  function getBlockTypeClass(blocks: AvailabilityBlock[]): string {
+    const hasHard = blocks.some(b => b.blockType === 'hard');
+    const hasSoft = blocks.some(b => b.blockType === 'soft');
+    if (hasHard) return 'bg-error/10 border-l-4 border-error';
+    if (hasSoft) return 'bg-warning/10 border-l-4 border-warning';
+    return '';
+  }
+
+  function isBirthdayEvent(event: CalendarEvent): boolean {
+    return event.id.startsWith('birthday-') || (event.tags?.includes('birthday') ?? false);
   }
 
   function isToday(date: Date): boolean {
@@ -178,10 +208,12 @@
       {#each weeks as week}
         {#each week as date}
           {@const dayEvents = getEventsForDate(date)}
+          {@const dayBlocks = getBlocksForDate(date)}
+          {@const blockClass = getBlockTypeClass(dayBlocks)}
           <button
-            class="min-h-[80px] p-1 rounded-lg transition-colors text-left"
-            class:bg-base-300={isCurrentMonth(date)}
-            class:bg-base-200={!isCurrentMonth(date)}
+            class="min-h-[80px] p-1 rounded-lg transition-colors text-left {blockClass}"
+            class:bg-base-300={isCurrentMonth(date) && !blockClass}
+            class:bg-base-200={!isCurrentMonth(date) && !blockClass}
             class:opacity-40={!isCurrentMonth(date)}
             class:ring-2={isToday(date)}
             class:ring-primary={isToday(date)}
@@ -191,18 +223,33 @@
               {date.getDate()}
             </div>
 
+            <!-- Availability Blocks -->
+            {#if dayBlocks.length > 0}
+              <div class="mt-1">
+                <AvailabilityBlockRenderer
+                  blocks={dayBlocks}
+                  variant="bar"
+                  showLabel={false}
+                  onClick={onBlockClick}
+                />
+              </div>
+            {/if}
+
             {#if dayEvents.length > 0}
               <div class="mt-1 space-y-0.5">
-                {#each dayEvents.slice(0, 3) as event}
+                {#each dayEvents.slice(0, dayBlocks.length > 0 ? 2 : 3) as event}
                   <button
-                    class="block w-full text-left text-xs px-1 py-0.5 rounded truncate bg-primary/20 text-primary hover:bg-primary/30"
+                    class="block w-full text-left text-xs px-1 py-0.5 rounded truncate hover:opacity-80 {isBirthdayEvent(event) ? 'bg-pink-500 bg-opacity-20 text-pink-600' : 'bg-primary bg-opacity-20 text-primary'}"
                     on:click|stopPropagation={() => handleEventClick(event)}
                   >
+                    {#if isBirthdayEvent(event)}
+                      <span class="mr-0.5">🎂</span>
+                    {/if}
                     {event.title}
                   </button>
                 {/each}
-                {#if dayEvents.length > 3}
-                  <div class="text-xs text-base-content/50 px-1">+{dayEvents.length - 3} more</div>
+                {#if dayEvents.length > (dayBlocks.length > 0 ? 2 : 3)}
+                  <div class="text-xs text-base-content/50 px-1">+{dayEvents.length - (dayBlocks.length > 0 ? 2 : 3)} more</div>
                 {/if}
               </div>
             {/if}

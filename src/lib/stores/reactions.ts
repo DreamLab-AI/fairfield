@@ -17,6 +17,8 @@ import {
   normalizeReactionContent,
   type ReactionData,
 } from '$lib/nostr/reactions';
+import { ndk, publishEvent, subscribe as ndkSubscribe } from '$lib/nostr/relay';
+import { NDKEvent, type NDKFilter, type NDKSubscription } from '@nostr-dev-kit/ndk';
 
 /**
  * Reaction summary for a message
@@ -49,16 +51,16 @@ interface ReactionState {
   // Loading state
   loading: boolean;
   error: string | null;
-  // Subscription tracking
-  activeSubscriptions: Map<string, string[]>;
+  // NDK Subscription tracking
+  activeSubscriptions: Map<string, SubscriptionInfo[]>;
 }
 
 /**
- * Relay connection for reactions
+ * NDK subscription tracking
  */
-interface RelayConnection {
-  url: string;
-  ws: WebSocket | null;
+interface SubscriptionInfo {
+  subId: string;
+  subscription: NDKSubscription;
 }
 
 const initialState: ReactionState = {
@@ -75,105 +77,41 @@ const initialState: ReactionState = {
 function createReactionStore() {
   const { subscribe, set, update } = writable<ReactionState>(initialState);
 
-  // Relay connections
-  const relayConnections = new Map<string, RelayConnection>();
-
   /**
-   * Connect to relay
+   * Convert NostrEvent to NDKEvent
    */
-  async function connectToRelay(relayUrl: string): Promise<WebSocket> {
-    const existing = relayConnections.get(relayUrl);
-    if (existing?.ws?.readyState === WebSocket.OPEN) {
-      return existing.ws;
+  function nostrEventToNDK(event: NostrEvent): NDKEvent | null {
+    const ndkInstance = ndk();
+    if (!ndkInstance) {
+      console.debug('[Reactions] NDK not initialized, skipping event conversion');
+      return null;
     }
 
-    return new Promise((resolve, reject) => {
-      const ws = new WebSocket(relayUrl);
+    const ndkEvent = new NDKEvent(ndkInstance);
+    ndkEvent.id = event.id;
+    ndkEvent.pubkey = event.pubkey;
+    ndkEvent.created_at = event.created_at;
+    ndkEvent.kind = event.kind;
+    ndkEvent.tags = event.tags;
+    ndkEvent.content = event.content;
+    ndkEvent.sig = event.sig;
 
-      ws.onopen = () => {
-        relayConnections.set(relayUrl, { url: relayUrl, ws });
-        resolve(ws);
-      };
-
-      ws.onerror = reject;
-
-      ws.onclose = () => {
-        relayConnections.delete(relayUrl);
-      };
-    });
+    return ndkEvent;
   }
 
   /**
-   * Subscribe to relay events
+   * Convert NDKEvent to NostrEvent
    */
-  async function subscribeToRelay(
-    relayUrl: string,
-    filters: Filter[],
-    onEvent: (event: NostrEvent) => void
-  ): Promise<string> {
-    const ws = await connectToRelay(relayUrl);
-    const subId = Math.random().toString(36).substring(7);
-
-    ws.send(JSON.stringify(['REQ', subId, ...filters]));
-
-    const messageHandler = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data[0] === 'EVENT' && data[1] === subId) {
-          onEvent(data[2]);
-        }
-      } catch (error) {
-        console.error('Failed to parse relay message:', error);
-      }
+  function ndkEventToNostr(ndkEvent: NDKEvent): NostrEvent {
+    return {
+      id: ndkEvent.id,
+      pubkey: ndkEvent.pubkey,
+      created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+      kind: ndkEvent.kind || 0,
+      tags: ndkEvent.tags,
+      content: ndkEvent.content,
+      sig: ndkEvent.sig || ''
     };
-
-    ws.addEventListener('message', messageHandler);
-
-    return subId;
-  }
-
-  /**
-   * Unsubscribe from relay
-   */
-  function unsubscribeFromRelay(relayUrl: string, subId: string): void {
-    const connection = relayConnections.get(relayUrl);
-    if (connection?.ws?.readyState === WebSocket.OPEN) {
-      connection.ws.send(JSON.stringify(['CLOSE', subId]));
-    }
-  }
-
-  /**
-   * Publish event to relay
-   */
-  async function publishToRelay(relayUrl: string, event: NostrEvent): Promise<void> {
-    const ws = await connectToRelay(relayUrl);
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Publish timeout'));
-      }, 10000);
-
-      const messageHandler = (msgEvent: MessageEvent) => {
-        try {
-          const data = JSON.parse(msgEvent.data);
-          if (data[0] === 'OK' && data[1] === event.id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', messageHandler);
-
-            if (data[2] === true) {
-              resolve();
-            } else {
-              reject(new Error(data[3] || 'Event rejected'));
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse relay response:', error);
-        }
-      };
-
-      ws.addEventListener('message', messageHandler);
-      ws.send(JSON.stringify(['EVENT', event]));
-    });
   }
 
   return {
@@ -191,26 +129,30 @@ function createReactionStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const filter: Filter = {
+        const filter: NDKFilter = {
           kinds: [EventKind.REACTION],
           '#e': messageIds,
         };
 
-        await subscribeToRelay(relayUrl, [filter], (event) => {
+        const subscription = ndkSubscribe(filter, { closeOnEose: false });
+
+        subscription.on('event', (ndkEvent: NDKEvent) => {
+          const event = ndkEventToNostr(ndkEvent);
           const reactionData = parseReactionEvent(event);
           if (!reactionData) return;
 
           update(state => {
             const existing = state.reactionsByMessage.get(reactionData.eventId) || [];
 
-            // Check for duplicate
             const isDuplicate = existing.some(
               r => r.reactionEventId === reactionData.reactionEventId
             );
 
             if (!isDuplicate) {
               const updated = [...existing, reactionData];
-              state.reactionsByMessage.set(reactionData.eventId, updated);
+              const reactionsByMessage = new Map(state.reactionsByMessage);
+              reactionsByMessage.set(reactionData.eventId, updated);
+              return { ...state, reactionsByMessage, loading: false };
             }
 
             return { ...state, loading: false };
@@ -259,10 +201,12 @@ function createReactionStore() {
           r => r.reactorPubkey !== optimisticReaction.reactorPubkey
         );
 
-        state.reactionsByMessage.set(messageId, [...filtered, optimisticReaction]);
-        state.optimisticReactions.set(optimisticId, optimisticReaction);
+        const reactionsByMessage = new Map(state.reactionsByMessage);
+        reactionsByMessage.set(messageId, [...filtered, optimisticReaction]);
+        const optimisticReactions = new Map(state.optimisticReactions);
+        optimisticReactions.set(optimisticId, optimisticReaction);
 
-        return { ...state };
+        return { ...state, reactionsByMessage, optimisticReactions };
       });
 
       try {
@@ -274,7 +218,11 @@ function createReactionStore() {
           authorPubkey
         );
 
-        await publishToRelay(relayUrl, event);
+        const ndkEvent = nostrEventToNDK(event);
+        if (!ndkEvent) {
+          throw new Error('NDK not connected');
+        }
+        await publishEvent(ndkEvent);
 
         // Replace optimistic with real reaction
         const realReaction: ReactionData = {
@@ -288,10 +236,12 @@ function createReactionStore() {
             r => r.reactionEventId !== optimisticId
           );
 
-          state.reactionsByMessage.set(messageId, [...withoutOptimistic, realReaction]);
-          state.optimisticReactions.delete(optimisticId);
+          const reactionsByMessage = new Map(state.reactionsByMessage);
+          reactionsByMessage.set(messageId, [...withoutOptimistic, realReaction]);
+          const optimisticReactions = new Map(state.optimisticReactions);
+          optimisticReactions.delete(optimisticId);
 
-          return { ...state };
+          return { ...state, reactionsByMessage, optimisticReactions };
         });
 
       } catch (error) {
@@ -300,11 +250,15 @@ function createReactionStore() {
           const existing = state.reactionsByMessage.get(messageId) || [];
           const filtered = existing.filter(r => r.reactionEventId !== optimisticId);
 
-          state.reactionsByMessage.set(messageId, filtered);
-          state.optimisticReactions.delete(optimisticId);
+          const reactionsByMessage = new Map(state.reactionsByMessage);
+          reactionsByMessage.set(messageId, filtered);
+          const optimisticReactions = new Map(state.optimisticReactions);
+          optimisticReactions.delete(optimisticId);
 
           return {
             ...state,
+            reactionsByMessage,
+            optimisticReactions,
             error: error instanceof Error ? error.message : 'Failed to add reaction'
           };
         });
@@ -329,9 +283,10 @@ function createReactionStore() {
         const existing = state.reactionsByMessage.get(messageId) || [];
         const filtered = existing.filter(r => r.reactorPubkey !== auth.publicKey);
 
-        state.reactionsByMessage.set(messageId, filtered);
+        const reactionsByMessage = new Map(state.reactionsByMessage);
+        reactionsByMessage.set(messageId, filtered);
 
-        return { ...state };
+        return { ...state, reactionsByMessage };
       });
 
       // Note: NIP-25 doesn't specify reaction deletion
@@ -347,13 +302,20 @@ function createReactionStore() {
     ): Promise<void> {
       if (messageIds.length === 0) return;
 
-      const filter: Filter = {
+      const filter: NDKFilter = {
         kinds: [EventKind.REACTION],
         '#e': messageIds,
         since: Math.floor(Date.now() / 1000),
       };
 
-      const subId = await subscribeToRelay(relayUrl, [filter], (event) => {
+      const subId = `reactions_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const subscription = ndkSubscribe(filter, {
+        closeOnEose: false,
+        subId
+      });
+
+      subscription.on('event', (ndkEvent: NDKEvent) => {
+        const event = ndkEventToNostr(ndkEvent);
         const reactionData = parseReactionEvent(event);
         if (!reactionData) return;
 
@@ -366,7 +328,9 @@ function createReactionStore() {
 
           if (!isDuplicate) {
             const updated = [...existing, reactionData];
-            state.reactionsByMessage.set(reactionData.eventId, updated);
+            const reactionsByMessage = new Map(state.reactionsByMessage);
+            reactionsByMessage.set(reactionData.eventId, updated);
+            return { ...state, reactionsByMessage };
           }
 
           return { ...state };
@@ -376,8 +340,12 @@ function createReactionStore() {
       // Track subscription
       update(state => {
         const subs = state.activeSubscriptions.get(relayUrl) || [];
-        state.activeSubscriptions.set(relayUrl, [...subs, subId]);
-        return { ...state };
+        const activeSubscriptions = new Map(state.activeSubscriptions);
+        activeSubscriptions.set(relayUrl, [
+          ...subs,
+          { subId, subscription }
+        ]);
+        return { ...state, activeSubscriptions };
       });
     },
 
@@ -389,11 +357,14 @@ function createReactionStore() {
       const subs = state.activeSubscriptions.get(relayUrl);
 
       if (subs) {
-        subs.forEach(subId => unsubscribeFromRelay(relayUrl, subId));
+        subs.forEach(({ subscription }) => {
+          subscription.stop();
+        });
 
         update(s => {
-          s.activeSubscriptions.delete(relayUrl);
-          return { ...s };
+          const activeSubscriptions = new Map(s.activeSubscriptions);
+          activeSubscriptions.delete(relayUrl);
+          return { ...s, activeSubscriptions };
         });
       }
     },
@@ -445,16 +416,19 @@ function createReactionStore() {
     },
 
     /**
-     * Disconnect from all relays
+     * Disconnect all subscriptions
      */
     disconnectAll(): void {
-      relayConnections.forEach(connection => {
-        if (connection.ws?.readyState === WebSocket.OPEN) {
-          connection.ws.close();
-        }
+      const state = get({ subscribe });
+      state.activeSubscriptions.forEach(subs => {
+        subs.forEach(({ subscription }) => {
+          subscription.stop();
+        });
       });
 
-      relayConnections.clear();
+      update(s => {
+        return { ...s, activeSubscriptions: new Map() };
+      });
     }
   };
 }

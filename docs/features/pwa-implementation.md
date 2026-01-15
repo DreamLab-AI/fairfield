@@ -1,10 +1,19 @@
+---
+title: Progressive Web App Implementation
+description: Complete PWA implementation including service worker, offline support, and app installation
+last_updated: 2025-12-23
+category: reference
+tags: [pwa, deployment, serverless]
+difficulty: advanced
+---
+
 # PWA Implementation Guide
 
 ## Overview
 
 Nostr-BBS implements a complete Progressive Web App with offline support, background sync, and installability.
 
-[Back to Main README](../README.md)
+[Back to Main README](../../README.md)
 
 ## Architecture
 

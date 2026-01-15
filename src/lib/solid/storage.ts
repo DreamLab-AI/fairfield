@@ -1,1012 +1,657 @@
 /**
  * Solid Pod Storage Operations
- *
- * Provides CRUD operations for storing and retrieving data in Solid pods.
- * Handles Nostr events as RDF, manages LDP containers, and supports
- * offline-first operations with sync capability.
+ * File upload/download and resource management
  */
 
-import { browser } from '$app/environment';
+import { SolidClient, getDefaultClient } from './client';
+import { derivePodName } from './pods';
 import type {
-  SolidContainer,
-  SolidResource,
-  NostrEventRDF,
-  StorageResult,
-  StorageError,
-  StorageErrorCode,
-  PodStoragePaths,
-  SyncQueueItem,
-  SyncState,
+  SolidIdentity,
+  FileMetadata,
+  FileUploadOptions,
+  FileUploadResult,
+  FileDownloadResult,
+  ResourceInfo,
+  ContainerListResult,
+  JsonLdResource,
+  JsonLdResult,
 } from './types';
-import { POD_CONTAINERS, RDF_NAMESPACES, NOSTR_RDF_VOCAB } from './types';
-import { getSession, getAuthenticatedFetch, fetchWebIDProfile } from './client';
-import { pubkeyToDID } from '$lib/nostr/did';
+import { SolidError, SolidErrorType } from './types';
 
 /**
- * Storage operation error
+ * Common MIME types
  */
-export class StorageOperationError extends Error {
-  constructor(
-    message: string,
-    public readonly code: StorageErrorCode,
-    public readonly statusCode?: number,
-    public readonly cause?: unknown
-  ) {
-    super(message);
-    this.name = 'StorageOperationError';
-  }
+export const MimeTypes = {
+  TEXT: 'text/plain',
+  HTML: 'text/html',
+  CSS: 'text/css',
+  JS: 'application/javascript',
+  JSON: 'application/json',
+  JSON_LD: 'application/ld+json',
+  TURTLE: 'text/turtle',
+  PNG: 'image/png',
+  JPEG: 'image/jpeg',
+  GIF: 'image/gif',
+  WEBP: 'image/webp',
+  SVG: 'image/svg+xml',
+  PDF: 'application/pdf',
+  BINARY: 'application/octet-stream',
+} as const;
+
+/**
+ * Detect MIME type from filename
+ */
+export function detectMimeType(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+
+  const mimeMap: Record<string, string> = {
+    txt: MimeTypes.TEXT,
+    html: MimeTypes.HTML,
+    htm: MimeTypes.HTML,
+    css: MimeTypes.CSS,
+    js: MimeTypes.JS,
+    mjs: MimeTypes.JS,
+    json: MimeTypes.JSON,
+    jsonld: MimeTypes.JSON_LD,
+    ttl: MimeTypes.TURTLE,
+    png: MimeTypes.PNG,
+    jpg: MimeTypes.JPEG,
+    jpeg: MimeTypes.JPEG,
+    gif: MimeTypes.GIF,
+    webp: MimeTypes.WEBP,
+    svg: MimeTypes.SVG,
+    pdf: MimeTypes.PDF,
+  };
+
+  return mimeMap[ext || ''] || MimeTypes.BINARY;
 }
 
 /**
- * Offline sync queue (IndexedDB-backed in full implementation)
+ * Build resource path within pod
  */
-let syncQueue: SyncQueueItem[] = [];
-let syncState: SyncState = {
-  isOnline: browser ? navigator.onLine : true,
-  lastSyncTimestamp: null,
-  pendingItems: 0,
-  failedItems: 0,
-  isSyncing: false,
-};
-
-// Online/offline event listeners
-if (browser) {
-  window.addEventListener('online', () => {
-    syncState.isOnline = true;
-    processSyncQueue();
-  });
-  window.addEventListener('offline', () => {
-    syncState.isOnline = false;
-  });
+export function buildResourcePath(identity: SolidIdentity, path: string): string {
+  const podName = derivePodName(identity.npub);
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return `/${podName}/${cleanPath}`;
 }
 
 /**
- * Get the user's pod storage root URL
+ * Upload a file to the pod
  */
-export async function getPodStorageRoot(): Promise<string | null> {
-  const session = getSession();
+export async function uploadFile(
+  identity: SolidIdentity,
+  file: File | Blob,
+  options: FileUploadOptions,
+  client?: SolidClient
+): Promise<FileUploadResult> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, options.path);
 
-  if (!session.isLoggedIn || !session.webId) {
-    return null;
-  }
+  // Determine content type
+  const contentType = options.contentType
+    || (file instanceof File ? file.type : undefined)
+    || detectMimeType(options.path);
 
   try {
-    const profile = await fetchWebIDProfile(session.webId);
-    if (profile?.storage && profile.storage.length > 0) {
-      return profile.storage[0];
-    }
-
-    // Derive storage from WebID
-    const webIdUrl = new URL(session.webId);
-    return `${webIdUrl.origin}/`;
-  } catch (error) {
-    console.error('[Storage] Failed to get pod storage root:', error);
-    return null;
-  }
-}
-
-/**
- * Get configured storage paths
- */
-export async function getStoragePaths(): Promise<PodStoragePaths | null> {
-  const root = await getPodStorageRoot();
-
-  if (!root) {
-    return null;
-  }
-
-  const baseRoot = root.endsWith('/') ? root : `${root}/`;
-
-  return {
-    root: baseRoot,
-    nostrEvents: `${baseRoot}${POD_CONTAINERS.EVENTS}`,
-    encryptedEvents: `${baseRoot}${POD_CONTAINERS.ENCRYPTED}`,
-    profiles: `${baseRoot}${POD_CONTAINERS.PROFILES}`,
-    messages: `${baseRoot}${POD_CONTAINERS.MESSAGES}`,
-    preferences: `${baseRoot}${POD_CONTAINERS.PREFERENCES}`,
-    publicData: `${baseRoot}${POD_CONTAINERS.PUBLIC}`,
-    privateData: `${baseRoot}${POD_CONTAINERS.PRIVATE}`,
-  };
-}
-
-/**
- * Initialize Nostr containers in the user's pod
- *
- * Creates the container structure needed for storing Nostr data.
- */
-export async function initializeNostrContainers(): Promise<StorageResult<PodStoragePaths>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  const containersToCreate = [
-    POD_CONTAINERS.NOSTR,
-    POD_CONTAINERS.EVENTS,
-    POD_CONTAINERS.ENCRYPTED,
-    POD_CONTAINERS.PROFILES,
-    POD_CONTAINERS.MESSAGES,
-    POD_CONTAINERS.PREFERENCES,
-  ];
-
-  const errors: Array<{ container: string; error: string }> = [];
-
-  for (const container of containersToCreate) {
-    const containerUrl = `${paths.root}${container}`;
-
-    try {
-      // Check if container exists
-      const checkResponse = await fetchFn(containerUrl, {
-        method: 'HEAD',
-      });
-
-      if (checkResponse.status === 404) {
-        // Create container
-        const createResponse = await fetchFn(containerUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'text/turtle',
-            'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
-          },
-          body: `@prefix ldp: <http://www.w3.org/ns/ldp#> .
-<> a ldp:BasicContainer .`,
-        });
-
-        if (!createResponse.ok && createResponse.status !== 201) {
-          errors.push({
-            container,
-            error: `Failed to create: ${createResponse.status}`,
-          });
-        }
+    // Check if file exists and overwrite is false
+    if (!options.overwrite) {
+      const existsResponse = await solidClient.get(resourcePath, identity);
+      if (existsResponse.ok) {
+        return {
+          success: false,
+          error: 'File already exists and overwrite is false',
+        };
       }
-    } catch (error) {
-      errors.push({
-        container,
-        error: error instanceof Error ? error.message : 'Unknown error',
+    }
+
+    // Ensure parent container exists
+    const parentPath = resourcePath.split('/').slice(0, -1).join('/') + '/';
+    await ensureContainer(identity, parentPath, solidClient);
+
+    // Upload the file
+    const response = await solidClient.put(
+      resourcePath,
+      identity,
+      file,
+      {
+        'Content-Type': contentType,
+      }
+    );
+
+    if (!response.ok && response.status !== 201 && response.status !== 204) {
+      return {
+        success: false,
+        error: `Upload failed: ${response.statusText}`,
+      };
+    }
+
+    const etag = response.headers.get('ETag') || undefined;
+    const url = solidClient.buildUrl(resourcePath);
+
+    return {
+      success: true,
+      url,
+      etag,
+      metadata: {
+        name: options.path.split('/').pop() || 'file',
+        contentType,
+        size: file.size,
+        lastModified: file instanceof File ? file.lastModified : Date.now(),
+      },
+    };
+  } catch (error) {
+    if (error instanceof SolidError) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown upload error',
+    };
+  }
+}
+
+/**
+ * Upload a string as a file
+ */
+export async function uploadText(
+  identity: SolidIdentity,
+  content: string,
+  path: string,
+  contentType?: string,
+  client?: SolidClient
+): Promise<FileUploadResult> {
+  const blob = new Blob([content], {
+    type: contentType || detectMimeType(path)
+  });
+
+  return uploadFile(identity, blob, {
+    path,
+    contentType,
+    overwrite: true
+  }, client);
+}
+
+/**
+ * Download a file from the pod
+ */
+export async function downloadFile(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<FileDownloadResult> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, path);
+
+  try {
+    const response = await solidClient.request({
+      url: solidClient.buildUrl(resourcePath),
+      method: 'GET',
+      identity,
+      headers: {
+        Accept: '*/*',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: 'File not found',
+        };
+      }
+      return {
+        success: false,
+        error: `Download failed: ${response.statusText}`,
+      };
+    }
+
+    // Fetch the actual blob data
+    const blobResponse = await fetch(solidClient.buildUrl(resourcePath), {
+      method: 'GET',
+      headers: {
+        Accept: '*/*',
+      },
+    });
+
+    if (!blobResponse.ok) {
+      return {
+        success: false,
+        error: `Download failed: ${blobResponse.statusText}`,
+      };
+    }
+
+    const data = await blobResponse.blob();
+    const etag = blobResponse.headers.get('ETag') || undefined;
+    const contentType = blobResponse.headers.get('Content-Type') || MimeTypes.BINARY;
+    const contentLength = blobResponse.headers.get('Content-Length');
+    const lastModified = blobResponse.headers.get('Last-Modified');
+
+    return {
+      success: true,
+      data,
+      etag,
+      metadata: {
+        name: path.split('/').pop() || 'file',
+        contentType,
+        size: contentLength ? parseInt(contentLength, 10) : data.size,
+        lastModified: lastModified ? new Date(lastModified).getTime() : undefined,
+      },
+    };
+  } catch (error) {
+    if (error instanceof SolidError) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown download error',
+    };
+  }
+}
+
+/**
+ * Download file as text
+ */
+export async function downloadText(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<{ success: boolean; text?: string; error?: string }> {
+  const result = await downloadFile(identity, path, client);
+
+  if (!result.success || !result.data) {
+    return { success: false, error: result.error };
+  }
+
+  try {
+    const text = await result.data.text();
+    return { success: true, text };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to read file as text',
+    };
+  }
+}
+
+/**
+ * Delete a file from the pod
+ */
+export async function deleteFile(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<{ success: boolean; error?: string }> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, path);
+
+  try {
+    const response = await solidClient.delete(resourcePath, identity);
+
+    if (response.ok || response.status === 204 || response.status === 404) {
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: `Delete failed: ${response.statusText}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown delete error',
+    };
+  }
+}
+
+/**
+ * Ensure a container (folder) exists
+ */
+export async function ensureContainer(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<{ success: boolean; error?: string }> {
+  const solidClient = client || getDefaultClient();
+
+  // Normalize path to end with /
+  const containerPath = path.endsWith('/') ? path : `${path}/`;
+
+  try {
+    // Check if exists
+    const checkResponse = await solidClient.get(containerPath, identity);
+
+    if (checkResponse.ok) {
+      return { success: true };
+    }
+
+    // Create container
+    const response = await solidClient.put(
+      containerPath,
+      identity,
+      undefined,
+      {
+        'Content-Type': 'text/turtle',
+        Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+      }
+    );
+
+    if (response.ok || response.status === 201 || response.status === 204) {
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: `Failed to create container: ${response.statusText}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * List resources in a container
+ */
+export async function listContainer(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<ContainerListResult> {
+  const solidClient = client || getDefaultClient();
+  const containerPath = buildResourcePath(identity, path.endsWith('/') ? path : `${path}/`);
+
+  try {
+    const response = await solidClient.get(containerPath, identity, {
+      Accept: 'text/turtle',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: 'Container not found',
+        };
+      }
+      return {
+        success: false,
+        error: `Failed to list container: ${response.statusText}`,
+      };
+    }
+
+    // Parse the Turtle response to extract resources
+    // This is a simplified parser - in production you'd use a proper RDF library
+    const resources = parseContainerListing(
+      response.body as string,
+      solidClient.buildUrl(containerPath)
+    );
+
+    return {
+      success: true,
+      containerUrl: solidClient.buildUrl(containerPath),
+      resources,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown list error',
+    };
+  }
+}
+
+/**
+ * Simple parser for Turtle container listings
+ * Note: This is a basic implementation - use rdflib.js for production
+ */
+function parseContainerListing(turtle: string, containerUrl: string): ResourceInfo[] {
+  const resources: ResourceInfo[] = [];
+
+  // Look for ldp:contains relationships
+  const containsPattern = /<([^>]+)>\s+a\s+(?:ldp:Resource|ldp:Container)/g;
+  let match;
+
+  while ((match = containsPattern.exec(turtle)) !== null) {
+    const url = match[1];
+    const name = url.split('/').filter(Boolean).pop() || '';
+    const isContainer = url.endsWith('/');
+
+    resources.push({
+      url,
+      name,
+      isContainer,
+    });
+  }
+
+  // Alternative pattern for ldp:contains
+  const containsPattern2 = /ldp:contains\s+<([^>]+)>/g;
+  while ((match = containsPattern2.exec(turtle)) !== null) {
+    const url = match[1];
+    const absoluteUrl = url.startsWith('http') ? url : containerUrl + url;
+    const name = url.split('/').filter(Boolean).pop() || '';
+    const isContainer = url.endsWith('/');
+
+    // Avoid duplicates
+    if (!resources.some(r => r.url === absoluteUrl)) {
+      resources.push({
+        url: absoluteUrl,
+        name,
+        isContainer,
       });
     }
   }
 
-  if (errors.length > 0) {
+  return resources;
+}
+
+/**
+ * Save JSON-LD resource to pod
+ */
+export async function saveJsonLd(
+  identity: SolidIdentity,
+  path: string,
+  data: JsonLdResource,
+  client?: SolidClient
+): Promise<JsonLdResult> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, path);
+
+  // Ensure default context
+  const jsonLd: JsonLdResource = {
+    '@context': data['@context'] || 'https://schema.org/',
+    ...data,
+  };
+
+  try {
+    const response = await solidClient.put(
+      resourcePath,
+      identity,
+      JSON.stringify(jsonLd, null, 2),
+      {
+        'Content-Type': MimeTypes.JSON_LD,
+      }
+    );
+
+    if (!response.ok && response.status !== 201 && response.status !== 204) {
+      return {
+        success: false,
+        error: `Failed to save JSON-LD: ${response.statusText}`,
+      };
+    }
+
+    return {
+      success: true,
+      data: jsonLd,
+      url: solidClient.buildUrl(resourcePath),
+    };
+  } catch (error) {
     return {
       success: false,
-      data: paths,
-      error: {
-        code: 'UNKNOWN',
-        message: `Failed to create some containers`,
-        details: errors,
-      },
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
-
-  return {
-    success: true,
-    data: paths,
-  };
 }
 
 /**
- * Convert a Nostr event to RDF/Turtle format
+ * Load JSON-LD resource from pod
  */
-export function nostrEventToRDF(event: NostrEventRDF): string {
-  const subject = `<urn:nostr:event:${event.id}>`;
-  const did = pubkeyToDID(event.pubkey);
+export async function loadJsonLd(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<JsonLdResult> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, path);
 
-  const lines: string[] = [
-    `@prefix nostr: <${RDF_NAMESPACES.nostr}> .`,
-    `@prefix dc: <${RDF_NAMESPACES.dc}> .`,
-    `@prefix xsd: <${RDF_NAMESPACES.xsd}> .`,
-    '',
-    subject,
-    `    a nostr:Event ;`,
-    `    nostr:id "${event.id}" ;`,
-    `    nostr:kind ${event.kind} ;`,
-    `    nostr:pubkey "${event.pubkey}" ;`,
-    `    nostr:DID "${did}" ;`,
-    `    nostr:createdAt "${event.created_at}"^^xsd:integer ;`,
-    `    nostr:signature "${event.sig}" ;`,
-  ];
-
-  // Add content (escaped)
-  const escapedContent = event.content
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
-  lines.push(`    nostr:content "${escapedContent}" ;`);
-
-  // Add encryption info if present
-  if (event.encrypted) {
-    lines.push(`    nostr:encrypted true ;`);
-    if (event.encryptionMethod) {
-      lines.push(`    nostr:encryptionMethod "${event.encryptionMethod}" ;`);
-    }
-  }
-
-  // Add tags
-  if (event.tags.length > 0) {
-    const tagStrings = event.tags.map(tag =>
-      `"${tag.map(t => t.replace(/"/g, '\\"')).join(',')}"`
-    );
-    lines.push(`    nostr:tag ${tagStrings.join(', ')} ;`);
-  }
-
-  // Add timestamp
-  lines.push(`    dc:created "${new Date(event.created_at * 1000).toISOString()}"^^xsd:dateTime .`);
-
-  return lines.join('\n');
-}
-
-/**
- * Parse RDF/Turtle back to Nostr event
- */
-export function rdfToNostrEvent(rdf: string): NostrEventRDF | null {
   try {
-    const event: Partial<NostrEventRDF> = {};
+    const response = await solidClient.get(resourcePath, identity, {
+      Accept: MimeTypes.JSON_LD + ', ' + MimeTypes.JSON,
+    });
 
-    // Extract values using regex (simple parser)
-    const idMatch = rdf.match(/nostr:id\s+"([^"]+)"/);
-    if (idMatch) event.id = idMatch[1];
-
-    const kindMatch = rdf.match(/nostr:kind\s+(\d+)/);
-    if (kindMatch) event.kind = parseInt(kindMatch[1], 10);
-
-    const pubkeyMatch = rdf.match(/nostr:pubkey\s+"([^"]+)"/);
-    if (pubkeyMatch) event.pubkey = pubkeyMatch[1];
-
-    const createdAtMatch = rdf.match(/nostr:createdAt\s+"(\d+)"/);
-    if (createdAtMatch) event.created_at = parseInt(createdAtMatch[1], 10);
-
-    const sigMatch = rdf.match(/nostr:signature\s+"([^"]+)"/);
-    if (sigMatch) event.sig = sigMatch[1];
-
-    const contentMatch = rdf.match(/nostr:content\s+"((?:[^"\\]|\\.)*)"/);
-    if (contentMatch) {
-      event.content = contentMatch[1]
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\r')
-        .replace(/\\"/g, '"')
-        .replace(/\\\\/g, '\\');
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: 'Resource not found',
+        };
+      }
+      return {
+        success: false,
+        error: `Failed to load JSON-LD: ${response.statusText}`,
+      };
     }
 
-    const encryptedMatch = rdf.match(/nostr:encrypted\s+true/);
-    if (encryptedMatch) event.encrypted = true;
+    const data = response.body as JsonLdResource;
 
-    const encMethodMatch = rdf.match(/nostr:encryptionMethod\s+"([^"]+)"/);
-    if (encMethodMatch) event.encryptionMethod = encMethodMatch[1] as 'nip44' | 'nip04';
+    return {
+      success: true,
+      data,
+      url: solidClient.buildUrl(resourcePath),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
 
-    // Parse tags
-    const tagMatches = rdf.matchAll(/nostr:tag\s+"([^"]+)"/g);
-    event.tags = [];
-    for (const match of tagMatches) {
-      event.tags.push(match[1].split(','));
-    }
+/**
+ * Check if a resource exists
+ */
+export async function resourceExists(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<boolean> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, path);
 
-    // Validate required fields
-    if (!event.id || !event.pubkey || !event.sig || event.kind === undefined) {
+  try {
+    const response = await solidClient.request({
+      url: solidClient.buildUrl(resourcePath),
+      method: 'GET',
+      identity,
+      headers: {
+        Accept: '*/*',
+      },
+    });
+
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Copy a file within the pod
+ */
+export async function copyFile(
+  identity: SolidIdentity,
+  sourcePath: string,
+  destPath: string,
+  client?: SolidClient
+): Promise<{ success: boolean; error?: string }> {
+  const downloadResult = await downloadFile(identity, sourcePath, client);
+
+  if (!downloadResult.success || !downloadResult.data) {
+    return { success: false, error: downloadResult.error || 'Source file not found' };
+  }
+
+  const uploadResult = await uploadFile(
+    identity,
+    downloadResult.data,
+    {
+      path: destPath,
+      contentType: downloadResult.metadata?.contentType,
+      overwrite: true,
+    },
+    client
+  );
+
+  return { success: uploadResult.success, error: uploadResult.error };
+}
+
+/**
+ * Move a file within the pod
+ */
+export async function moveFile(
+  identity: SolidIdentity,
+  sourcePath: string,
+  destPath: string,
+  client?: SolidClient
+): Promise<{ success: boolean; error?: string }> {
+  const copyResult = await copyFile(identity, sourcePath, destPath, client);
+
+  if (!copyResult.success) {
+    return copyResult;
+  }
+
+  return deleteFile(identity, sourcePath, client);
+}
+
+/**
+ * Get resource metadata without downloading content
+ */
+export async function getResourceInfo(
+  identity: SolidIdentity,
+  path: string,
+  client?: SolidClient
+): Promise<ResourceInfo | null> {
+  const solidClient = client || getDefaultClient();
+  const resourcePath = buildResourcePath(identity, path);
+
+  try {
+    // Use HEAD request if server supports it, otherwise GET
+    const response = await solidClient.get(resourcePath, identity, {
+      Accept: '*/*',
+    });
+
+    if (!response.ok) {
       return null;
     }
 
-    return event as NostrEventRDF;
+    const contentType = response.headers.get('Content-Type') || undefined;
+    const contentLength = response.headers.get('Content-Length');
+    const lastModified = response.headers.get('Last-Modified');
+    const etag = response.headers.get('ETag') || undefined;
+
+    return {
+      url: solidClient.buildUrl(resourcePath),
+      name: path.split('/').pop() || '',
+      isContainer: path.endsWith('/'),
+      contentType,
+      size: contentLength ? parseInt(contentLength, 10) : undefined,
+      modified: lastModified ? new Date(lastModified).getTime() : undefined,
+      etag,
+    };
   } catch {
     return null;
   }
 }
-
-/**
- * Store a Nostr event in the user's pod
- */
-export async function storeNostrEvent(
-  event: NostrEventRDF,
-  options?: {
-    container?: string;
-    encrypt?: boolean;
-  }
-): Promise<StorageResult<string>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    // Queue for offline sync
-    if (browser && !syncState.isOnline) {
-      return queueOperation('create', '', event);
-    }
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    // Queue for offline sync
-    if (browser && !syncState.isOnline) {
-      return queueOperation('create', '', event);
-    }
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  const container = options?.container ||
-    (event.encrypted ? paths.encryptedEvents : paths.nostrEvents);
-  const resourceUrl = `${container}${event.id}.ttl`;
-
-  try {
-    const rdf = nostrEventToRDF(event);
-
-    const response = await fetchFn(resourceUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'text/turtle',
-      },
-      body: rdf,
-    });
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: createStorageError(response.status, 'Failed to store event'),
-      };
-    }
-
-    return {
-      success: true,
-      data: event.id,
-      url: resourceUrl,
-    };
-  } catch (error) {
-    // Queue for offline sync on network errors
-    if (browser && error instanceof TypeError) {
-      return queueOperation('create', resourceUrl, event);
-    }
-
-    return {
-      success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-        details: error,
-      },
-    };
-  }
-}
-
-/**
- * Retrieve a Nostr event from the pod
- */
-export async function retrieveNostrEvent(
-  eventId: string,
-  container?: string
-): Promise<StorageResult<NostrEventRDF>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  // Try both regular and encrypted containers if not specified
-  const containersToTry = container
-    ? [container]
-    : [paths.nostrEvents, paths.encryptedEvents];
-
-  for (const cont of containersToTry) {
-    const resourceUrl = `${cont}${eventId}.ttl`;
-
-    try {
-      const response = await fetchFn(resourceUrl, {
-        headers: {
-          Accept: 'text/turtle',
-        },
-      });
-
-      if (response.ok) {
-        const rdf = await response.text();
-        const event = rdfToNostrEvent(rdf);
-
-        if (event) {
-          return {
-            success: true,
-            data: event,
-            url: resourceUrl,
-          };
-        }
-      }
-    } catch {
-      // Continue to next container
-    }
-  }
-
-  return {
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: `Event ${eventId} not found`,
-    },
-  };
-}
-
-/**
- * Delete a Nostr event from the pod
- */
-export async function deleteNostrEvent(
-  eventId: string,
-  container?: string
-): Promise<StorageResult<void>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  const containersToTry = container
-    ? [container]
-    : [paths.nostrEvents, paths.encryptedEvents];
-
-  for (const cont of containersToTry) {
-    const resourceUrl = `${cont}${eventId}.ttl`;
-
-    try {
-      const response = await fetchFn(resourceUrl, {
-        method: 'DELETE',
-      });
-
-      if (response.ok || response.status === 204) {
-        return {
-          success: true,
-          url: resourceUrl,
-        };
-      }
-    } catch {
-      // Continue to next container
-    }
-  }
-
-  return {
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: `Event ${eventId} not found for deletion`,
-    },
-  };
-}
-
-/**
- * List Nostr events in a container
- */
-export async function listNostrEvents(
-  container?: string,
-  options?: {
-    limit?: number;
-    offset?: number;
-    filter?: {
-      kind?: number;
-      pubkey?: string;
-      since?: number;
-      until?: number;
-    };
-  }
-): Promise<StorageResult<NostrEventRDF[]>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  const targetContainer = container || paths.nostrEvents;
-
-  try {
-    // Fetch container listing
-    const response = await fetchFn(targetContainer, {
-      headers: {
-        Accept: 'text/turtle',
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: createStorageError(response.status, 'Failed to list container'),
-      };
-    }
-
-    const containerRdf = await response.text();
-
-    // Extract resource URLs from container listing
-    const resourceUrls = extractContainedResources(containerRdf);
-
-    // Fetch each resource
-    const events: NostrEventRDF[] = [];
-    let fetched = 0;
-    const offset = options?.offset || 0;
-    const limit = options?.limit || 100;
-
-    for (const url of resourceUrls) {
-      if (!url.endsWith('.ttl')) continue;
-
-      try {
-        const eventResponse = await fetchFn(url, {
-          headers: {
-            Accept: 'text/turtle',
-          },
-        });
-
-        if (eventResponse.ok) {
-          const eventRdf = await eventResponse.text();
-          const event = rdfToNostrEvent(eventRdf);
-
-          if (event && matchesFilter(event, options?.filter)) {
-            fetched++;
-            if (fetched > offset && events.length < limit) {
-              events.push(event);
-            }
-          }
-        }
-      } catch {
-        // Skip failed fetches
-      }
-    }
-
-    return {
-      success: true,
-      data: events,
-      url: targetContainer,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-        details: error,
-      },
-    };
-  }
-}
-
-/**
- * Extract contained resource URLs from container RDF
- */
-function extractContainedResources(rdf: string): string[] {
-  const urls: string[] = [];
-  const matches = rdf.matchAll(/ldp:contains\s+<([^>]+)>/g);
-
-  for (const match of matches) {
-    urls.push(match[1]);
-  }
-
-  return urls;
-}
-
-/**
- * Check if event matches filter criteria
- */
-function matchesFilter(
-  event: NostrEventRDF,
-  filter?: {
-    kind?: number;
-    pubkey?: string;
-    since?: number;
-    until?: number;
-  }
-): boolean {
-  if (!filter) return true;
-
-  if (filter.kind !== undefined && event.kind !== filter.kind) {
-    return false;
-  }
-
-  if (filter.pubkey && event.pubkey !== filter.pubkey) {
-    return false;
-  }
-
-  if (filter.since && event.created_at < filter.since) {
-    return false;
-  }
-
-  if (filter.until && event.created_at > filter.until) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Store generic data in the pod
- */
-export async function storeData<T>(
-  path: string,
-  data: T,
-  contentType: string = 'application/json'
-): Promise<StorageResult<string>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  const resourceUrl = path.startsWith('http') ? path : `${paths.root}${path}`;
-
-  try {
-    const body = contentType.includes('json') ? JSON.stringify(data) : String(data);
-
-    const response = await fetchFn(resourceUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType,
-      },
-      body,
-    });
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: createStorageError(response.status, 'Failed to store data'),
-      };
-    }
-
-    return {
-      success: true,
-      url: resourceUrl,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-        details: error,
-      },
-    };
-  }
-}
-
-/**
- * Retrieve generic data from the pod
- */
-export async function retrieveData<T>(
-  path: string,
-  contentType: string = 'application/json'
-): Promise<StorageResult<T>> {
-  const paths = await getStoragePaths();
-
-  if (!paths) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Not logged in or no storage available',
-      },
-    };
-  }
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No authenticated fetch available',
-      },
-    };
-  }
-
-  const resourceUrl = path.startsWith('http') ? path : `${paths.root}${path}`;
-
-  try {
-    const response = await fetchFn(resourceUrl, {
-      headers: {
-        Accept: contentType,
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: createStorageError(response.status, 'Failed to retrieve data'),
-      };
-    }
-
-    const data = contentType.includes('json')
-      ? await response.json()
-      : await response.text();
-
-    return {
-      success: true,
-      data: data as T,
-      url: resourceUrl,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-        details: error,
-      },
-    };
-  }
-}
-
-/**
- * Create storage error from HTTP status
- */
-function createStorageError(status: number, message: string): StorageError {
-  let code: StorageErrorCode;
-
-  switch (status) {
-    case 401:
-      code = 'UNAUTHORIZED';
-      break;
-    case 403:
-      code = 'FORBIDDEN';
-      break;
-    case 404:
-      code = 'NOT_FOUND';
-      break;
-    case 409:
-      code = 'CONFLICT';
-      break;
-    default:
-      code = 'UNKNOWN';
-  }
-
-  return {
-    code,
-    message,
-    statusCode: status,
-  };
-}
-
-/**
- * Queue operation for offline sync
- */
-function queueOperation(
-  operation: 'create' | 'update' | 'delete',
-  resourceUrl: string,
-  data?: unknown
-): StorageResult<string> {
-  const item: SyncQueueItem = {
-    id: crypto.randomUUID(),
-    operation,
-    resourceUrl,
-    data,
-    timestamp: Date.now(),
-    retryCount: 0,
-  };
-
-  syncQueue.push(item);
-  syncState.pendingItems = syncQueue.length;
-
-  // Store in localStorage for persistence
-  if (browser) {
-    localStorage.setItem('solid_sync_queue', JSON.stringify(syncQueue));
-  }
-
-  return {
-    success: true,
-    data: item.id,
-    error: {
-      code: 'NETWORK_ERROR',
-      message: 'Operation queued for offline sync',
-    },
-  };
-}
-
-/**
- * Process the offline sync queue
- */
-export async function processSyncQueue(): Promise<SyncState> {
-  if (!browser || !syncState.isOnline || syncState.isSyncing) {
-    return syncState;
-  }
-
-  syncState.isSyncing = true;
-
-  const fetchFn = getAuthenticatedFetch();
-  if (!fetchFn) {
-    syncState.isSyncing = false;
-    return syncState;
-  }
-
-  const failedItems: SyncQueueItem[] = [];
-
-  for (const item of syncQueue) {
-    try {
-      let response: Response;
-
-      switch (item.operation) {
-        case 'create':
-        case 'update':
-          const rdf = item.data ? nostrEventToRDF(item.data as NostrEventRDF) : '';
-          response = await fetchFn(item.resourceUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'text/turtle' },
-            body: rdf,
-          });
-          break;
-
-        case 'delete':
-          response = await fetchFn(item.resourceUrl, {
-            method: 'DELETE',
-          });
-          break;
-      }
-
-      if (!response!.ok && response!.status !== 204) {
-        item.retryCount++;
-        item.lastError = `HTTP ${response!.status}`;
-        if (item.retryCount < 3) {
-          failedItems.push(item);
-        }
-      }
-    } catch (error) {
-      item.retryCount++;
-      item.lastError = error instanceof Error ? error.message : 'Unknown error';
-      if (item.retryCount < 3) {
-        failedItems.push(item);
-      }
-    }
-  }
-
-  syncQueue = failedItems;
-  syncState.pendingItems = syncQueue.length;
-  syncState.failedItems = failedItems.filter(i => i.retryCount >= 3).length;
-  syncState.lastSyncTimestamp = Date.now();
-  syncState.isSyncing = false;
-
-  // Update localStorage
-  if (browser) {
-    localStorage.setItem('solid_sync_queue', JSON.stringify(syncQueue));
-  }
-
-  return syncState;
-}
-
-/**
- * Get current sync state
- */
-export function getSyncState(): SyncState {
-  return { ...syncState };
-}
-
-/**
- * Load sync queue from localStorage
- */
-export function loadSyncQueue(): void {
-  if (!browser) return;
-
-  try {
-    const stored = localStorage.getItem('solid_sync_queue');
-    if (stored) {
-      syncQueue = JSON.parse(stored);
-      syncState.pendingItems = syncQueue.length;
-    }
-  } catch {
-    syncQueue = [];
-  }
-}
-
-/**
- * Clear sync queue
- */
-export function clearSyncQueue(): void {
-  syncQueue = [];
-  syncState.pendingItems = 0;
-  syncState.failedItems = 0;
-
-  if (browser) {
-    localStorage.removeItem('solid_sync_queue');
-  }
-}
-
-export default {
-  getPodStorageRoot,
-  getStoragePaths,
-  initializeNostrContainers,
-  nostrEventToRDF,
-  rdfToNostrEvent,
-  storeNostrEvent,
-  retrieveNostrEvent,
-  deleteNostrEvent,
-  listNostrEvents,
-  storeData,
-  retrieveData,
-  processSyncQueue,
-  getSyncState,
-  loadSyncQueue,
-  clearSyncQueue,
-  StorageOperationError,
-};

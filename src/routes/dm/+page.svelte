@@ -5,6 +5,9 @@
   import { authStore } from '$lib/stores/auth';
   import { dmStore, sortedConversations } from '$lib/stores/dm';
   import { hexToBytes } from '@noble/hashes/utils.js';
+  import { getAppConfig } from '$lib/config/loader';
+
+  const appConfig = getAppConfig();
 
   $: conversations = $sortedConversations;
   $: loading = $dmStore.isLoading;
@@ -71,7 +74,7 @@
 </script>
 
 <svelte:head>
-  <title>Direct Messages - Fairfield</title>
+  <title>Direct Messages - {appConfig.name}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-2xl">

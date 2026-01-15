@@ -1,3 +1,11 @@
+---
+title: Channel Statistics Dashboard - Usage Guide
+description: User guide for viewing and interpreting channel analytics and platform-wide metrics
+last_updated: 2025-12-23
+category: howto
+tags: [features, channels, ui]
+---
+
 # Channel Statistics Dashboard - Usage Guide
 
 ## Overview
@@ -84,7 +92,7 @@ Platform-wide analytics dashboard (admin only):
 2. **Activity Graph**
    - Last 7/30 days activity
    - Hover for exact counts
-   - Responsive SVG visualization
+   - Responsive SVG visualisation
 
 3. **Top Contributors**
    - Top 5 posters
@@ -354,7 +362,7 @@ async function exportToCSV() {
 }
 ```
 
-## Customization
+## Customisation
 
 ### Custom Styling
 
@@ -449,3 +457,25 @@ Potential improvements:
 - Advanced filtering
 - Scheduled reports
 - Notification thresholds
+
+---
+
+## Related Documentation
+
+### Feature Guides
+- [PWA Quick Start](pwa-quick-start.md) - Progressive Web App installation
+- [Search Implementation](search-implementation.md) - Semantic search features
+- [Threading Implementation](threading-implementation.md) - Conversation threading
+- [DM Implementation](dm-implementation.md) - Direct messaging system
+
+### Architecture
+- [System Architecture](../architecture/02-architecture.md) - Overall system design
+- [NIP Protocol Reference](../reference/nip-protocol-reference.md) - Nostr protocol specs
+
+### User Guides
+- [Getting Started](../INDEX.md#getting-started) - Quick start guides for new users
+- [Features Overview](../INDEX.md#features) - Complete feature documentation
+
+---
+
+[← Back to Features Documentation](../INDEX.md#features) | [← Back to Documentation Hub](../INDEX.md)

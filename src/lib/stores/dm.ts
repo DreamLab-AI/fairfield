@@ -95,11 +95,13 @@ function createDMStore() {
         const filter = createDMFilter(userPubkey);
 
         // Fetch DM events from relay using NDK
-        const { getNDK } = await import('$lib/nostr/ndk');
-        const ndk = getNDK();
-        await ndk.connect();
+        const { ndk } = await import('$lib/nostr/relay');
+        const ndkInstance = ndk();
+        if (!ndkInstance) {
+          throw new Error('NDK not initialized');
+        }
 
-        const dmEvents = await ndk.fetchEvents(filter);
+        const dmEvents = await ndkInstance.fetchEvents(filter);
         const events: Event[] = Array.from(dmEvents).map(ndkEvent => ({
           id: ndkEvent.id,
           kind: ndkEvent.kind!,
@@ -229,14 +231,16 @@ function createDMStore() {
         const userPubkey = getPublicKey(userPrivkey);
 
         // Send the gift-wrapped DM using NDK-compatible relay
-        const { getNDK } = await import('$lib/nostr/ndk');
-        const ndk = getNDK();
-        await ndk.connect();
+        const { ndk } = await import('$lib/nostr/relay');
+        const ndkInstance = ndk();
+        if (!ndkInstance) {
+          throw new Error('NDK not initialized');
+        }
 
         const ndkRelay = {
           publish: async (event: Event) => {
             const NDKEvent = (await import('@nostr-dev-kit/ndk')).NDKEvent;
-            const ndkEvent = new NDKEvent(ndk, event);
+            const ndkEvent = new NDKEvent(ndkInstance, event);
             await ndkEvent.publish();
           }
         };
@@ -345,11 +349,13 @@ function createDMStore() {
       const userPubkey = getPublicKey(userPrivkey);
       const filter = createDMFilter(userPubkey);
 
-      const { getNDK } = await import('$lib/nostr/ndk');
-      const ndk = getNDK();
-      await ndk.connect();
+      const { ndk } = await import('$lib/nostr/relay');
+      const ndkInstance = ndk();
+      if (!ndkInstance) {
+        throw new Error('NDK not initialized');
+      }
 
-      const subscription = ndk.subscribe(filter, { closeOnEose: false });
+      const subscription = ndkInstance.subscribe(filter, { closeOnEose: false });
 
       subscription.on('event', (ndkEvent: import('@nostr-dev-kit/ndk').NDKEvent) => {
         const event: Event = {

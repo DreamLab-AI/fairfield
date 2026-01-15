@@ -1,339 +1,277 @@
 /**
- * Solid Pods TypeScript Type Definitions
- *
- * Type definitions for Solid pod integration with Fairfield Nostr application.
- * Covers session management, WebID profiles, storage operations, and access control.
+ * Solid Pod Integration Types
+ * TypeScript definitions for Solid pod operations with NIP-98 auth
  */
 
 /**
- * Solid Session state
+ * Configuration for the Solid client
  */
-export interface SolidSession {
-  isLoggedIn: boolean;
-  webId: string | null;
-  fetch: typeof fetch | null;
-  expirationDate: Date | null;
+export interface SolidClientConfig {
+  /** Base URL of the Solid server */
+  serverUrl: string;
+  /** Request timeout in milliseconds */
+  timeout?: number;
+  /** Number of retry attempts for failed requests */
+  maxRetries?: number;
+  /** Base delay between retries in milliseconds */
+  retryDelay?: number;
 }
 
 /**
- * Solid login options
+ * User identity for Solid operations
  */
-export interface SolidLoginOptions {
-  oidcIssuer: string;
-  redirectUrl: string;
-  clientName?: string;
-  clientId?: string;
-  tokenType?: 'Bearer' | 'DPoP';
-}
-
-/**
- * Solid logout options
- */
-export interface SolidLogoutOptions {
-  logoutType?: 'app' | 'idp';
-}
-
-/**
- * WebID profile data structure
- */
-export interface WebIDProfile {
-  webId: string;
-  name?: string;
-  nickname?: string;
-  email?: string;
-  image?: string;
-  homepage?: string;
-  storage?: string[];
-  oidcIssuer?: string[];
-  linkedNostrDID?: string;
-  linkedNostrPubkey?: string;
-  preferences?: WebIDPreferences;
-}
-
-/**
- * WebID preferences
- */
-export interface WebIDPreferences {
-  dateCreated?: string;
-  dateModified?: string;
-  privateTypeIndex?: string;
-  publicTypeIndex?: string;
-  inbox?: string;
-  preferencesFile?: string;
-}
-
-/**
- * Nostr identity link in WebID profile
- */
-export interface NostrIdentityLink {
-  did: string;
+export interface SolidIdentity {
+  /** Hex-encoded public key */
   pubkey: string;
+  /** Hex-encoded private key for signing */
+  privateKey: string;
+  /** Bech32-encoded public key (npub) */
   npub: string;
-  verificationMethod?: string;
-  linkedAt: string;
-  relays?: string[];
-  verified?: boolean;
 }
 
 /**
- * Solid storage container
+ * Pod information
  */
-export interface SolidContainer {
-  url: string;
+export interface PodInfo {
+  /** Pod name/identifier */
   name: string;
-  type: 'container' | 'resource';
-  modified?: Date;
-  size?: number;
-  containedResources?: SolidResource[];
+  /** Full WebID URL */
+  webId: string;
+  /** Pod root URL */
+  podUrl: string;
+  /** Whether the pod exists */
+  exists: boolean;
+  /** Storage quota in bytes (if available) */
+  quota?: number;
+  /** Used storage in bytes (if available) */
+  used?: number;
+  /** Creation timestamp */
+  createdAt?: number;
 }
 
 /**
- * Solid resource
+ * Pod provisioning result
  */
-export interface SolidResource {
-  url: string;
-  name: string;
-  type: string;
-  modified?: Date;
-  size?: number;
-  contentType?: string;
+export interface PodProvisionResult {
+  success: boolean;
+  podInfo?: PodInfo;
+  error?: string;
+  /** Whether the pod already existed */
+  alreadyExists?: boolean;
 }
 
 /**
- * Nostr event stored as RDF
+ * NIP-98 HTTP Auth event structure
  */
-export interface NostrEventRDF {
+export interface Nip98AuthEvent {
   id: string;
-  kind: number;
   pubkey: string;
   created_at: number;
+  kind: 27235;
+  tags: string[][];
   content: string;
   sig: string;
-  tags: string[][];
-  rdfSubject?: string;
-  encrypted?: boolean;
-  encryptionMethod?: 'nip44' | 'nip04';
 }
 
 /**
- * Storage operation result
+ * NIP-98 auth options
  */
-export interface StorageResult<T = unknown> {
+export interface Nip98AuthOptions {
+  /** Target URL for the request */
+  url: string;
+  /** HTTP method */
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  /** Request body hash (SHA-256, for POST/PUT/PATCH) */
+  payload?: string;
+}
+
+/**
+ * File metadata for uploads
+ */
+export interface FileMetadata {
+  /** File name */
+  name: string;
+  /** MIME type */
+  contentType: string;
+  /** File size in bytes */
+  size: number;
+  /** Last modified timestamp */
+  lastModified?: number;
+  /** Custom metadata */
+  custom?: Record<string, string>;
+}
+
+/**
+ * File upload options
+ */
+export interface FileUploadOptions {
+  /** Target path within the pod (e.g., '/files/image.png') */
+  path: string;
+  /** Content type override */
+  contentType?: string;
+  /** Custom metadata */
+  metadata?: Record<string, string>;
+  /** Whether to overwrite existing file */
+  overwrite?: boolean;
+}
+
+/**
+ * File upload result
+ */
+export interface FileUploadResult {
   success: boolean;
-  data?: T;
+  /** URL of the uploaded file */
   url?: string;
-  error?: StorageError;
+  /** ETag for the file */
+  etag?: string;
+  /** File metadata */
+  metadata?: FileMetadata;
+  error?: string;
 }
 
 /**
- * Storage error
+ * File download result
  */
-export interface StorageError {
-  code: StorageErrorCode;
-  message: string;
-  statusCode?: number;
-  details?: unknown;
+export interface FileDownloadResult {
+  success: boolean;
+  /** File data as Blob */
+  data?: Blob;
+  /** File metadata */
+  metadata?: FileMetadata;
+  /** ETag */
+  etag?: string;
+  error?: string;
 }
 
 /**
- * Storage error codes
+ * Resource (file/container) info
  */
-export type StorageErrorCode =
-  | 'NOT_FOUND'
-  | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
-  | 'CONFLICT'
-  | 'INVALID_DATA'
-  | 'NETWORK_ERROR'
-  | 'PARSE_ERROR'
-  | 'UNKNOWN';
-
-/**
- * Pod storage paths configuration
- */
-export interface PodStoragePaths {
-  root: string;
-  nostrEvents: string;
-  encryptedEvents: string;
-  profiles: string;
-  messages: string;
-  preferences: string;
-  publicData: string;
-  privateData: string;
+export interface ResourceInfo {
+  /** Resource URL */
+  url: string;
+  /** Resource name */
+  name: string;
+  /** Whether it's a container */
+  isContainer: boolean;
+  /** Content type */
+  contentType?: string;
+  /** Size in bytes */
+  size?: number;
+  /** Last modified timestamp */
+  modified?: number;
+  /** ETag */
+  etag?: string;
 }
 
 /**
- * Web Access Control (WAC) mode
+ * Container listing result
  */
-export type ACLMode = 'Read' | 'Write' | 'Append' | 'Control';
+export interface ContainerListResult {
+  success: boolean;
+  /** Container URL */
+  containerUrl?: string;
+  /** Resources in container */
+  resources?: ResourceInfo[];
+  error?: string;
+}
 
 /**
- * Access control entry
+ * JSON-LD resource for RDF operations
  */
-export interface ACLEntry {
-  subject: ACLSubject;
-  modes: ACLMode[];
-  resourceUrl: string;
+export interface JsonLdResource {
+  '@context'?: string | Record<string, unknown> | (string | Record<string, unknown>)[];
+  '@id'?: string;
+  '@type'?: string | string[];
+  [key: string]: unknown;
+}
+
+/**
+ * JSON-LD operation result
+ */
+export interface JsonLdResult {
+  success: boolean;
+  data?: JsonLdResource;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * ACL permission types
+ */
+export type AclMode = 'Read' | 'Write' | 'Append' | 'Control';
+
+/**
+ * ACL entry
+ */
+export interface AclEntry {
+  /** Agent (WebID or agentClass) */
+  agent: string;
+  /** Granted modes */
+  modes: AclMode[];
+  /** Whether this is for the default ACL */
   isDefault?: boolean;
 }
 
 /**
- * ACL subject (who gets access)
+ * ACL update options
  */
-export interface ACLSubject {
-  type: 'agent' | 'group' | 'public' | 'authenticated';
-  webId?: string;
-  groupUrl?: string;
-}
-
-/**
- * Cohort to ACL mapping
- */
-export interface CohortACLMapping {
-  cohortName: string;
-  modes: ACLMode[];
-  groupUrl?: string;
-  agentWebIds?: string[];
-}
-
-/**
- * Permission sync request
- */
-export interface PermissionSyncRequest {
+export interface AclUpdateOptions {
+  /** Resource URL */
   resourceUrl: string;
-  nostrPubkeys: string[];
-  cohorts: string[];
-  modes: ACLMode[];
+  /** ACL entries */
+  entries: AclEntry[];
+  /** Whether to make resource public (adds public agent) */
+  public?: boolean;
 }
 
 /**
- * Permission sync result
+ * Request options with auth
  */
-export interface PermissionSyncResult {
-  success: boolean;
-  resourceUrl: string;
-  appliedEntries: ACLEntry[];
-  errors?: ACLSyncError[];
+export interface AuthenticatedRequestOptions {
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  headers?: Record<string, string>;
+  body?: BodyInit;
+  identity: SolidIdentity;
 }
 
 /**
- * ACL sync error
+ * HTTP response wrapper
  */
-export interface ACLSyncError {
-  pubkey: string;
-  webId?: string;
-  error: string;
+export interface SolidResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Headers;
+  body?: unknown;
 }
 
 /**
- * DID to WebID mapping
+ * Error types for Solid operations
  */
-export interface DIDWebIDMapping {
-  did: string;
-  webId: string;
-  pubkey: string;
-  linkedAt: string;
-  verified: boolean;
-  verificationProof?: string;
+export enum SolidErrorType {
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  AUTH_ERROR = 'AUTH_ERROR',
+  NOT_FOUND = 'NOT_FOUND',
+  FORBIDDEN = 'FORBIDDEN',
+  CONFLICT = 'CONFLICT',
+  SERVER_ERROR = 'SERVER_ERROR',
+  INVALID_REQUEST = 'INVALID_REQUEST',
+  TIMEOUT = 'TIMEOUT',
+  UNKNOWN = 'UNKNOWN',
 }
 
 /**
- * Offline sync queue item
+ * Custom error for Solid operations
  */
-export interface SyncQueueItem {
-  id: string;
-  operation: 'create' | 'update' | 'delete';
-  resourceUrl: string;
-  data?: unknown;
-  timestamp: number;
-  retryCount: number;
-  lastError?: string;
+export class SolidError extends Error {
+  constructor(
+    message: string,
+    public type: SolidErrorType,
+    public status?: number,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = 'SolidError';
+  }
 }
-
-/**
- * Sync state
- */
-export interface SyncState {
-  isOnline: boolean;
-  lastSyncTimestamp: number | null;
-  pendingItems: number;
-  failedItems: number;
-  isSyncing: boolean;
-}
-
-/**
- * RDF namespaces used in Solid
- */
-export const RDF_NAMESPACES = {
-  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-  rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
-  xsd: 'http://www.w3.org/2001/XMLSchema#',
-  foaf: 'http://xmlns.com/foaf/0.1/',
-  vcard: 'http://www.w3.org/2006/vcard/ns#',
-  solid: 'http://www.w3.org/ns/solid/terms#',
-  pim: 'http://www.w3.org/ns/pim/space#',
-  ldp: 'http://www.w3.org/ns/ldp#',
-  acl: 'http://www.w3.org/ns/auth/acl#',
-  dc: 'http://purl.org/dc/terms/',
-  schema: 'http://schema.org/',
-  nostr: 'https://nostr.com/ns#',
-  did: 'https://www.w3.org/ns/did#',
-} as const;
-
-/**
- * Nostr RDF vocabulary
- */
-export const NOSTR_RDF_VOCAB = {
-  Event: `${RDF_NAMESPACES.nostr}Event`,
-  kind: `${RDF_NAMESPACES.nostr}kind`,
-  pubkey: `${RDF_NAMESPACES.nostr}pubkey`,
-  createdAt: `${RDF_NAMESPACES.nostr}createdAt`,
-  content: `${RDF_NAMESPACES.nostr}content`,
-  signature: `${RDF_NAMESPACES.nostr}signature`,
-  tag: `${RDF_NAMESPACES.nostr}tag`,
-  encrypted: `${RDF_NAMESPACES.nostr}encrypted`,
-  encryptionMethod: `${RDF_NAMESPACES.nostr}encryptionMethod`,
-  DID: `${RDF_NAMESPACES.nostr}DID`,
-  relayEndpoint: `${RDF_NAMESPACES.nostr}relayEndpoint`,
-} as const;
-
-/**
- * Default pod container names
- */
-export const POD_CONTAINERS = {
-  NOSTR: 'nostr/',
-  EVENTS: 'nostr/events/',
-  ENCRYPTED: 'nostr/encrypted/',
-  PROFILES: 'nostr/profiles/',
-  MESSAGES: 'nostr/messages/',
-  PREFERENCES: 'nostr/preferences/',
-  PUBLIC: 'public/',
-  PRIVATE: 'private/',
-} as const;
-
-/**
- * Configuration for Solid integration
- */
-export interface SolidIntegrationConfig {
-  defaultOidcIssuer: string;
-  clientName: string;
-  clientId?: string;
-  redirectUrl: string;
-  podStoragePaths: Partial<PodStoragePaths>;
-  syncInterval: number;
-  maxRetries: number;
-  enableOfflineSync: boolean;
-}
-
-/**
- * Default configuration values
- */
-export const DEFAULT_SOLID_CONFIG: SolidIntegrationConfig = {
-  defaultOidcIssuer: 'https://solidcommunity.net',
-  clientName: 'Fairfield Nostr',
-  redirectUrl: typeof window !== 'undefined' ? window.location.origin : '',
-  podStoragePaths: {},
-  syncInterval: 30000,
-  maxRetries: 3,
-  enableOfflineSync: true,
-};

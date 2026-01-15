@@ -13,9 +13,11 @@
     getSectionCalendarAccess,
     type SectionEvent,
   } from '$lib/nostr/section-events';
+  import { fetchTribeBirthdayEvents } from '$lib/nostr/birthdays';
   import type { CalendarEvent } from '$lib/nostr/calendar';
   import type { ChannelSection } from '$lib/types/channel';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
+  import EventCard from '$lib/components/events/EventCard.svelte';
 
   let events: (SectionEvent | CalendarEvent)[] = [];
   let loading = true;
@@ -61,8 +63,14 @@
       // Fetch section events
       const sectionEvents = await fetchSectionEvents(sectionId);
 
+      // Also fetch tribe birthdays if this is the moomaa-tribe section
+      let birthdayEvents: CalendarEvent[] = [];
+      if (sectionId === 'community-rooms' && $authStore.publicKey) {
+        birthdayEvents = await fetchTribeBirthdayEvents($authStore.publicKey);
+      }
+
       // Combine and sort events
-      events = [...sectionEvents].sort((a, b) => a.start - b.start);
+      events = [...sectionEvents, ...birthdayEvents].sort((a, b) => a.start - b.start);
     } catch (e) {
       console.error('Failed to load section events:', e);
       error = e instanceof Error ? e.message : 'Failed to load events';
@@ -105,7 +113,7 @@
 </script>
 
 <svelte:head>
-  <title>{section?.name || 'Section'} Calendar - Fairfield</title>
+  <title>{section?.name || 'Section'} Calendar - Nostr BBS</title>
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-6xl">
@@ -138,7 +146,6 @@
             class="btn btn-sm"
             class:btn-active={viewMode === 'calendar'}
             on:click={() => (viewMode = 'calendar')}
-            aria-label="Calendar view"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -159,7 +166,6 @@
             class="btn btn-sm"
             class:btn-active={viewMode === 'list'}
             on:click={() => (viewMode = 'list')}
-            aria-label="List view"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -235,7 +241,7 @@
               <div class="badge badge-error">No Access</div>
             {/if}
           </div>
-          {#if section?.features.calendar.canCreate && accessLevel === 'full'}
+          {#if section?.calendar?.canCreate && accessLevel === 'full'}
             <p class="text-xs text-base-content/60 mt-2">
               You can create events in this section
             </p>
@@ -271,10 +277,12 @@
             </div>
           {:else}
             {#each displayEvents as event (event.id)}
-              <button
-                class="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors w-full text-left"
+              <div
+                class="card bg-base-200 hover:bg-base-300 cursor-pointer transition-colors"
                 on:click={() => handleEventClick(new CustomEvent('click', { detail: event }))}
                 on:keydown={(e) => e.key === 'Enter' && handleEventClick(new CustomEvent('click', { detail: event }))}
+                role="button"
+                tabindex="0"
               >
                 <div class="card-body p-4">
                   <div class="flex items-start justify-between">
@@ -324,7 +332,7 @@
                     </div>
                   {/if}
                 </div>
-              </button>
+              </div>
             {/each}
           {/if}
         </div>
