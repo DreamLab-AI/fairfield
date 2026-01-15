@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import { authStore, isAuthenticated } from '$lib/stores/auth';
 	import { sessionStore } from '$lib/stores/session';
@@ -60,6 +61,15 @@
 		mounted = true;
 
 		if (browser) {
+			// Handle SPA redirect from GitHub Pages 404.html
+			const spaRedirect = sessionStorage.getItem('spa-redirect');
+			if (spaRedirect) {
+				sessionStorage.removeItem('spa-redirect');
+				// Navigate to the stored path
+				const targetPath = spaRedirect.startsWith('/') ? `${base}${spaRedirect}` : `${base}/${spaRedirect}`;
+				goto(targetPath, { replaceState: true });
+			}
+
 			const savedTheme = localStorage.getItem('theme') || 'dark';
 			themePreference = savedTheme;
 			document.documentElement.setAttribute('data-theme', savedTheme);
