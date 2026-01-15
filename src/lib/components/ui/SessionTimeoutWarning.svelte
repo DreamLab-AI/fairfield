@@ -20,25 +20,31 @@
 </script>
 
 {#if showWarning}
-  <div class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <div
+    class="modal modal-open"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="session-timeout-title"
+    aria-describedby="session-timeout-desc"
+  >
+    <div class="modal-box" role="document">
+      <h3 id="session-timeout-title" class="font-bold text-lg flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         Session Expiring Soon
       </h3>
 
-      <div class="py-4">
+      <div id="session-timeout-desc" class="py-4">
         <p class="text-base-content/80 mb-4">
           Your session will expire due to inactivity.
         </p>
 
-        <div class="alert alert-warning mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+        <div class="alert alert-warning mb-4" role="alert" aria-live="assertive" aria-atomic="true">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <span class="font-mono text-lg">{remainingTime}</span>
+          <span class="font-mono text-lg" aria-label="Time remaining: {remainingTime}">{remainingTime}</span>
         </div>
 
         <p class="text-sm text-base-content/60">
@@ -47,14 +53,14 @@
       </div>
 
       <div class="modal-action">
-        <button class="btn btn-ghost" on:click={handleLogout}>
+        <button class="btn btn-ghost" on:click={handleLogout} aria-label="Log out immediately">
           Logout Now
         </button>
-        <button class="btn btn-primary" on:click={handleExtend}>
+        <button class="btn btn-primary" on:click={handleExtend} aria-label="Extend session and stay logged in" autofocus>
           Stay Logged In
         </button>
       </div>
     </div>
-    <div class="modal-backdrop bg-black/50"></div>
+    <div class="modal-backdrop bg-black/50" aria-hidden="true"></div>
   </div>
 {/if}

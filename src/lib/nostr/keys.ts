@@ -62,20 +62,25 @@ export function restoreFromNsecOrHex(input: string): KeyPair {
 }
 
 /**
- * Save keys to localStorage
+ * @deprecated SECURITY RISK - Stores keys in PLAINTEXT
+ * This function is deprecated and will be removed in v2.0
+ * Use authStore.setKeys() which encrypts keys with AES-256-GCM
+ *
+ * DO NOT USE - Kept only for migration purposes
  */
-export function saveKeysToStorage(publicKey: string, privateKey: string): void {
-  if (typeof localStorage === 'undefined') return;
-
-  localStorage.setItem('nostr_bbs_keys', JSON.stringify({
-    publicKey,
-    privateKey,
-    timestamp: Date.now()
-  }));
+export function saveKeysToStorage(_publicKey: string, _privateKey: string): void {
+  console.error(
+    '[SECURITY] saveKeysToStorage is DEPRECATED and disabled. ' +
+    'Use authStore.setKeys() for secure encrypted storage.'
+  );
+  // Intentionally disabled - do not store plaintext keys
+  return;
 }
 
 /**
- * Load keys from localStorage
+ * @deprecated SECURITY RISK - May return plaintext keys from legacy storage
+ * Use authStore for secure key access
+ * This function only exists to support migration from legacy plaintext storage
  */
 export function loadKeysFromStorage(): KeyPair | null {
   if (typeof localStorage === 'undefined') return null;
@@ -84,8 +89,17 @@ export function loadKeysFromStorage(): KeyPair | null {
   if (!stored) return null;
 
   try {
-    const { publicKey, privateKey } = JSON.parse(stored);
-    return { publicKey, privateKey };
+    const parsed = JSON.parse(stored);
+    // If this is legacy plaintext storage, warn and return for migration
+    if (parsed.privateKey && !parsed.encryptedPrivateKey) {
+      console.warn(
+        '[SECURITY] Legacy plaintext keys detected. ' +
+        'Please re-authenticate to migrate to encrypted storage.'
+      );
+      return { publicKey: parsed.publicKey, privateKey: parsed.privateKey };
+    }
+    // For encrypted storage, return null - use authStore instead
+    return null;
   } catch {
     return null;
   }

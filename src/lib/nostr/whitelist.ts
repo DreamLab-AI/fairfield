@@ -64,9 +64,15 @@ export async function verifyWhitelistStatus(pubkey: string): Promise<WhitelistSt
   }
 
   try {
-    // Call relay API endpoint directly
+    // Validate pubkey format before API call (must be 64 lowercase hex chars)
+    if (!/^[0-9a-f]{64}$/i.test(pubkey)) {
+      console.warn('[Whitelist] Invalid pubkey format, using fallback');
+      return createFallbackStatus(pubkey);
+    }
+
+    // Call relay API endpoint directly with URL-encoded pubkey
     const httpUrl = getRelayHttpUrl();
-    const response = await fetch(`${httpUrl}/api/check-whitelist?pubkey=${pubkey}`, {
+    const response = await fetch(`${httpUrl}/api/check-whitelist?pubkey=${encodeURIComponent(pubkey)}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json'

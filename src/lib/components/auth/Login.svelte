@@ -2,16 +2,19 @@
   import { createEventDispatcher } from 'svelte';
   import { restoreFromNsecOrHex } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
+  import { checkWhitelistStatus } from '$lib/nostr/whitelist';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
 
   const dispatch = createEventDispatcher<{
     success: { publicKey: string; privateKey: string };
+    pending: { publicKey: string; privateKey: string };
     signup: void;
   }>();
 
   let privateKeyInput = '';
   let isRestoring = false;
   let validationError = '';
+  let isCheckingWhitelist = false;
 
   async function handleRestore() {
     isRestoring = true;
@@ -27,12 +30,25 @@
       }
 
       const { publicKey, privateKey } = restoreFromNsecOrHex(privateKeyInput);
-      dispatch('success', { publicKey, privateKey });
+
+      // Check whitelist status before allowing login
+      isCheckingWhitelist = true;
+      const whitelistStatus = await checkWhitelistStatus(publicKey);
+      isCheckingWhitelist = false;
+
+      if (whitelistStatus.isApproved || whitelistStatus.isAdmin) {
+        // User is approved - proceed with login
+        dispatch('success', { publicKey, privateKey });
+      } else {
+        // User is NOT approved - dispatch pending event
+        dispatch('pending', { publicKey, privateKey });
+      }
     } catch (error) {
       validationError = error instanceof Error ? error.message : 'Invalid private key';
       authStore.setError(validationError);
     } finally {
       isRestoring = false;
+      isCheckingWhitelist = false;
     }
   }
 </script>
@@ -97,11 +113,15 @@
         <button
           class="btn btn-primary btn-lg w-full"
           on:click={handleRestore}
-          disabled={isRestoring}
+          disabled={isRestoring || isCheckingWhitelist}
+          aria-busy={isRestoring || isCheckingWhitelist}
         >
-          {#if isRestoring}
-            <span class="loading loading-spinner"></span>
-            Logging in...
+          {#if isRestoring && !isCheckingWhitelist}
+            <span class="loading loading-spinner" aria-hidden="true"></span>
+            <span>Validating key...</span>
+          {:else if isCheckingWhitelist}
+            <span class="loading loading-spinner" aria-hidden="true"></span>
+            <span>Checking approval status...</span>
           {:else}
             Log In
           {/if}

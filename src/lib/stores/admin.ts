@@ -1,7 +1,20 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { NDKRelay } from '@nostr-dev-kit/ndk';
 import type { ChannelSection, ChannelAccessType } from '$lib/types/channel';
+import {
+  verifyPinListSignature,
+  parsePinList,
+  checkRateLimit,
+  recordRateLimitAttempt,
+  validateCohortAssignment,
+  createSignedAdminRequest,
+  verifyRelayResponse,
+  type SignedRequest,
+  type SuspiciousActivity,
+} from '$lib/nostr/admin-security';
+import { verifyWhitelistStatus, type CohortName } from '$lib/nostr/whitelist';
+import { verifyEventSignature } from '$lib/nostr/events';
 
 export interface PendingRequest {
   id: string;
@@ -10,6 +23,7 @@ export interface PendingRequest {
   channelName: string;
   timestamp: number;
   event: NostrEvent;
+  verified?: boolean; // Whether signature was verified
 }
 
 export interface User {
@@ -20,6 +34,7 @@ export interface User {
   joinedAt: number;
   lastSeen?: number;
   isBanned?: boolean;
+  cohortChangeAttempts?: number; // Track suspicious cohort changes
 }
 
 export interface Channel {
@@ -369,3 +384,227 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
     adminStore.setLoading('channels', false);
   }
 }
+
+// ============================================================================
+// Security-Enhanced Admin Operations
+// ============================================================================
+
+/**
+ * Verify a NIP-51 pin list before processing
+ *
+ * @param event - Pin list event (kind 30001)
+ * @param expectedAuthor - Expected author's pubkey
+ * @returns Verification result with parsed pins
+ */
+export async function verifyAndProcessPinList(
+  event: NostrEvent,
+  expectedAuthor: string
+): Promise<{ success: boolean; pins?: string[]; error?: string }> {
+  // First verify signature and author
+  const verification = verifyPinListSignature(event, expectedAuthor);
+  if (!verification.valid) {
+    console.error('[Admin] Pin list verification failed:', verification.error);
+    return { success: false, error: verification.error };
+  }
+
+  // Parse the pin list
+  const { pins, error } = parsePinList(event);
+  if (error) {
+    return { success: false, error };
+  }
+
+  return { success: true, pins };
+}
+
+/**
+ * Rate-limited section access request
+ *
+ * @param pubkey - User's pubkey
+ * @param section - Section being requested
+ * @returns Whether request is allowed
+ */
+export function checkSectionAccessRateLimit(
+  pubkey: string,
+  section: ChannelSection
+): { allowed: boolean; waitMs?: number; reason?: string } {
+  const actionKey = `section_access:${pubkey}:${section}`;
+  return checkRateLimit(actionKey, 'sectionAccessRequest');
+}
+
+/**
+ * Record section access attempt
+ *
+ * @param pubkey - User's pubkey
+ * @param section - Section requested
+ * @param success - Whether request was successful
+ */
+export function recordSectionAccessAttempt(
+  pubkey: string,
+  section: ChannelSection,
+  success: boolean
+): void {
+  const actionKey = `section_access:${pubkey}:${section}`;
+  recordRateLimitAttempt(actionKey, 'sectionAccessRequest', success);
+}
+
+/**
+ * Validate and process cohort assignment change
+ *
+ * @param adminPubkey - Admin making the change
+ * @param targetPubkey - User being modified
+ * @param newCohorts - New cohorts to assign
+ * @returns Validation result
+ */
+export async function validateAndAssignCohorts(
+  adminPubkey: string,
+  targetPubkey: string,
+  newCohorts: CohortName[]
+): Promise<{ success: boolean; error?: string }> {
+  // Check rate limit for cohort changes
+  const rateLimitKey = `cohort_change:${adminPubkey}`;
+  const rateCheck = checkRateLimit(rateLimitKey, 'cohortChange');
+
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: rateCheck.reason || 'Rate limited for cohort changes',
+    };
+  }
+
+  // Validate the cohort assignment
+  const validation = await validateCohortAssignment(
+    adminPubkey,
+    targetPubkey,
+    newCohorts
+  );
+
+  // Record the attempt
+  recordRateLimitAttempt(rateLimitKey, 'cohortChange', validation.valid);
+
+  if (!validation.valid) {
+    // Update user's suspicious activity counter
+    adminStore.updateUser(targetPubkey, {
+      cohortChangeAttempts: (adminStore as any)._getUser?.(targetPubkey)?.cohortChangeAttempts || 0 + 1,
+    });
+    return { success: false, error: validation.error };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Create a signed admin action request
+ * Used for sensitive operations that require verification
+ *
+ * @param action - Action name
+ * @param payload - Action payload
+ * @param adminPubkey - Admin's pubkey
+ * @param signFn - Signing function from NDK signer
+ * @returns Signed request
+ */
+export async function createSecureAdminRequest(
+  action: string,
+  payload: unknown,
+  adminPubkey: string,
+  signFn: (message: string) => Promise<string>
+): Promise<SignedRequest> {
+  // Check rate limit for admin actions
+  const rateLimitKey = `admin_action:${adminPubkey}`;
+  const rateCheck = checkRateLimit(rateLimitKey, 'adminAction');
+
+  if (!rateCheck.allowed) {
+    throw new Error(rateCheck.reason || 'Rate limited for admin actions');
+  }
+
+  return createSignedAdminRequest(action, payload, adminPubkey, signFn);
+}
+
+/**
+ * Verify pending request event signatures
+ *
+ * @param requests - Array of pending requests
+ * @returns Requests with verification status
+ */
+export function verifyRequestSignatures(
+  requests: PendingRequest[]
+): PendingRequest[] {
+  return requests.map(request => {
+    const verified = verifyEventSignature(request.event as any);
+    return {
+      ...request,
+      verified,
+    };
+  });
+}
+
+/**
+ * Fetch pending requests with signature verification
+ */
+export async function fetchVerifiedPendingRequests(relay: NDKRelay): Promise<void> {
+  adminStore.setLoading('requests', true);
+  adminStore.setError(null);
+
+  try {
+    const events = await relay.querySync([{
+      kinds: [9021],
+      limit: 100,
+    }]);
+
+    const requests: PendingRequest[] = events.map(event => {
+      const channelIdTag = event.tags.find(t => t[0] === 'e');
+      const channelNameTag = event.tags.find(t => t[0] === 'name');
+
+      // Verify signature
+      const verified = verifyEventSignature(event as any);
+
+      return {
+        id: event.id,
+        pubkey: event.pubkey,
+        channelId: channelIdTag?.[1] || '',
+        channelName: channelNameTag?.[1] || 'Unknown Channel',
+        timestamp: event.created_at,
+        event,
+        verified,
+      };
+    });
+
+    // Filter out unverified requests and log them
+    const verifiedRequests = requests.filter(r => {
+      if (!r.verified) {
+        console.warn('[Admin] Rejecting unverified request:', r.id?.slice(0, 8));
+        return false;
+      }
+      return true;
+    });
+
+    verifiedRequests.sort((a, b) => b.timestamp - a.timestamp);
+    adminStore.setPendingRequests(verifiedRequests);
+
+  } catch (error) {
+    console.error('Failed to fetch pending requests:', error);
+    adminStore.setError('Failed to load pending requests');
+    adminStore.setLoading('requests', false);
+  }
+}
+
+/**
+ * Process relay response with verification
+ *
+ * @param response - Relay response object
+ * @returns Processed response with verification status
+ */
+export function processRelayResponse<T>(
+  response: { signature?: string; timestamp?: number; data: T }
+): { data: T; verified: boolean; warning?: string } {
+  const verification = verifyRelayResponse(response);
+  return {
+    data: response.data,
+    verified: verification.valid,
+    warning: verification.warning,
+  };
+}
+
+/**
+ * Security audit log - get suspicious activities from session
+ */
+export { getSuspiciousActivities, clearSuspiciousActivities } from '$lib/nostr/admin-security';

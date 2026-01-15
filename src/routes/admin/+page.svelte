@@ -11,11 +11,16 @@
   import { SECTION_CONFIG, type ChannelSection, type SectionAccessRequest, type ChannelAccessType } from '$lib/types/channel';
   import { sectionStore, pendingRequestCount } from '$lib/stores/sections';
   import { subscribeAccessRequests, approveSectionAccess } from '$lib/nostr/sections';
+  import {
+    getSuspiciousActivities,
+    clearSuspiciousActivities,
+    type SuspiciousActivity
+  } from '$lib/nostr/admin-security';
   import type { NDKSubscription } from '@nostr-dev-kit/ndk';
   import UserDisplay from '$lib/components/user/UserDisplay.svelte';
 
   // Active view for admin tabs
-  type AdminView = 'dashboard' | 'users' | 'requests' | 'settings';
+  type AdminView = 'dashboard' | 'users' | 'requests' | 'settings' | 'security';
   let activeView: AdminView = 'dashboard';
 
   // Pending section access requests
@@ -26,11 +31,16 @@
     totalUsers: 0,
     totalChannels: 0,
     totalMessages: 0,
-    pendingApprovals: 0
+    pendingApprovals: 0,
+    securityAlerts: 0
   };
+
+  // Security audit log
+  let suspiciousActivities: SuspiciousActivity[] = [];
 
   // Reactive update of pending approvals count
   $: stats.pendingApprovals = pendingRequests.length;
+  $: stats.securityAlerts = suspiciousActivities.length;
 
   let channels: CreatedChannel[] = [];
   let isLoading = false;
@@ -92,6 +102,9 @@
       // Fetch pending section access requests
       await loadPendingRequests();
 
+      // Load security audit log
+      loadSecurityActivities();
+
       // Subscribe to new incoming requests
       requestSubscription = subscribeAccessRequests((request) => {
         // Add to pending list if not already present
@@ -115,6 +128,36 @@
     } catch (e) {
       console.error('Failed to load pending requests:', e);
     }
+  }
+
+  function loadSecurityActivities() {
+    suspiciousActivities = getSuspiciousActivities();
+  }
+
+  function handleClearSecurityLog() {
+    clearSuspiciousActivities();
+    suspiciousActivities = [];
+  }
+
+  function formatActivityAction(action: string): string {
+    const actionLabels: Record<string, string> = {
+      'pin_list_author_mismatch': 'Pin List Author Mismatch',
+      'pin_list_signature_invalid': 'Invalid Pin List Signature',
+      'unauthorized_cohort_change': 'Unauthorized Cohort Change',
+      'self_admin_assignment': 'Self Admin Assignment Attempt',
+      'non_admin_signed_request': 'Non-Admin Signed Request',
+      'invalid_admin_signature': 'Invalid Admin Signature',
+    };
+    return actionLabels[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  function getActivitySeverity(action: string): 'warning' | 'error' | 'info' {
+    const highSeverity = ['unauthorized_cohort_change', 'self_admin_assignment', 'invalid_admin_signature'];
+    const mediumSeverity = ['pin_list_author_mismatch', 'pin_list_signature_invalid', 'non_admin_signed_request'];
+
+    if (highSeverity.includes(action)) return 'error';
+    if (mediumSeverity.includes(action)) return 'warning';
+    return 'info';
   }
 
   async function handleApproveRequest(request: SectionAccessRequest) {
@@ -303,7 +346,7 @@
     </div>
   {/if}
 
-  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">
     <div class="card bg-base-200">
       <div class="card-body items-center text-center">
         <div class="stat-value text-primary">{stats.totalUsers}</div>
@@ -331,6 +374,16 @@
         <div class="text-sm text-base-content/70 uppercase tracking-wide">Pending Approvals</div>
       </div>
     </div>
+
+    <button
+      class="card {stats.securityAlerts > 0 ? 'bg-error/20 border border-error' : 'bg-base-200'} hover:bg-base-300 transition-colors cursor-pointer"
+      on:click={() => activeView = 'security'}
+    >
+      <div class="card-body items-center text-center">
+        <div class="stat-value {stats.securityAlerts > 0 ? 'text-error' : 'text-primary'}">{stats.securityAlerts}</div>
+        <div class="text-sm text-base-content/70 uppercase tracking-wide">Security Alerts</div>
+      </div>
+    </button>
   </div>
 
   <!-- Relay Settings Section -->
@@ -670,6 +723,102 @@
       {/if}
     </div>
   </div>
+
+  <!-- Security Audit Log -->
+  {#if activeView === 'security' || stats.securityAlerts > 0}
+    <div class="card bg-base-200 mb-6" id="security-log">
+      <div class="card-body">
+        <div class="flex items-center justify-between">
+          <h2 class="card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Security Audit Log
+            {#if suspiciousActivities.length > 0}
+              <span class="badge badge-error">{suspiciousActivities.length}</span>
+            {/if}
+          </h2>
+          <div class="flex gap-2">
+            <button
+              class="btn btn-ghost btn-sm"
+              on:click={loadSecurityActivities}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+            {#if suspiciousActivities.length > 0}
+              <button
+                class="btn btn-error btn-sm btn-outline"
+                on:click={handleClearSecurityLog}
+              >
+                Clear Log
+              </button>
+            {/if}
+          </div>
+        </div>
+
+        <p class="text-sm text-base-content/70 mt-2">
+          Suspicious activities detected by the security system. These events are stored in session storage and cleared when the browser tab is closed.
+        </p>
+
+        {#if suspiciousActivities.length === 0}
+          <div class="text-center py-8 text-base-content/50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <p>No security alerts</p>
+            <p class="text-sm mt-1">System is operating normally</p>
+          </div>
+        {:else}
+          <div class="overflow-x-auto mt-4">
+            <table class="table table-zebra table-sm">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Action</th>
+                  <th>User</th>
+                  <th>Details</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each suspiciousActivities.slice().reverse() as activity}
+                  {@const severity = getActivitySeverity(activity.action)}
+                  <tr>
+                    <td>
+                      <span class="badge badge-{severity} badge-sm">
+                        {#if severity === 'error'}
+                          HIGH
+                        {:else if severity === 'warning'}
+                          MEDIUM
+                        {:else}
+                          LOW
+                        {/if}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="font-medium text-sm">{formatActivityAction(activity.action)}</span>
+                    </td>
+                    <td>
+                      <code class="text-xs bg-base-300 px-1 rounded">{activity.pubkey.slice(0, 8)}...</code>
+                    </td>
+                    <td>
+                      <span class="text-xs text-base-content/70 line-clamp-2">{activity.details}</span>
+                    </td>
+                    <td>
+                      <span class="text-xs">{formatRelativeTime(activity.timestamp)}</span>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <!-- Quick Actions -->
   <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

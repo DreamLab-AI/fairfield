@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { encodePrivkey, encodePubkey } from '$lib/nostr/keys';
+  import { pubkeyToDID, generateDIDDocument } from '$lib/nostr/did';
   import SecurityTooltip from '$lib/components/ui/SecurityTooltip.svelte';
 
   export let privateKey: string;
@@ -16,6 +17,8 @@
 
   $: nsec = encodePrivkey(privateKey);
   $: npub = encodePubkey(publicKey);
+  $: did = pubkeyToDID(publicKey);
+  $: didDocument = generateDIDDocument(publicKey);
   $: canContinue = hasBackedUp && hasConfirmed;
 
   async function copyToClipboard() {
@@ -41,6 +44,13 @@ ${nsec}
 
 Public Key (npub format):
 ${npub}
+
+Decentralized Identifier (DID):
+${did}
+
+========================
+DID Document (W3C Compliant):
+${JSON.stringify(didDocument, null, 2)}
 
 ========================
 Generated: ${new Date().toISOString()}

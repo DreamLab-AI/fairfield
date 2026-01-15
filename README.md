@@ -377,6 +377,8 @@ graph TB
 | [NIP-44](https://github.com/nostr-protocol/nips/blob/master/44.md) | Versioned Encryption | ✅ Complete | Modern encryption for DMs |
 | [NIP-52](https://github.com/nostr-protocol/nips/blob/master/52.md) | Calendar Events | ✅ Complete | Event scheduling with RSVP |
 | [NIP-59](https://github.com/nostr-protocol/nips/blob/master/59.md) | Gift Wrap | ✅ Complete | Metadata protection layer |
+| [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md) | bech32 Encoding | ✅ Complete | npub/nsec/note encoding |
+| [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Lists | ✅ Complete | Admin pin lists (kind 30001) |
 
 ### Event Kinds
 
@@ -393,8 +395,37 @@ graph TB
 | 1059 | 59 | Gift Wrap | Wrapped DMs |
 | 31923 | 52 | Calendar Event | Date-based events |
 | 31925 | 52 | Calendar RSVP | Event responses |
+| 30001 | 51 | Admin Pin List | Verified admin whitelists |
 | 9022 | Custom | Section Access | Cohort-based channel access control |
 | 9023 | Custom | Calendar-Channel Link | Event-chatroom integration |
+
+### W3C DID Integration
+
+Nostr public keys can function as W3C Decentralized Identifiers:
+
+```
+did:nostr:<64-character-hex-pubkey>
+```
+
+Features:
+- **DID Document Generation** - W3C-compliant DID documents
+- **Multikey Encoding** - secp256k1 keys with base58btc encoding
+- **Identity Resolution** - Resolve DIDs to verification methods
+- **Solid Protocol Bridge** - Link Nostr identity to WebID profiles
+
+See [did:nostr Implementation](docs/features/did-nostr.md) for details.
+
+### Solid Protocol Integration
+
+Decentralized storage with Solid pods:
+
+- **OIDC Authentication** - Login with Solid identity providers
+- **WebID Bridge** - Link did:nostr to Solid WebID
+- **Pod Storage** - Store encrypted Nostr events in user pods
+- **Access Control** - Web Access Control (WAC) integration
+- **Offline Sync** - Queue operations for background sync
+
+See [Solid Integration](docs/features/solid-integration.md) for details.
 
 ### Cohort-Based Access Control
 
@@ -739,7 +770,17 @@ Nostr-BBS-nostr/
 │   │   │   ├── channels.ts  # NIP-28 channels
 │   │   │   ├── reactions.ts # NIP-25 reactions
 │   │   │   ├── calendar.ts  # NIP-52 events
-│   │   │   └── relay.ts     # NDK relay manager
+│   │   │   ├── relay.ts     # NDK relay manager
+│   │   │   ├── did.ts       # W3C did:nostr implementation
+│   │   │   ├── whitelist.ts # Relay whitelist verification
+│   │   │   └── admin-security.ts # Admin security hardening
+│   │   ├── solid/           # Solid Protocol integration
+│   │   │   ├── client.ts    # OIDC auth, session management
+│   │   │   ├── webid.ts     # DID↔WebID bridging
+│   │   │   ├── storage.ts   # Pod CRUD operations
+│   │   │   ├── acl.ts       # Access control management
+│   │   │   ├── types.ts     # TypeScript definitions
+│   │   │   └── index.ts     # Module exports
 │   │   ├── semantic/        # Semantic vector search
 │   │   │   ├── embeddings-sync.ts  # WiFi-only GCS sync
 │   │   │   ├── hnsw-search.ts      # WASM vector search
@@ -1030,6 +1071,7 @@ npm test -- --watch
 - Nsec key backup with copy/download options
 - Keys never transmitted to server or relay
 - Session-based encryption with automatic key derivation
+- W3C did:nostr identity with Multikey encoding
 
 ### Message Privacy
 - NIP-44 encryption for all DMs
@@ -1037,11 +1079,22 @@ npm test -- --watch
 - Timestamp fuzzing prevents timing analysis
 - Content encrypted end-to-end
 
+### Admin Security Hardening
+- Server-side admin verification via relay API
+- Rate limiting with exponential backoff
+- NIP-51 pin list signature verification
+- Cryptographically signed admin requests
+- Suspicious activity detection and logging
+- Cohort assignment validation
+
+See [Admin Security](docs/security/admin-security.md) for complete documentation.
+
 ### Relay Security
 - NIP-42 authentication required for writes
 - Cohort-based whitelist (business, moomaa-tribe, admin)
 - Event validation and signature verification
 - NIP-09 deletion support
+- URL injection prevention with input validation
 
 ### Network Security
 - HTTPS for GitHub Pages (automatic)
@@ -1166,11 +1219,14 @@ await sendChannelMessage(channelId, 'Hello channel!');
 ### Security
 - [Security Audit](docs/security/SECURITY_AUDIT.md) - Security analysis and recommendations
 - [Audit Report](docs/security/SECURITY_AUDIT_REPORT.md) - Detailed security findings
+- [Admin Security](docs/security/admin-security.md) - Admin workflow hardening (rate limiting, signatures)
 - [Admin Key Rotation](docs/security/ADMIN_KEY_ROTATION.md) - Key management procedures
 - [SQL Injection Fix](docs/security/security-fix-sql-injection.md) - Database security hardening
 
 ### Feature Documentation
 - [Authentication](docs/features/authentication.md) - Nsec-based key management and read-only mode
+- [did:nostr Implementation](docs/features/did-nostr.md) - W3C DID integration for Nostr
+- [Solid Integration](docs/features/solid-integration.md) - Decentralized storage with Solid pods
 - [Direct Messages](docs/features/dm-implementation.md) - NIP-17/59 encrypted messaging
 - [Message Threading](docs/features/threading-implementation.md) - Threaded conversations
 - [Reactions](docs/features/nip-25-reactions-implementation.md) - NIP-25 emoji reactions

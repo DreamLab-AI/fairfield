@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { authStore, isAdmin } from '$lib/stores/auth';
+  import { authStore } from '$lib/stores/auth';
+  import { verifyWhitelistStatus } from '$lib/nostr/whitelist';
   import { setSigner, connectNDK } from '$lib/nostr/ndk';
   import { fetchAllEvents, type CalendarEvent } from '$lib/nostr/calendar';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
@@ -45,9 +46,20 @@
       return;
     }
 
-    // Check admin access using store (reads from VITE_ADMIN_PUBKEY)
-    if (!$isAdmin) {
-      goto(`${base}/events`);
+    // Verify admin status via relay (server-side source of truth)
+    try {
+      const status = await verifyWhitelistStatus($authStore.publicKey);
+      if (!status.isAdmin) {
+        error = 'Access denied: Admin privileges required';
+        loading = false;
+        setTimeout(() => goto(`${base}/events`), 2000);
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to verify admin status:', err);
+      error = 'Failed to verify admin privileges';
+      loading = false;
+      setTimeout(() => goto(`${base}/events`), 2000);
       return;
     }
 

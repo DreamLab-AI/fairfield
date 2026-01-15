@@ -295,6 +295,86 @@ The authentication system was refactored in v2.0 to remove BIP-39 mnemonic phras
 - Keys derived from mnemonics remain valid
 - No data migration required
 
+## Admin Security Hardening (v2.1)
+
+The authentication system includes hardened admin workflows:
+
+### Server-Side Verification
+
+All admin pages now use server-side verification via the relay API:
+
+```typescript
+import { verifyWhitelistStatus } from '$lib/nostr/whitelist';
+
+// In admin route/component
+const status = await verifyWhitelistStatus(userPubkey);
+
+if (!status.isAdmin) {
+  goto('/events');  // Redirect non-admins
+  return;
+}
+```
+
+**Important**: Never rely solely on client-side `$isAdmin` store for authorization.
+
+### Rate Limiting with Exponential Backoff
+
+Admin actions are protected by rate limiting:
+
+| Action Type | Max Attempts | Window | Backoff |
+|-------------|--------------|--------|---------|
+| Section Access | 5 | 1 minute | 2x |
+| Cohort Change | 3 | 1 hour | 3x |
+| Admin Action | 10 | 1 minute | 1.5x |
+
+```typescript
+import { checkRateLimit } from '$lib/nostr/admin-security';
+
+const result = checkRateLimit('cohortChange', userPubkey);
+if (!result.allowed) {
+  console.log(`Rate limited. Retry in ${result.retryAfterMs}ms`);
+}
+```
+
+### NIP-51 Pin List Verification
+
+Admin pin list events (kind 30001) are cryptographically verified:
+
+```typescript
+import { verifyPinListSignature } from '$lib/nostr/admin-security';
+
+const isValid = await verifyPinListSignature(pinListEvent);
+```
+
+### Signed Admin Requests
+
+Privileged operations require cryptographic signatures:
+
+```typescript
+import { createSignedAdminRequest, verifySignedAdminRequest } from '$lib/nostr/admin-security';
+
+const request = await createSignedAdminRequest({
+  action: 'cohort_change',
+  targetPubkey: userPubkey,
+  data: { cohort: 'approved' },
+  adminPrivkey: adminPrivateKey
+});
+```
+
+### Suspicious Activity Detection
+
+The system tracks and logs suspicious activity:
+
+| Event Type | Trigger |
+|------------|---------|
+| `rate_limit_exceeded` | Too many requests |
+| `invalid_signature` | Signature verification failed |
+| `unauthorized_action` | Non-admin attempting admin action |
+| `replay_attack` | Duplicate nonce detected |
+| `timestamp_drift` | Request timestamp too old/future |
+
+See [Admin Security](../security/admin-security.md) for complete documentation.
+
 ## QE Audit Findings (v2.0)
 
 Security audit identified these items for the authentication system:
@@ -304,9 +384,12 @@ Security audit identified these items for the authentication system:
 - Rate limiting infrastructure
 - Account status differentiation
 - Read-only access control
+- Server-side admin verification (HIGH-001, HIGH-002 fixed)
+- URL injection prevention (MED-001 fixed)
+- NIP-51 signature verification
+- Suspicious activity logging
 
 ### Recommendations (Future)
-- Apply rate limiting to Login component (HIGH priority)
 - Add session timeout handling
 - Implement key backup reminders
 - Add password/PIN protection option
@@ -377,3 +460,25 @@ const encrypted = await encryptPrivateKey(privkeyHex, sessionKey);
 // Decrypt for signing
 const decrypted = await decryptPrivateKey(encrypted, sessionKey);
 ```
+
+### DID Integration
+
+```typescript
+import { pubkeyToDID, generateDIDDocument } from '$lib/nostr/did';
+
+// Convert pubkey to W3C DID
+const did = pubkeyToDID(pubkey);
+// Result: 'did:nostr:7e7e9c42...'
+
+// Generate DID Document
+const didDoc = generateDIDDocument(pubkey);
+```
+
+See [did:nostr Implementation](./did-nostr.md) for complete documentation.
+
+## Related Documentation
+
+- [did:nostr Implementation](./did-nostr.md) - W3C DID integration
+- [Solid Integration](./solid-integration.md) - Decentralized storage with Solid pods
+- [Admin Security](../security/admin-security.md) - Admin workflow hardening
+- [Security Audit Report](../security-audit-report.md) - Full security findings

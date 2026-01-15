@@ -22,6 +22,9 @@ import type {
 } from '$lib/types/channel';
 import { sectionStore } from '$lib/stores/sections';
 import { SECTION_CONFIG } from '$lib/types/channel';
+import { verifyWhitelistStatus } from './whitelist';
+import { verifyEventSignature, nowSeconds } from './events';
+import type { NostrEvent } from '../../types/nostr';
 
 // NIP event kinds
 const KIND_SECTION_REQUEST = 9022;
@@ -113,6 +116,11 @@ export async function requestSectionAccess(
 /**
  * Approve a section access request (admin only)
  *
+ * Security enhancements:
+ * - Verifies admin status via relay whitelist API
+ * - Includes timestamp to prevent replay attacks
+ * - Validates the original request signature
+ *
  * Publishes kind 9023 approval event and sends DM to user
  */
 export async function approveSectionAccess(
@@ -136,17 +144,33 @@ export async function approveSectionAccess(
       return { success: false, error: 'Unable to get admin pubkey' };
     }
 
-    // Create approval event
+    // SECURITY: Verify admin status via relay (server-side verification)
+    const adminStatus = await verifyWhitelistStatus(admin.pubkey);
+    if (!adminStatus.isAdmin) {
+      console.error('[Sections] Non-admin attempted approval:', admin.pubkey.slice(0, 8));
+      return { success: false, error: 'Admin verification failed' };
+    }
+
+    // SECURITY: Include timestamp in approval to prevent replay attacks
+    const timestamp = nowSeconds();
+    const nonce = generateSecureNonce();
+
+    // Create approval event with security metadata
     const approvalEvent = new NDKEvent(ndk);
     approvalEvent.kind = KIND_SECTION_APPROVAL;
     approvalEvent.content = JSON.stringify({
       section: request.section,
-      approvedAt: Date.now()
+      approvedAt: Date.now(),
+      timestamp,
+      nonce,
+      adminPubkey: admin.pubkey, // Include admin pubkey for verification
     });
     approvalEvent.tags = [
       ['section', request.section],
       ['p', request.requesterPubkey],
-      ['e', request.id]  // Reference to original request
+      ['e', request.id],  // Reference to original request
+      ['timestamp', timestamp.toString()], // For replay attack prevention
+      ['nonce', nonce], // Unique per approval
     ];
 
     await approvalEvent.sign(signer);
@@ -159,9 +183,11 @@ export async function approveSectionAccess(
     await sendAccessApprovalDM(request.requesterPubkey, dmContent);
 
     if (import.meta.env.DEV) {
-      console.log('[Sections] Access approved:', {
+      console.log('[Sections] Access approved (verified):', {
         section: request.section,
-        user: request.requesterPubkey.slice(0, 8) + '...'
+        user: request.requesterPubkey.slice(0, 8) + '...',
+        admin: admin.pubkey.slice(0, 8) + '...',
+        source: adminStatus.source,
       });
     }
 
@@ -174,6 +200,20 @@ export async function approveSectionAccess(
       error: error instanceof Error ? error.message : 'Failed to approve'
     };
   }
+}
+
+/**
+ * Generate a cryptographically secure nonce
+ */
+function generateSecureNonce(): string {
+  if (browser && crypto?.getRandomValues) {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 /**
@@ -219,6 +259,11 @@ async function sendAccessApprovalDM(
 
 /**
  * Fetch pending section access requests (for admin)
+ *
+ * Security enhancements:
+ * - Verifies signature of each request event
+ * - Rejects unsigned or tampered events
+ * - Logs suspicious requests
  */
 export async function fetchPendingRequests(): Promise<SectionAccessRequest[]> {
   if (!browser) return [];
@@ -255,12 +300,39 @@ export async function fetchPendingRequests(): Promise<SectionAccessRequest[]> {
         .flatMap(e => e.tags.filter(t => t[0] === 'e').map(t => t[1]))
     );
 
+    let rejectedCount = 0;
+
     for (const event of events) {
       // Skip if already approved
       if (approvedRequestIds.has(event.id)) continue;
 
+      // SECURITY: Verify event signature before processing
+      const eventForVerification: NostrEvent = {
+        id: event.id,
+        pubkey: event.pubkey,
+        created_at: event.created_at || 0,
+        kind: event.kind || KIND_SECTION_REQUEST,
+        tags: event.tags,
+        content: event.content,
+        sig: event.sig || '',
+      };
+
+      const signatureValid = verifyEventSignature(eventForVerification);
+      if (!signatureValid) {
+        console.warn('[Sections] Rejecting request with invalid signature:', event.id?.slice(0, 8));
+        rejectedCount++;
+        continue;
+      }
+
       const sectionTag = event.tags.find(t => t[0] === 'section')?.[1];
       if (!sectionTag) continue;
+
+      // SECURITY: Reject requests for events older than 30 days
+      const eventAge = nowSeconds() - (event.created_at || 0);
+      if (eventAge > 30 * 24 * 60 * 60) {
+        console.warn('[Sections] Rejecting stale request (>30 days):', event.id?.slice(0, 8));
+        continue;
+      }
 
       requests.push({
         id: event.id,
@@ -270,6 +342,10 @@ export async function fetchPendingRequests(): Promise<SectionAccessRequest[]> {
         message: event.content || undefined,
         status: 'pending'
       });
+    }
+
+    if (rejectedCount > 0 && import.meta.env.DEV) {
+      console.log(`[Sections] Rejected ${rejectedCount} requests with invalid signatures`);
     }
 
     return requests;
