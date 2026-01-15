@@ -43,7 +43,7 @@ class NostrRelay {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -160,6 +160,138 @@ class NostrRelay {
           restricted_writes: true
         }
       }));
+      return;
+    }
+
+    // ========================================================================
+    // Admin Whitelist Management APIs
+    // ========================================================================
+
+    // Helper to check if pubkey is admin
+    const isAdminPubkey = (pubkey: string): boolean => {
+      const adminPubkeys = (process.env.ADMIN_PUBKEYS || process.env.WHITELIST_PUBKEYS || '')
+        .split(',')
+        .map(k => k.trim())
+        .filter(Boolean);
+      return adminPubkeys.includes(pubkey);
+    };
+
+    // Helper to read JSON body
+    const readJsonBody = async (): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            resolve(body ? JSON.parse(body) : {});
+          } catch {
+            reject(new Error('Invalid JSON'));
+          }
+        });
+        req.on('error', reject);
+      });
+    };
+
+    // List whitelisted users (paginated)
+    if (url.pathname === '/api/whitelist/list' && req.method === 'GET') {
+      try {
+        const limit = parseInt(url.searchParams.get('limit') || '20');
+        const offset = parseInt(url.searchParams.get('offset') || '0');
+        const cohort = url.searchParams.get('cohort') || undefined;
+
+        const result = await this.db.listWhitelistPaginated({ limit, offset, cohort });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        console.error('[API] /api/whitelist/list error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
+      return;
+    }
+
+    // Add user to whitelist
+    if (url.pathname === '/api/whitelist/add' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody();
+        const { pubkey, cohorts, adminPubkey } = body;
+
+        // Validate required fields
+        if (!pubkey || !adminPubkey) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing pubkey or adminPubkey' }));
+          return;
+        }
+
+        // Verify admin authorization
+        if (!isAdminPubkey(adminPubkey)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not authorized' }));
+          return;
+        }
+
+        // Add to whitelist
+        const success = await this.db.addToWhitelist(
+          pubkey,
+          cohorts || ['approved'],
+          adminPubkey
+        );
+
+        if (success) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to add user' }));
+        }
+      } catch (error) {
+        console.error('[API] /api/whitelist/add error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
+      return;
+    }
+
+    // Update user cohorts
+    if (url.pathname === '/api/whitelist/update-cohorts' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody();
+        const { pubkey, cohorts, adminPubkey } = body;
+
+        // Validate required fields
+        if (!pubkey || !cohorts || !adminPubkey) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing pubkey, cohorts, or adminPubkey' }));
+          return;
+        }
+
+        // Verify admin authorization
+        if (!isAdminPubkey(adminPubkey)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not authorized' }));
+          return;
+        }
+
+        // Update cohorts (uses addToWhitelist which has ON CONFLICT UPDATE)
+        const success = await this.db.addToWhitelist(
+          pubkey,
+          cohorts,
+          adminPubkey
+        );
+
+        if (success) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to update cohorts' }));
+        }
+      } catch (error) {
+        console.error('[API] /api/whitelist/update-cohorts error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
       return;
     }
 

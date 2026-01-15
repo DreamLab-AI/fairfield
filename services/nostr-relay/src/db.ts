@@ -338,6 +338,103 @@ export class NostrDatabase {
     return result.rows.map(r => r.pubkey);
   }
 
+  async listWhitelistPaginated(options?: {
+    limit?: number;
+    offset?: number;
+    cohort?: string;
+  }): Promise<{
+    users: Array<{
+      pubkey: string;
+      cohorts: string[];
+      addedAt: number;
+      addedBy: string | null;
+      displayName: string | null;
+    }>;
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    if (!this.pool) {
+      return { users: [], total: 0, limit: 20, offset: 0 };
+    }
+
+    const limit = Math.min(options?.limit || 20, 100);
+    const offset = options?.offset || 0;
+
+    try {
+      // Build base conditions
+      const conditions: string[] = [
+        '(w.expires_at IS NULL OR w.expires_at > EXTRACT(EPOCH FROM NOW())::BIGINT)'
+      ];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (options?.cohort) {
+        conditions.push(`w.cohorts @> $${paramIndex}::jsonb`);
+        params.push(JSON.stringify([options.cohort]));
+        paramIndex++;
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Get total count
+      const countResult = await this.pool.query(
+        `SELECT COUNT(*) as count FROM whitelist w ${whereClause}`,
+        params
+      );
+      const total = Number(countResult.rows[0].count);
+
+      // Get paginated users with optional profile data from events
+      params.push(limit, offset);
+      const result = await this.pool.query(
+        `SELECT
+          w.pubkey,
+          w.cohorts,
+          w.added_at,
+          w.added_by,
+          (
+            SELECT e.content
+            FROM events e
+            WHERE e.pubkey = w.pubkey AND e.kind = 0
+            ORDER BY e.created_at DESC
+            LIMIT 1
+          ) as profile_content
+        FROM whitelist w
+        ${whereClause}
+        ORDER BY w.added_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        params
+      );
+
+      const users = result.rows.map(row => {
+        let displayName: string | null = null;
+
+        // Try to parse profile content to get display name
+        if (row.profile_content) {
+          try {
+            const profile = JSON.parse(row.profile_content);
+            displayName = profile.display_name || profile.name || null;
+          } catch {
+            // Invalid JSON, ignore
+          }
+        }
+
+        return {
+          pubkey: row.pubkey,
+          cohorts: typeof row.cohorts === 'string' ? JSON.parse(row.cohorts) : (row.cohorts || []),
+          addedAt: Number(row.added_at),
+          addedBy: row.added_by,
+          displayName
+        };
+      });
+
+      return { users, total, limit, offset };
+    } catch (error) {
+      console.error('[DB] listWhitelistPaginated error:', error);
+      return { users: [], total: 0, limit, offset };
+    }
+  }
+
   async getStats(): Promise<{
     eventCount: number;
     whitelistCount: number;
