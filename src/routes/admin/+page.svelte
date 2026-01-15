@@ -23,6 +23,7 @@
   import RelaySettings from '$lib/components/admin/RelaySettings.svelte';
   import ChannelManagement from '$lib/components/admin/ChannelManagement.svelte';
   import UserRegistrations from '$lib/components/admin/UserRegistrations.svelte';
+  import UserManagement from '$lib/components/admin/UserManagement.svelte';
   import SectionRequests from '$lib/components/admin/SectionRequests.svelte';
   import ChannelJoinRequests from '$lib/components/admin/ChannelJoinRequests.svelte';
   import QuickActions from '$lib/components/admin/QuickActions.svelte';
@@ -370,7 +371,7 @@
       const result = await approveSectionAccess(request);
       if (result.success) {
         pendingRequests = pendingRequests.filter(r => r.id !== request.id);
-        const sectionName = SECTION_CONFIG[request.section]?.name || request.section;
+        const sectionName = (request.section && SECTION_CONFIG[request.section]?.name) || request.section || 'Unknown Section';
         successMessage = `Approved access to ${sectionName}. User has been notified.`;
         setTimeout(() => { successMessage = null; }, 5000);
       } else {
@@ -582,6 +583,8 @@
     on:reject={(e) => handleRejectUserRegistration(e.detail)}
     on:refresh={loadUserRegistrations}
   />
+
+  <UserManagement />
 
   <SectionRequests
     {pendingRequests}
