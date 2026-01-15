@@ -1,7 +1,6 @@
 <script lang="ts">
   import Signup from '$lib/components/auth/Signup.svelte';
-  import MnemonicDisplay from '$lib/components/auth/MnemonicDisplay.svelte';
-  import KeyBackup from '$lib/components/auth/KeyBackup.svelte';
+  import NsecBackup from '$lib/components/auth/NsecBackup.svelte';
   import NicknameSetup from '$lib/components/auth/NicknameSetup.svelte';
   import PendingApproval from '$lib/components/auth/PendingApproval.svelte';
   import { goto } from '$app/navigation';
@@ -12,35 +11,28 @@
 
   const appConfig = getAppConfig();
 
-  type FlowStep = 'signup' | 'mnemonic' | 'backup' | 'nickname' | 'pending';
+  type FlowStep = 'signup' | 'backup' | 'nickname' | 'pending';
   let step: FlowStep = 'signup';
-  let mnemonic = '';
   let publicKey = '';
   let privateKey = '';
   let nickname = '';
   let isApproved = false;
 
-  function handleNext(event: CustomEvent<{ mnemonic: string; publicKey: string; privateKey: string }>) {
+  function handleNext(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
     const data = event.detail;
-    if (data.mnemonic) {
-      mnemonic = data.mnemonic;
+    if (data.publicKey && data.privateKey) {
       publicKey = data.publicKey;
       privateKey = data.privateKey;
-      step = 'mnemonic';
+      step = 'backup';
     } else {
+      // User wants to login with existing key
       goto(`${base}/login`);
     }
-  }
-
-  function handleMnemonicContinue() {
-    step = 'backup';
   }
 
   async function handleBackupContinue() {
     await authStore.setKeys(publicKey, privateKey, 'incomplete', false);
     authStore.confirmNsecBackup();
-
-    // Move to nickname setup step
     step = 'nickname';
   }
 
@@ -83,10 +75,8 @@
 
 {#if step === 'signup'}
   <Signup on:next={handleNext} />
-{:else if step === 'mnemonic'}
-  <MnemonicDisplay {mnemonic} on:continue={handleMnemonicContinue} />
 {:else if step === 'backup'}
-  <KeyBackup {publicKey} {mnemonic} on:continue={handleBackupContinue} />
+  <NsecBackup {publicKey} {privateKey} on:continue={handleBackupContinue} />
 {:else if step === 'nickname'}
   <NicknameSetup {publicKey} {privateKey} on:continue={handleNicknameContinue} />
 {:else if step === 'pending'}

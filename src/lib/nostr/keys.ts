@@ -29,6 +29,18 @@ export async function generateNewIdentity(): Promise<KeyPair> {
   return { mnemonic, privateKey, publicKey };
 }
 
+/**
+ * Generate keys without mnemonic - simpler onboarding
+ * Uses crypto.getRandomValues for secure random key generation
+ */
+export function generateSimpleKeys(): { privateKey: string; publicKey: string } {
+  const privateKeyBytes = new Uint8Array(32);
+  crypto.getRandomValues(privateKeyBytes);
+  const privateKey = bytesToHex(privateKeyBytes);
+  const publicKey = getPublicKey(privateKeyBytes);
+  return { privateKey, publicKey };
+}
+
 export async function restoreFromMnemonic(mnemonic: string): Promise<Omit<KeyPair, 'mnemonic'>> {
   if (!validateMnemonic(mnemonic.trim(), wordlist)) {
     throw new Error('Invalid mnemonic phrase');

@@ -3,47 +3,65 @@
    * AuthFlow - Multi-step authentication flow for signup and login
    *
    * Flow steps:
-   * 1. Signup - Generate new keys with mnemonic
-   * 2. MnemonicDisplay - Show mnemonic with copy option (first display)
-   * 3. KeyBackup - Show mnemonic again with npub (second display)
+   * 1. Signup - Generate new keys
+   * 2. NsecBackup - Show private key with copy/download options
+   * 3. NicknameSetup - Set display name
    * 4. PendingApproval - Wait for admin whitelist approval
-   *
-   * NOTE: Mnemonic is intentionally shown twice (in MnemonicDisplay and KeyBackup)
-   * for the private server. This high-friction design ensures users properly backup
-   * their recovery phrase. For public deployments, consider consolidating to one step.
    */
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
   import Signup from './Signup.svelte';
-  import MnemonicDisplay from './MnemonicDisplay.svelte';
+  import NsecBackup from './NsecBackup.svelte';
+  import NicknameSetup from './NicknameSetup.svelte';
   import Login from './Login.svelte';
-  import KeyBackup from './KeyBackup.svelte';
   import PendingApproval from './PendingApproval.svelte';
 
-  type FlowStep = 'signup' | 'mnemonic-display' | 'login' | 'key-backup' | 'pending-approval';
+  type FlowStep = 'signup' | 'nsec-backup' | 'nickname' | 'login' | 'pending-approval';
 
   let currentStep: FlowStep = 'signup';
   let tempKeys: {
-    mnemonic: string;
     publicKey: string;
     privateKey: string;
   } | null = null;
 
-  function handleSignupNext(event: CustomEvent<{ mnemonic: string; publicKey: string; privateKey: string }>) {
-    const { mnemonic, publicKey, privateKey } = event.detail;
+  function handleSignupNext(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
+    const { publicKey, privateKey } = event.detail;
 
-    if (mnemonic && publicKey && privateKey) {
-      tempKeys = { mnemonic, publicKey, privateKey };
-      currentStep = 'mnemonic-display';
+    if (publicKey && privateKey) {
+      tempKeys = { publicKey, privateKey };
+      currentStep = 'nsec-backup';
     } else {
       currentStep = 'login';
     }
   }
 
-  function handleMnemonicContinue() {
+  async function handleBackupContinue() {
     if (tempKeys) {
-      currentStep = 'key-backup';
+      await authStore.setKeys(tempKeys.publicKey, tempKeys.privateKey, 'incomplete', false);
+      authStore.confirmNsecBackup();
+      currentStep = 'nickname';
+    }
+  }
+
+  async function handleNicknameContinue() {
+    if (tempKeys) {
+      const { publicKey, privateKey } = tempKeys;
+
+      // Check if user is already approved or admin - skip pending approval
+      try {
+        const { checkWhitelistStatus } = await import('$lib/nostr/whitelist');
+        const status = await checkWhitelistStatus(publicKey);
+        if (status.isApproved || status.isAdmin) {
+          await goto(`${base}/chat`);
+          return;
+        }
+      } catch (e) {
+        console.warn('[AuthFlow] Failed to check whitelist status:', e);
+      }
+
+      authStore.setPending(true);
+      currentStep = 'pending-approval';
     }
   }
 
@@ -51,7 +69,7 @@
     const { publicKey, privateKey } = event.detail;
 
     if (publicKey && privateKey) {
-      tempKeys = { mnemonic: '', publicKey, privateKey };
+      tempKeys = { publicKey, privateKey };
       await authStore.setKeys(publicKey, privateKey);
 
       // Check if user is already approved or admin - skip pending approval
@@ -59,13 +77,11 @@
         const { checkWhitelistStatus } = await import('$lib/nostr/whitelist');
         const status = await checkWhitelistStatus(publicKey);
         if (status.isApproved || status.isAdmin) {
-          // Already approved - go directly to chat
           await goto(`${base}/chat`);
           return;
         }
       } catch (e) {
         console.warn('[AuthFlow] Failed to check whitelist status:', e);
-        // Fall through to pending approval
       }
 
       currentStep = 'pending-approval';
@@ -74,24 +90,7 @@
     }
   }
 
-  async function handleKeyBackupContinue() {
-    if (tempKeys) {
-      const { publicKey, privateKey } = tempKeys;
-      await authStore.setKeys(publicKey, privateKey, 'complete', true);
-      // Confirm backup was shown
-      authStore.confirmNsecBackup();
-      authStore.setPending(true);
-
-      // Clear mnemonic from memory immediately after key derivation is complete
-      // This prevents the sensitive mnemonic from lingering in memory
-      tempKeys = { mnemonic: '', publicKey, privateKey };
-
-      currentStep = 'pending-approval';
-    }
-  }
-
   async function handleApproved() {
-    // User has been approved by admin - update state and navigate to app
     authStore.setPending(false);
     await goto(`${base}/chat`);
   }
@@ -99,19 +98,20 @@
 
 {#if currentStep === 'signup'}
   <Signup on:next={handleSignupNext} />
-{:else if currentStep === 'mnemonic-display' && tempKeys}
-  <MnemonicDisplay
-    mnemonic={tempKeys.mnemonic}
-    on:continue={handleMnemonicContinue}
+{:else if currentStep === 'nsec-backup' && tempKeys}
+  <NsecBackup
+    publicKey={tempKeys.publicKey}
+    privateKey={tempKeys.privateKey}
+    on:continue={handleBackupContinue}
+  />
+{:else if currentStep === 'nickname' && tempKeys}
+  <NicknameSetup
+    publicKey={tempKeys.publicKey}
+    privateKey={tempKeys.privateKey}
+    on:continue={handleNicknameContinue}
   />
 {:else if currentStep === 'login'}
   <Login on:success={handleLoginSuccess} />
-{:else if currentStep === 'key-backup' && tempKeys}
-  <KeyBackup
-    publicKey={tempKeys.publicKey}
-    mnemonic={tempKeys.mnemonic}
-    on:continue={handleKeyBackupContinue}
-  />
 {:else if currentStep === 'pending-approval' && tempKeys}
   <PendingApproval publicKey={tempKeys.publicKey} on:approved={handleApproved} />
 {/if}
