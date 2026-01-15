@@ -73,7 +73,7 @@
       </div>
 
       <div class="form-control mb-4">
-        <label class="label">
+        <label class="label" for="private-key-input">
           <span class="label-text font-medium flex items-center gap-2">
             Private Key
             <InfoTooltip
@@ -85,16 +85,18 @@
           </span>
         </label>
         <input
+          id="private-key-input"
           type="password"
           class="input input-bordered font-mono"
           placeholder="nsec1... or 64-character hex"
           bind:value={privateKeyInput}
           disabled={isRestoring}
           autocomplete="off"
+          aria-describedby="private-key-hint"
           on:keypress={(e) => e.key === 'Enter' && handleRestore()}
         />
         <label class="label">
-          <span class="label-text-alt text-base-content/50">
+          <span id="private-key-hint" class="label-text-alt text-base-content/50">
             Supports nsec format (nsec1...) or raw 64-character hex
           </span>
         </label>
