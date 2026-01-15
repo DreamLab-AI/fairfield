@@ -12,8 +12,6 @@
 	import { calendarStore, sidebarVisible, sidebarExpanded } from '$lib/stores/calendar';
 	import { initializePWA } from '$lib/utils/pwa-init';
 	import {
-		canInstall,
-		triggerInstall,
 		updateAvailable,
 		updateServiceWorker,
 		isOnline,
@@ -37,7 +35,6 @@
 
 	let mounted = false;
 	let themePreference: 'dark' | 'light' = 'dark';
-	let showInstallBanner = false;
 	let showUpdateBanner = false;
 	let showProfileModal = false;
 	let sessionCleanup: (() => void) | undefined = undefined;
@@ -72,10 +69,6 @@
 		sessionCleanup = undefined;
 		sessionStore.stop();
 	}
-
-	canInstall.subscribe(value => {
-		showInstallBanner = value;
-	});
 
 	updateAvailable.subscribe(value => {
 		showUpdateBanner = value;
@@ -140,17 +133,6 @@
 		showProfileModal = !showProfileModal;
 	}
 
-	function dismissInstallBanner() {
-		showInstallBanner = false;
-	}
-
-	async function handleInstall() {
-		const installed = await triggerInstall();
-		if (installed) {
-			showInstallBanner = false;
-		}
-	}
-
 	async function handleUpdate() {
 		await updateServiceWorker();
 	}
@@ -162,20 +144,6 @@
 
 <!-- Skip to main content link for accessibility -->
 <a href="#main-content" class="skip-to-main">Skip to main content</a>
-
-<!-- PWA Install Banner -->
-{#if showInstallBanner}
-	<div class="alert alert-info fixed top-0 left-0 right-0 z-50 rounded-none" role="banner" aria-live="polite">
-		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6" aria-hidden="true">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-		</svg>
-		<span>Install {appName} app for offline access</span>
-		<div class="flex gap-2">
-			<button class="btn btn-sm btn-primary" on:click={handleInstall} aria-label="Install application">Install</button>
-			<button class="btn btn-sm btn-ghost" on:click={dismissInstallBanner} aria-label="Dismiss install banner">Dismiss</button>
-		</div>
-	</div>
-{/if}
 
 <!-- PWA Update Banner -->
 {#if showUpdateBanner}
