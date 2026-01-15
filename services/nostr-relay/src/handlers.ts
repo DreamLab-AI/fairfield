@@ -64,14 +64,21 @@ export class NostrHandlers {
       return;
     }
 
-    // Check environment whitelist
-    const envAllowed = this.whitelist.isAllowed(event.pubkey);
-    // Check database whitelist
-    const dbAllowed = await this.db.isWhitelisted(event.pubkey);
+    // Registration-related events: allow from anyone (breaks circular dependency)
+    // Kind 0: Profile metadata (NIP-01) - needed for display name during signup
+    // Kind 9024: Registration request (custom) - needed for admin to see pending users
+    const isRegistrationEvent = event.kind === 0 || event.kind === 9024;
 
-    if (!envAllowed && !dbAllowed) {
-      this.sendOK(ws, event.id, false, 'blocked: pubkey not whitelisted');
-      return;
+    if (!isRegistrationEvent) {
+      // Check environment whitelist
+      const envAllowed = this.whitelist.isAllowed(event.pubkey);
+      // Check database whitelist
+      const dbAllowed = await this.db.isWhitelisted(event.pubkey);
+
+      if (!envAllowed && !dbAllowed) {
+        this.sendOK(ws, event.id, false, 'blocked: pubkey not whitelisted');
+        return;
+      }
     }
 
     if (!this.verifyEventId(event)) {

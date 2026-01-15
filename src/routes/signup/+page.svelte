@@ -47,6 +47,10 @@
       // Skip pending approval for pre-approved users
       goto(`${base}/chat`);
     } else {
+      // Small delay to ensure Kind 0 profile event is fully saved before Kind 9024
+      // This prevents race conditions where registration arrives before profile
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // Publish registration request so admin can see this user
       try {
         const result = await publishRegistrationRequest(privateKey, nickname || undefined);
