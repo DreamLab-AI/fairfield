@@ -8,7 +8,7 @@
   import { setSigner, connectNDK, getRelayUrls, reconnectNDK } from '$lib/nostr/ndk';
   import { createChannel, fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
   import { settingsStore } from '$lib/stores/settings';
-  import { SECTION_CONFIG, type ChannelSection, type SectionAccessRequest } from '$lib/types/channel';
+  import { SECTION_CONFIG, type ChannelSection, type SectionAccessRequest, type ChannelAccessType } from '$lib/types/channel';
   import { sectionStore, pendingRequestCount } from '$lib/stores/sections';
   import { subscribeAccessRequests, approveSectionAccess } from '$lib/nostr/sections';
   import type { NDKSubscription } from '@nostr-dev-kit/ndk';
@@ -43,6 +43,7 @@
   let formName = '';
   let formDescription = '';
   let formVisibility: 'public' | 'cohort' | 'private' = 'public';
+  let formAccessType: ChannelAccessType = 'gated';
   let formCohorts = '';
   let formEncrypted = false;
   let formSection: ChannelSection = 'Nostr-BBS-guests';
@@ -184,6 +185,7 @@
         name: formName.trim(),
         description: formDescription.trim() || undefined,
         visibility: formVisibility,
+        accessType: formAccessType,
         cohorts,
         encrypted: formEncrypted,
         section: formSection,
@@ -196,6 +198,7 @@
       formName = '';
       formDescription = '';
       formVisibility = 'public';
+      formAccessType = 'gated';
       formCohorts = '';
       formEncrypted = false;
       formSection = 'Nostr-BBS-guests';
@@ -219,6 +222,10 @@
       private: 'badge-error',
     };
     return badges[visibility] || 'badge-ghost';
+  }
+
+  function getAccessTypeBadge(accessType: ChannelAccessType): string {
+    return accessType === 'open' ? 'badge-primary' : 'badge-secondary';
   }
 
   onMount(async () => {
@@ -468,6 +475,23 @@
             </div>
           </div>
 
+          <div class="form-control mb-3">
+            <label class="label">
+              <span class="label-text">Access Type (Who can post)</span>
+            </label>
+            <select class="select select-bordered" bind:value={formAccessType}>
+              <option value="open">Open (Anyone can post)</option>
+              <option value="gated">Gated (Members only)</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">
+                {formAccessType === 'open'
+                  ? 'All users can post messages without joining'
+                  : 'Only approved members can post messages'}
+              </span>
+            </label>
+          </div>
+
           <div class="form-control mb-4">
             <label class="label cursor-pointer justify-start gap-2">
               <input
@@ -523,6 +547,9 @@
                     </span>
                     <span class="badge {getVisibilityBadge(channel.visibility)} badge-sm">
                       {channel.visibility}
+                    </span>
+                    <span class="badge {getAccessTypeBadge(channel.accessType)} badge-sm" title="Access Type">
+                      {channel.accessType === 'open' ? '🔓 Open' : '🔐 Gated'}
                     </span>
                     {#if channel.encrypted}
                       <span class="badge badge-info badge-sm">Encrypted</span>

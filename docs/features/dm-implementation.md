@@ -239,7 +239,7 @@ npm test src/lib/nostr/dm.test.ts
 - **Never** store private keys in plaintext
 - Encrypt with user PIN/passphrase before localStorage
 - Consider browser-based encryption (Web Crypto API)
-- Use mnemonic backup (NIP-06) for key recovery
+- Use nsec backup (NIP-19 bech32) for key recovery
 
 ### Network Security
 

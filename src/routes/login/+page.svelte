@@ -6,8 +6,13 @@
 
   async function handleSuccess(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
     const { publicKey, privateKey } = event.detail;
-    await authStore.setKeys(publicKey, privateKey);
+    // Login with existing key - assume already backed up (complete account)
+    await authStore.setKeys(publicKey, privateKey, 'complete', true);
     goto(`${base}/chat`);
+  }
+
+  function handleSignup() {
+    goto(`${base}/signup`);
   }
 </script>
 
@@ -15,4 +20,4 @@
   <title>Login - Fairfield</title>
 </svelte:head>
 
-<Login on:success={handleSuccess} />
+<Login on:success={handleSuccess} on:signup={handleSignup} />

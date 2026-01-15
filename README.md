@@ -495,7 +495,7 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph AdminPanel["Admin Panel"]
-        Login["Login with Mnemonic<br/>(BIP-39)"]
+        Login["Login with nsec/hex key"]
         Dashboard["Admin Dashboard"]
     end
 
@@ -520,7 +520,7 @@ graph LR
         RSVPList["Event RSVPs"]
     end
 
-    Login -->|NIP-06 Key Derivation| Dashboard
+    Login -->|Nsec Key Auth| Dashboard
     Dashboard --> Management
     Dashboard --> Content
     Dashboard --> Monitoring
@@ -547,8 +547,8 @@ graph LR
 ```mermaid
 graph TB
     Start([New User]) --> Signup[Create Account]
-    Signup --> Keys[Generate Keys<br/>BIP-39 Mnemonic]
-    Keys --> Backup[Backup Recovery Phrase]
+    Signup --> Keys[Generate Keys<br/>nsec Private Key]
+    Keys --> Backup[Backup nsec Key<br/>Copy or Download]
     Backup --> Auth[Authenticate to Relay]
 
     Auth --> Dashboard{Main Dashboard}
@@ -593,23 +593,25 @@ sequenceDiagram
     participant Relay as Docker Relay
 
     User->>App: 1. Click "Create Account"
-    App->>App: 2. Generate BIP-39 Mnemonic
-    App->>User: 3. Display Recovery Phrase
-    User->>App: 4. Confirm Backup
+    App->>App: 2. Generate Random Private Key
+    App->>App: 3. Encode to nsec1... format
+    App->>User: 4. Display Nsec Backup Screen
+    User->>App: 5. Copy/Download nsec key
+    User->>App: 6. Confirm Backup
 
-    App->>App: 5. Derive Keys from Mnemonic
-    App->>Store: 6. Encrypt & Store Private Key
+    App->>App: 7. Encrypt Key with Session Token
+    App->>Store: 8. Store Encrypted Private Key
 
-    App->>Relay: 7. Connect WebSocket
-    Relay->>App: 8. AUTH Challenge (NIP-42)
-    App->>App: 9. Sign Challenge (Kind 22242)
-    App->>Relay: 10. Send Signed Event
-    Relay->>App: 11. OK - Authenticated
+    App->>Relay: 9. Connect WebSocket
+    Relay->>App: 10. AUTH Challenge (NIP-42)
+    App->>App: 11. Sign Challenge (Kind 22242)
+    App->>Relay: 12. Send Signed Event
+    Relay->>App: 13. OK - Authenticated
 
-    App->>User: 12. Show Dashboard
+    App->>User: 14. Show Dashboard
 
     Note over User,Relay: Keys never leave the device
-    Note over Store: Private key encrypted with PIN
+    Note over Store: Private key encrypted with AES-256-GCM
 ```
 
 ### Channel Messaging Flow
@@ -731,7 +733,7 @@ Nostr-BBS-nostr/
 │   │   │   ├── forum/       # Forum-style features
 │   │   │   └── ui/          # Reusable UI components
 │   │   ├── nostr/           # Nostr protocol implementation
-│   │   │   ├── keys.ts      # BIP-39 key generation
+│   │   │   ├── keys.ts      # Nsec key generation
 │   │   │   ├── encryption.ts # NIP-44 encryption
 │   │   │   ├── dm.ts        # NIP-17/59 DM functions
 │   │   │   ├── channels.ts  # NIP-28 channels
@@ -1024,10 +1026,10 @@ npm test -- --watch
 ## Security Considerations
 
 ### Key Management
-- Private keys stored encrypted in localStorage
-- BIP-39 mnemonic backup for key recovery
+- Private keys stored encrypted in localStorage (AES-256-GCM)
+- Nsec key backup with copy/download options
 - Keys never transmitted to server or relay
-- Optional PIN/passphrase protection
+- Session-based encryption with automatic key derivation
 
 ### Message Privacy
 - NIP-44 encryption for all DMs
@@ -1168,6 +1170,7 @@ await sendChannelMessage(channelId, 'Hello channel!');
 - [SQL Injection Fix](docs/security/security-fix-sql-injection.md) - Database security hardening
 
 ### Feature Documentation
+- [Authentication](docs/features/authentication.md) - Nsec-based key management and read-only mode
 - [Direct Messages](docs/features/dm-implementation.md) - NIP-17/59 encrypted messaging
 - [Message Threading](docs/features/threading-implementation.md) - Threaded conversations
 - [Reactions](docs/features/nip-25-reactions-implementation.md) - NIP-25 emoji reactions

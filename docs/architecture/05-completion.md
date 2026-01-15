@@ -80,8 +80,8 @@ flowchart TB
 
 | Feature | Priority | Acceptance Criteria | Status |
 |---------|----------|---------------------|--------|
-| BIP-39 Key Generation | P0 | 12-word mnemonic generates valid keypair | [ ] |
-| Mnemonic Copy-to-Clipboard | P0 | One-click copy with visual feedback | [ ] |
+| Direct Key Generation | P0 | crypto.getRandomValues generates valid keypair | [ ] |
+| Nsec Copy/Download | P0 | One-click copy or download with visual feedback | [ ] |
 | localStorage Persistence | P0 | Keys survive browser restart | [ ] |
 | Cohort Channel Listing | P0 | Business/Moomaa segregation correct | [ ] |
 | Request-to-Join Flow | P0 | Request queued, admin notified | [ ] |
@@ -341,10 +341,10 @@ sequenceDiagram
 
 ### Onboarding
 - [ ] Fresh browser: Homepage loads in <3s
-- [ ] "Create Account" generates 12-word mnemonic
-- [ ] Copy button copies mnemonic to clipboard
+- [ ] "Create Account" generates nsec (bech32 private key)
+- [ ] Copy/Download button backs up nsec securely
 - [ ] Closing/reopening browser preserves identity
-- [ ] "Create New Account" generates different mnemonic
+- [ ] "Create New Account" generates different nsec
 
 ### Channel Discovery
 - [ ] Moomaa-tribe user sees only moomaa channels
@@ -745,7 +745,7 @@ chat.Nostr-BBS.example {
 - [ ] Cloudflare/DNS access (if used)
 - [ ] S3 backup bucket credentials
 - [ ] Monitoring dashboard access
-- [ ] Admin Nostr private key (mnemonic)
+- [ ] Admin Nostr private key (nsec)
 ```
 
 ### 10.3 Final Acceptance Criteria

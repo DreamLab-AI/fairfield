@@ -1,290 +1,251 @@
 /**
  * Unit Tests: Key Generation and Management
  *
- * Tests for NIP-06 key derivation, BIP-39 mnemonic generation,
- * and key pair management according to SPARC specification.
+ * Tests for secp256k1 key generation, encoding, and restoration
+ * for the simplified Nostr authentication system.
  */
 
 import { describe, it, expect } from 'vitest';
-import * as bip39 from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english';
-import { HDKey } from '@scure/bip32';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { TEST_VECTORS, isValidSecp256k1PrivateKey, isValidSecp256k1PublicKey } from '../setup';
-
-/**
- * NIP-06 derivation path for Nostr keys
- */
-const NIP06_PATH = "m/44'/1237'/0'/0/0";
-
-/**
- * Key pair interface matching specification
- */
-interface KeyPair {
-  mnemonic: string;
-  privateKey: string;  // hex
-  publicKey: string;   // hex (x-only, no prefix)
-}
-
-/**
- * Generate new identity with mnemonic
- */
-function generateNewIdentity(): KeyPair {
-  // 1. Generate 12-word mnemonic (128 bits entropy)
-  const mnemonic = bip39.generateMnemonic(wordlist, 128);
-
-  // 2. Derive seed from mnemonic (no passphrase)
-  const seed = bip39.mnemonicToSeedSync(mnemonic, '');
-
-  // 3. Derive HD key at NIP-06 path
-  const hdKey = HDKey.fromMasterSeed(seed);
-  const derived = hdKey.derive(NIP06_PATH);
-
-  if (!derived.privateKey) {
-    throw new Error('Failed to derive private key');
-  }
-
-  // 4. Extract keys - Nostr uses x-only pubkeys (32 bytes, no prefix)
-  const privateKey = bytesToHex(derived.privateKey);
-  const publicKey = bytesToHex(derived.publicKey!.slice(1)); // Remove 0x02/0x03 prefix byte
-
-  return { mnemonic, privateKey, publicKey };
-}
-
-/**
- * Restore keys from existing mnemonic
- */
-function restoreFromMnemonic(mnemonic: string): Omit<KeyPair, 'mnemonic'> {
-  const seed = bip39.mnemonicToSeedSync(mnemonic, '');
-  const hdKey = HDKey.fromMasterSeed(seed);
-  const derived = hdKey.derive(NIP06_PATH);
-
-  if (!derived.privateKey || !derived.publicKey) {
-    throw new Error('Failed to derive keys from mnemonic');
-  }
-
-  return {
-    privateKey: bytesToHex(derived.privateKey),
-    publicKey: bytesToHex(derived.publicKey.slice(1))
-  };
-}
+import { getPublicKey } from 'nostr-tools';
+import { isValidSecp256k1PrivateKey, isValidSecp256k1PublicKey } from '../setup';
+import {
+  generateKeyPair,
+  encodePubkey,
+  encodePrivkey,
+  restoreFromNsecOrHex
+} from '../../src/lib/nostr/keys';
 
 /**
  * Test Suite: Key Generation
  */
 describe('Key Generation', () => {
-  describe('generateNewIdentity()', () => {
-    it('should generate valid 12-word mnemonic', () => {
-      const identity = generateNewIdentity();
-
-      const words = identity.mnemonic.split(' ');
-      expect(words).toHaveLength(12);
-
-      // All words should be from BIP-39 wordlist
-      words.forEach(word => {
-        expect(wordlist).toContain(word);
-      });
-    });
-
+  describe('generateKeyPair()', () => {
     it('should produce valid secp256k1 private key (64 hex chars)', () => {
-      const identity = generateNewIdentity();
+      const keys = generateKeyPair();
 
-      expect(identity.privateKey).toMatch(/^[0-9a-f]{64}$/);
-      expect(isValidSecp256k1PrivateKey(identity.privateKey)).toBe(true);
+      expect(keys.privateKey).toMatch(/^[0-9a-f]{64}$/);
+      expect(isValidSecp256k1PrivateKey(keys.privateKey)).toBe(true);
     });
 
     it('should produce valid secp256k1 public key (64 hex chars, x-only)', () => {
-      const identity = generateNewIdentity();
+      const keys = generateKeyPair();
 
       // Nostr uses x-only pubkeys (32 bytes = 64 hex chars)
-      expect(identity.publicKey).toMatch(/^[0-9a-f]{64}$/);
-      expect(isValidSecp256k1PublicKey(identity.publicKey)).toBe(true);
-    });
-
-    it('should generate unique mnemonics on each call', () => {
-      const identity1 = generateNewIdentity();
-      const identity2 = generateNewIdentity();
-
-      expect(identity1.mnemonic).not.toBe(identity2.mnemonic);
-      expect(identity1.privateKey).not.toBe(identity2.privateKey);
-      expect(identity1.publicKey).not.toBe(identity2.publicKey);
-    });
-
-    it('should generate valid mnemonic according to BIP-39', () => {
-      const identity = generateNewIdentity();
-
-      expect(bip39.validateMnemonic(identity.mnemonic, wordlist)).toBe(true);
-    });
-
-    it('should derive keys following NIP-06 path', () => {
-      const identity = generateNewIdentity();
-
-      // Verify derivation by re-deriving from mnemonic
-      const restored = restoreFromMnemonic(identity.mnemonic);
-
-      expect(restored.privateKey).toBe(identity.privateKey);
-      expect(restored.publicKey).toBe(identity.publicKey);
-    });
-  });
-
-  describe('restoreFromMnemonic()', () => {
-    it('should be deterministic - same mnemonic produces same keys', () => {
-      const mnemonic = TEST_VECTORS.MNEMONIC;
-
-      const keys1 = restoreFromMnemonic(mnemonic);
-      const keys2 = restoreFromMnemonic(mnemonic);
-
-      expect(keys1.privateKey).toBe(keys2.privateKey);
-      expect(keys1.publicKey).toBe(keys2.publicKey);
-    });
-
-    it('should restore keys from known test vector', () => {
-      // BIP-39 test vector: "abandon" x11 + "about"
-      const mnemonic = TEST_VECTORS.MNEMONIC;
-
-      const keys = restoreFromMnemonic(mnemonic);
-
-      // Keys should be deterministic and valid
-      expect(isValidSecp256k1PrivateKey(keys.privateKey)).toBe(true);
-      expect(isValidSecp256k1PublicKey(keys.publicKey)).toBe(true);
-
-      // Verify same result on re-derivation
-      const keys2 = restoreFromMnemonic(mnemonic);
-      expect(keys.privateKey).toBe(keys2.privateKey);
-      expect(keys.publicKey).toBe(keys2.publicKey);
-    });
-
-    it('should produce valid secp256k1 keys', () => {
-      const mnemonic = bip39.generateMnemonic(wordlist, 128);
-      const keys = restoreFromMnemonic(mnemonic);
-
-      expect(keys.privateKey).toHaveLength(64);
-      expect(keys.publicKey).toHaveLength(64);
-      expect(isValidSecp256k1PrivateKey(keys.privateKey)).toBe(true);
+      expect(keys.publicKey).toMatch(/^[0-9a-f]{64}$/);
       expect(isValidSecp256k1PublicKey(keys.publicKey)).toBe(true);
     });
 
-    it('should handle different valid mnemonics', () => {
-      const mnemonic1 = TEST_VECTORS.MNEMONIC;
-      const mnemonic2 = TEST_VECTORS.MNEMONIC_2;
+    it('should generate unique key pairs on each call', () => {
+      const keys1 = generateKeyPair();
+      const keys2 = generateKeyPair();
 
-      const keys1 = restoreFromMnemonic(mnemonic1);
-      const keys2 = restoreFromMnemonic(mnemonic2);
-
-      // Different mnemonics should produce different keys
       expect(keys1.privateKey).not.toBe(keys2.privateKey);
       expect(keys1.publicKey).not.toBe(keys2.publicKey);
     });
-  });
 
-  describe('Invalid Mnemonic Handling', () => {
-    it('should reject invalid word count', () => {
-      const invalidMnemonic = 'abandon abandon abandon'; // Only 3 words
+    it('should derive public key correctly from private key', () => {
+      const keys = generateKeyPair();
 
-      expect(() => restoreFromMnemonic(invalidMnemonic)).toThrow();
+      // Re-derive public key from private key and verify match
+      const derivedPubkey = getPublicKey(hexToBytes(keys.privateKey));
+      expect(derivedPubkey).toBe(keys.publicKey);
     });
 
-    it('should reject invalid BIP-39 checksum', () => {
-      // Valid structure but wrong checksum
-      const invalidMnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon';
+    it('should generate cryptographically random keys', () => {
+      // Generate multiple keys and verify they're all unique
+      const privateKeys = new Set<string>();
+      const count = 50;
 
-      expect(bip39.validateMnemonic(invalidMnemonic, wordlist)).toBe(false);
-    });
+      for (let i = 0; i < count; i++) {
+        const keys = generateKeyPair();
+        privateKeys.add(keys.privateKey);
+      }
 
-    it('should reject words not in BIP-39 wordlist', () => {
-      const invalidMnemonic = 'notaword test invalid mnemonic phrase with twelve words total here okay';
-
-      expect(bip39.validateMnemonic(invalidMnemonic, wordlist)).toBe(false);
-    });
-
-    it('should reject empty mnemonic', () => {
-      expect(() => restoreFromMnemonic('')).toThrow();
+      // All should be unique
+      expect(privateKeys.size).toBe(count);
     });
   });
 
-  describe('NIP-06 Derivation Path', () => {
-    it('should use correct derivation path m/44\'/1237\'/0\'/0/0', () => {
-      const mnemonic = TEST_VECTORS.MNEMONIC;
-      const seed = bip39.mnemonicToSeedSync(mnemonic, '');
-      const hdKey = HDKey.fromMasterSeed(seed);
+  describe('encodePubkey()', () => {
+    it('should encode hex public key to npub format', () => {
+      const keys = generateKeyPair();
+      const npub = encodePubkey(keys.publicKey);
 
-      // Derive at NIP-06 path
-      const derived = hdKey.derive(NIP06_PATH);
-
-      expect(derived.privateKey).toBeDefined();
-      expect(derived.publicKey).toBeDefined();
-
-      // Verify it matches restoreFromMnemonic
-      const restored = restoreFromMnemonic(mnemonic);
-      expect(bytesToHex(derived.privateKey!)).toBe(restored.privateKey);
-      expect(bytesToHex(derived.publicKey!.slice(1))).toBe(restored.publicKey);
+      expect(npub).toMatch(/^npub1[a-z0-9]{58}$/);
     });
 
-    it('should produce different keys for different derivation indices', () => {
-      const mnemonic = TEST_VECTORS.MNEMONIC;
-      const seed = bip39.mnemonicToSeedSync(mnemonic, '');
-      const hdKey = HDKey.fromMasterSeed(seed);
+    it('should produce consistent encoding', () => {
+      const keys = generateKeyPair();
+      const npub1 = encodePubkey(keys.publicKey);
+      const npub2 = encodePubkey(keys.publicKey);
 
-      // Derive at index 0 (standard)
-      const key0 = hdKey.derive("m/44'/1237'/0'/0/0");
-      // Derive at index 1 (alternative account)
-      const key1 = hdKey.derive("m/44'/1237'/0'/0/1");
+      expect(npub1).toBe(npub2);
+    });
 
-      expect(bytesToHex(key0.privateKey!)).not.toBe(bytesToHex(key1.privateKey!));
-      expect(bytesToHex(key0.publicKey!)).not.toBe(bytesToHex(key1.publicKey!));
+    it('should encode known test vector correctly', () => {
+      // Known hex pubkey
+      const hexPubkey = '7e7e9c42a91bfef19fa929e5fda1b72e0ebc1a4c1141673e2794234d86addf4e';
+      const npub = encodePubkey(hexPubkey);
+
+      expect(npub.startsWith('npub1')).toBe(true);
+      expect(npub.length).toBe(63);
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle mnemonic with extra whitespace', () => {
-      const mnemonic = TEST_VECTORS.MNEMONIC;
-      const mnemonicWithSpaces = `  ${mnemonic.split(' ').join('   ')}  `;
+  describe('encodePrivkey()', () => {
+    it('should encode hex private key to nsec format', () => {
+      const keys = generateKeyPair();
+      const nsec = encodePrivkey(keys.privateKey);
 
-      // Should normalize whitespace
-      const normalized = mnemonicWithSpaces.trim().replace(/\s+/g, ' ');
-      const keys = restoreFromMnemonic(normalized);
-
-      expect(isValidSecp256k1PrivateKey(keys.privateKey)).toBe(true);
+      expect(nsec).toMatch(/^nsec1[a-z0-9]{58}$/);
     });
 
-    it('should handle 128-bit entropy mnemonics (12 words)', () => {
-      const mnemonic = bip39.generateMnemonic(wordlist, 128);
-      expect(mnemonic.split(' ')).toHaveLength(12);
+    it('should produce consistent encoding', () => {
+      const keys = generateKeyPair();
+      const nsec1 = encodePrivkey(keys.privateKey);
+      const nsec2 = encodePrivkey(keys.privateKey);
 
-      const keys = restoreFromMnemonic(mnemonic);
-      expect(isValidSecp256k1PrivateKey(keys.privateKey)).toBe(true);
+      expect(nsec1).toBe(nsec2);
+    });
+  });
+
+  describe('restoreFromNsecOrHex()', () => {
+    it('should restore from hex private key', () => {
+      const original = generateKeyPair();
+      const restored = restoreFromNsecOrHex(original.privateKey);
+
+      expect(restored.privateKey).toBe(original.privateKey);
+      expect(restored.publicKey).toBe(original.publicKey);
     });
 
-    it('should handle 256-bit entropy mnemonics (24 words)', () => {
-      const mnemonic = bip39.generateMnemonic(wordlist, 256);
-      expect(mnemonic.split(' ')).toHaveLength(24);
+    it('should restore from nsec bech32 format', () => {
+      const original = generateKeyPair();
+      const nsec = encodePrivkey(original.privateKey);
+      const restored = restoreFromNsecOrHex(nsec);
 
-      const keys = restoreFromMnemonic(mnemonic);
+      expect(restored.privateKey).toBe(original.privateKey);
+      expect(restored.publicKey).toBe(original.publicKey);
+    });
+
+    it('should handle hex with leading/trailing whitespace', () => {
+      const original = generateKeyPair();
+      const restored = restoreFromNsecOrHex(`  ${original.privateKey}  `);
+
+      expect(restored.privateKey).toBe(original.privateKey);
+      expect(restored.publicKey).toBe(original.publicKey);
+    });
+
+    it('should handle nsec with leading/trailing whitespace', () => {
+      const original = generateKeyPair();
+      const nsec = encodePrivkey(original.privateKey);
+      const restored = restoreFromNsecOrHex(`  ${nsec}  `);
+
+      expect(restored.privateKey).toBe(original.privateKey);
+      expect(restored.publicKey).toBe(original.publicKey);
+    });
+
+    it('should normalize hex to lowercase', () => {
+      const original = generateKeyPair();
+      const upperHex = original.privateKey.toUpperCase();
+      const restored = restoreFromNsecOrHex(upperHex);
+
+      expect(restored.privateKey).toBe(original.privateKey.toLowerCase());
+    });
+
+    it('should throw on invalid hex length', () => {
+      expect(() => restoreFromNsecOrHex('abc123')).toThrow('Invalid private key');
+      expect(() => restoreFromNsecOrHex('a'.repeat(63))).toThrow('Invalid private key');
+      expect(() => restoreFromNsecOrHex('a'.repeat(65))).toThrow('Invalid private key');
+    });
+
+    it('should throw on invalid hex characters', () => {
+      expect(() => restoreFromNsecOrHex('z'.repeat(64))).toThrow('Invalid private key');
+      expect(() => restoreFromNsecOrHex('g'.repeat(64))).toThrow('Invalid private key');
+    });
+
+    it('should throw on invalid nsec format', () => {
+      expect(() => restoreFromNsecOrHex('nsec1invalid')).toThrow();
+    });
+
+    it('should throw on empty input', () => {
+      expect(() => restoreFromNsecOrHex('')).toThrow();
+      expect(() => restoreFromNsecOrHex('   ')).toThrow();
+    });
+
+    it('should throw on npub input (wrong type)', () => {
+      const keys = generateKeyPair();
+      const npub = encodePubkey(keys.publicKey);
+
+      // Should not accept npub as private key
+      expect(() => restoreFromNsecOrHex(npub)).toThrow();
+    });
+  });
+
+  describe('Round-trip encoding', () => {
+    it('should preserve keys through hex -> nsec -> hex round-trip', () => {
+      const original = generateKeyPair();
+      const nsec = encodePrivkey(original.privateKey);
+      const restored = restoreFromNsecOrHex(nsec);
+
+      expect(restored.privateKey).toBe(original.privateKey);
+      expect(restored.publicKey).toBe(original.publicKey);
+    });
+
+    it('should handle multiple round-trips', () => {
+      let keys = generateKeyPair();
+
+      for (let i = 0; i < 10; i++) {
+        const nsec = encodePrivkey(keys.privateKey);
+        keys = restoreFromNsecOrHex(nsec);
+      }
+
+      // Verify keys are still valid
       expect(isValidSecp256k1PrivateKey(keys.privateKey)).toBe(true);
+      expect(isValidSecp256k1PublicKey(keys.publicKey)).toBe(true);
     });
   });
 
   describe('Security Properties', () => {
-    it('should generate high-entropy mnemonics', () => {
-      // Generate multiple mnemonics and verify they're unique
-      const mnemonics = new Set();
+    it('should generate high-entropy keys', () => {
+      // Generate multiple keys and verify uniqueness
+      const keys = new Set<string>();
       const count = 100;
 
       for (let i = 0; i < count; i++) {
-        const identity = generateNewIdentity();
-        mnemonics.add(identity.mnemonic);
+        const keyPair = generateKeyPair();
+        keys.add(keyPair.privateKey);
       }
 
       // All should be unique
-      expect(mnemonics.size).toBe(count);
+      expect(keys.size).toBe(count);
     });
 
     it('should not expose private key in any form except hex', () => {
-      const identity = generateNewIdentity();
+      const keys = generateKeyPair();
 
       // Private key should only be the hex string
-      expect(typeof identity.privateKey).toBe('string');
-      expect(identity.privateKey).toMatch(/^[0-9a-f]{64}$/);
+      expect(typeof keys.privateKey).toBe('string');
+      expect(keys.privateKey).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('public key should be derivable from private key only', () => {
+      const keys = generateKeyPair();
+
+      // Verify the public key is the correct derivation
+      const derivedPubkey = getPublicKey(hexToBytes(keys.privateKey));
+      expect(keys.publicKey).toBe(derivedPubkey);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle keys with leading zeros', () => {
+      // Generate many keys - some should have leading zeros
+      for (let i = 0; i < 100; i++) {
+        const keys = generateKeyPair();
+        expect(keys.privateKey.length).toBe(64);
+        expect(keys.publicKey.length).toBe(64);
+      }
     });
   });
 });

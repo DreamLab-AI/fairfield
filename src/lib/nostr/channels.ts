@@ -5,7 +5,7 @@
 import { NDKEvent, type NDKFilter } from '@nostr-dev-kit/ndk';
 import { ndk, connectNDK, hasSigner } from './ndk';
 import { browser } from '$app/environment';
-import type { ChannelSection } from '$lib/types/channel';
+import type { ChannelSection, ChannelAccessType } from '$lib/types/channel';
 import { validateContent, validateChannelName } from '$lib/utils/validation';
 import { checkRateLimit, RateLimitError } from '$lib/utils/rateLimit';
 
@@ -29,6 +29,7 @@ export interface ChannelCreateOptions {
 	name: string;
 	description?: string;
 	visibility?: 'public' | 'cohort' | 'private';
+	accessType?: ChannelAccessType;  // open = anyone can post, gated = members only
 	cohorts?: string[];
 	encrypted?: boolean;
 	section?: ChannelSection;
@@ -39,6 +40,7 @@ export interface CreatedChannel {
 	name: string;
 	description?: string;
 	visibility: 'public' | 'cohort' | 'private';
+	accessType: ChannelAccessType;  // open = anyone can post, gated = members only
 	cohorts: string[];
 	encrypted: boolean;
 	section: ChannelSection;
@@ -104,6 +106,10 @@ export async function createChannel(options: ChannelCreateOptions): Promise<Crea
 	const section = options.section || 'public-lobby';
 	event.tags.push(['section', section]);
 
+	// Add access type tag (default to gated for safety)
+	const accessType = options.accessType || 'gated';
+	event.tags.push(['access-type', accessType]);
+
 	// Sign and publish
 	await event.sign();
 	await event.publish();
@@ -113,6 +119,7 @@ export async function createChannel(options: ChannelCreateOptions): Promise<Crea
 		name: options.name,
 		description: options.description,
 		visibility: options.visibility || 'public',
+		accessType: accessType,
 		cohorts: options.cohorts || [],
 		encrypted: options.encrypted || false,
 		section: section,
@@ -217,6 +224,7 @@ export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
 		try {
 			const metadata = JSON.parse(event.content) as ChannelMetadata;
 			const visibilityTag = event.tags.find(t => t[0] === 'visibility');
+			const accessTypeTag = event.tags.find(t => t[0] === 'access-type');
 			const cohortTag = event.tags.find(t => t[0] === 'cohort');
 			const encryptedTag = event.tags.find(t => t[0] === 'encrypted');
 			const sectionTag = event.tags.find(t => t[0] === 'section');
@@ -226,6 +234,7 @@ export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
 				name: metadata.name || 'Unnamed Channel',
 				description: metadata.about,
 				visibility: (visibilityTag?.[1] as any) || 'public',
+				accessType: (accessTypeTag?.[1] as ChannelAccessType) || 'gated',
 				cohorts: cohortTag?.[1]?.split(',').filter(Boolean) || [],
 				encrypted: encryptedTag?.[1] === 'true',
 				section: (sectionTag?.[1] as ChannelSection) || 'public-lobby',

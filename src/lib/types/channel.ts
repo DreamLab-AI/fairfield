@@ -9,6 +9,7 @@
 import type {
 	SectionId,
 	ChannelVisibility as ChannelVisibilityType,
+	ChannelAccessType as ChannelAccessTypeValue,
 	CalendarAccessLevel as CalendarAccessLevelType,
 	SectionConfig as SectionConfigType
 } from '$lib/config';
@@ -16,6 +17,7 @@ import type {
 // Re-export config-driven types with backward-compatible names
 export type ChannelSection = SectionId;
 export type ChannelVisibility = ChannelVisibilityType;
+export type ChannelAccessType = ChannelAccessTypeValue;
 export type CalendarAccessLevel = CalendarAccessLevelType;
 export type SectionConfig = SectionConfigType;
 
@@ -61,6 +63,7 @@ export interface Channel {
 	cohortTags: string[];
 	section: ChannelSection;
 	visibility: ChannelVisibility;
+	accessType: ChannelAccessType;
 	isEncrypted: boolean;
 	encryptionKey?: string;
 }

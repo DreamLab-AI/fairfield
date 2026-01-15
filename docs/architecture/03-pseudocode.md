@@ -62,45 +62,72 @@ sequenceDiagram
 ```typescript
 // lib/nostr/keys.ts
 
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39'
-import { HDKey } from '@scure/bip32'
-import { bytesToHex } from '@noble/hashes/utils'
-
-const NIP06_PATH = "m/44'/1237'/0'/0/0"
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
+import { schnorr } from '@noble/curves/secp256k1'
+import { bech32 } from 'bech32'
 
 interface KeyPair {
-  mnemonic: string
   privateKey: string  // hex
   publicKey: string   // hex
+  nsec: string        // bech32 encoded (NIP-19)
+  npub: string        // bech32 encoded (NIP-19)
 }
 
 function generateNewIdentity(): KeyPair {
-  // 1. Generate 12-word mnemonic (128 bits entropy)
-  const mnemonic = generateMnemonic(128)
+  // 1. Generate 32 random bytes (256 bits entropy)
+  const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32))
+  const privateKey = bytesToHex(privateKeyBytes)
 
-  // 2. Derive seed from mnemonic (no passphrase)
-  const seed = mnemonicToSeedSync(mnemonic, '')
+  // 2. Derive public key using secp256k1 schnorr
+  const publicKeyBytes = schnorr.getPublicKey(privateKeyBytes)
+  const publicKey = bytesToHex(publicKeyBytes)
 
-  // 3. Derive HD key at NIP-06 path
-  const hdKey = HDKey.fromMasterSeed(seed)
-  const derived = hdKey.derive(NIP06_PATH)
+  // 3. Encode to NIP-19 bech32 format
+  const nsec = nsecEncode(privateKeyBytes)
+  const npub = npubEncode(publicKeyBytes)
 
-  // 4. Extract keys
-  const privateKey = bytesToHex(derived.privateKey!)
-  const publicKey = bytesToHex(derived.publicKey!.slice(1)) // Remove prefix byte
-
-  return { mnemonic, privateKey, publicKey }
+  return { privateKey, publicKey, nsec, npub }
 }
 
-function restoreFromMnemonic(mnemonic: string): Omit<KeyPair, 'mnemonic'> {
-  const seed = mnemonicToSeedSync(mnemonic, '')
-  const hdKey = HDKey.fromMasterSeed(seed)
-  const derived = hdKey.derive(NIP06_PATH)
+function restoreFromNsec(nsec: string): KeyPair {
+  // 1. Decode bech32 nsec to bytes
+  const privateKeyBytes = nsecDecode(nsec)
+  const privateKey = bytesToHex(privateKeyBytes)
+
+  // 2. Derive public key
+  const publicKeyBytes = schnorr.getPublicKey(privateKeyBytes)
+  const publicKey = bytesToHex(publicKeyBytes)
+  const npub = npubEncode(publicKeyBytes)
+
+  return { privateKey, publicKey, nsec, npub }
+}
+
+function restoreFromHex(privateKeyHex: string): KeyPair {
+  const privateKeyBytes = hexToBytes(privateKeyHex)
+  const publicKeyBytes = schnorr.getPublicKey(privateKeyBytes)
 
   return {
-    privateKey: bytesToHex(derived.privateKey!),
-    publicKey: bytesToHex(derived.publicKey!.slice(1))
+    privateKey: privateKeyHex,
+    publicKey: bytesToHex(publicKeyBytes),
+    nsec: nsecEncode(privateKeyBytes),
+    npub: npubEncode(publicKeyBytes)
   }
+}
+
+// NIP-19 encoding helpers
+function nsecEncode(bytes: Uint8Array): string {
+  const words = bech32.toWords(bytes)
+  return bech32.encode('nsec', words, 1000)
+}
+
+function nsecDecode(nsec: string): Uint8Array {
+  const { words } = bech32.decode(nsec, 1000)
+  return new Uint8Array(bech32.fromWords(words))
+}
+
+function npubEncode(bytes: Uint8Array): string {
+  const words = bech32.toWords(bytes)
+  return bech32.encode('npub', words, 1000)
 }
 ```
 

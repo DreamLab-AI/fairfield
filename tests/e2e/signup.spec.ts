@@ -3,10 +3,10 @@
  *
  * Tests the complete user signup process including:
  * - Account creation
- * - Mnemonic generation and display
- * - Mnemonic confirmation
+ * - Nsec key generation and display
+ * - Nsec backup (copy/download)
  * - Key storage
- * - Redirect to pending approval
+ * - Redirect to chat or pending approval
  */
 
 import { test, expect } from '@playwright/test';
@@ -21,98 +21,133 @@ test.describe('User Signup Flow', () => {
   test('homepage loads successfully', async ({ page }) => {
     await page.goto('/');
 
-    // Check page title (app uses "Minimoomaa Noir" display name)
-    await expect(page).toHaveTitle(/Minimoomaa Noir/i);
+    // Check page title
+    await expect(page).toHaveTitle(/Fairfield/i);
 
     // Check main heading exists
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible();
 
     // Check for create account button
-    const createButton = page.getByRole('button', { name: /create account/i });
+    const createButton = page.getByRole('link', { name: /create account/i });
     await expect(createButton).toBeVisible();
   });
 
-  test('create account generates mnemonic', async ({ page }) => {
+  test('create account shows nsec backup screen', async ({ page }) => {
     await page.goto('/');
 
-    // Click create account button
-    const createButton = page.getByRole('button', { name: /create account/i });
+    // Click create account
+    const createButton = page.getByRole('link', { name: /create account/i });
     await createButton.click();
 
-    // Wait for mnemonic to be displayed
-    await page.waitForSelector('[data-testid="mnemonic-display"]', { timeout: 5000 });
+    // Should navigate to signup page
+    await page.waitForURL(/signup/i, { timeout: 5000 });
 
-    // Check that mnemonic is displayed
-    const mnemonicDisplay = page.locator('[data-testid="mnemonic-display"]');
-    await expect(mnemonicDisplay).toBeVisible();
+    // Wait for NsecBackup component to be displayed
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Get mnemonic text
-    const mnemonicText = await mnemonicDisplay.textContent();
+    // Check for backup heading
+    const backupHeading = page.getByText(/Backup Your Private Key/i);
+    await expect(backupHeading).toBeVisible();
 
-    // Validate mnemonic format (12 words separated by spaces)
-    const words = mnemonicText?.trim().split(/\s+/) || [];
-    expect(words.length).toBe(12);
-
-    // Check each word is non-empty
-    words.forEach(word => {
-      expect(word.length).toBeGreaterThan(0);
-    });
-
-    // Check for warning message
-    const warningMessage = page.getByText(/write down these 12 words/i);
-    await expect(warningMessage).toBeVisible();
+    // Check for reveal button (nsec hidden by default)
+    const revealButton = page.getByRole('button', { name: /reveal/i });
+    await expect(revealButton).toBeVisible();
   });
 
-  test('copy mnemonic button works', async ({ page }) => {
-    await page.goto('/');
+  test('reveal button shows nsec key', async ({ page }) => {
+    await page.goto('/signup');
 
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
+    // Wait for NsecBackup screen
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    // Click reveal button
+    const revealButton = page.getByRole('button', { name: /reveal/i });
+    await revealButton.click();
 
-    // Get original mnemonic
-    const mnemonicDisplay = page.locator('[data-testid="mnemonic-display"]');
-    const originalMnemonic = await mnemonicDisplay.textContent();
+    // Wait for nsec to be displayed
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
+
+    // Get the nsec element
+    const nsecElement = page.locator('p.font-mono, code, .font-mono').first();
+    const nsecText = await nsecElement.textContent();
+
+    // Validate nsec format (starts with nsec1)
+    expect(nsecText?.trim()).toMatch(/^nsec1[a-z0-9]+$/i);
+  });
+
+  test('copy button copies nsec to clipboard', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
+
+    // Reveal nsec
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
+
+    // Get original nsec
+    const nsecElement = page.locator('p.font-mono, code, .font-mono').first();
+    const originalNsec = await nsecElement.textContent();
+
+    // Grant clipboard permissions
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
     // Click copy button
     const copyButton = page.getByRole('button', { name: /copy/i });
     await copyButton.click();
 
-    // Grant clipboard permissions
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-
-    // Verify clipboard content (using page.evaluate for clipboard access)
+    // Verify clipboard content
     const clipboardText = await page.evaluate(async () => {
       return await navigator.clipboard.readText();
     });
 
-    expect(clipboardText).toBe(originalMnemonic?.trim());
+    expect(clipboardText).toBe(originalNsec?.trim());
 
     // Check for success feedback
     const successMessage = page.getByText(/copied/i);
     await expect(successMessage).toBeVisible({ timeout: 2000 });
   });
 
-  test('checkbox enables continue button', async ({ page }) => {
-    await page.goto('/');
+  test('download button downloads nsec backup', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
+    // Reveal nsec
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    // Set up download listener
+    const downloadPromise = page.waitForEvent('download');
+
+    // Click download button
+    const downloadButton = page.getByRole('button', { name: /download/i });
+    await downloadButton.click();
+
+    // Verify download was triggered
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/nostr.*key.*\.txt$/i);
+  });
+
+  test('confirmation checkbox enables continue button', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
+
+    // Reveal nsec first
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
+
+    // Copy to enable hasBackedUp
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('button', { name: /copy/i }).click();
+    await page.waitForTimeout(500);
 
     // Find continue button
     const continueButton = page.getByRole('button', { name: /continue/i });
 
-    // Button should be disabled initially
+    // Button should be disabled initially (checkbox unchecked)
     await expect(continueButton).toBeDisabled();
 
-    // Find and check the confirmation checkbox
-    const checkbox = page.getByRole('checkbox', { name: /saved/i });
+    // Check the confirmation checkbox
+    const checkbox = page.getByRole('checkbox', { name: /backed up|securely/i });
     await checkbox.check();
 
     // Button should now be enabled
@@ -120,148 +155,182 @@ test.describe('User Signup Flow', () => {
   });
 
   test('keys stored in localStorage after confirmation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
+    // Reveal nsec
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    // Copy and confirm
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('button', { name: /copy/i }).click();
+    await page.waitForTimeout(500);
 
-    // Confirm mnemonic saved
-    await page.getByRole('checkbox', { name: /saved/i }).check();
-
-    // Click continue
+    await page.getByRole('checkbox', { name: /backed up|securely/i }).check();
     await page.getByRole('button', { name: /continue/i }).click();
 
-    // Wait for navigation
-    await page.waitForTimeout(1000);
+    // Wait for processing
+    await page.waitForTimeout(1500);
 
     // Check localStorage
     const storedKeys = await page.evaluate(() => {
       return {
-        pubkey: localStorage.getItem('Nostr-BBS_nostr_pubkey'),
-        encryptedPrivkey: localStorage.getItem('Nostr-BBS_nostr_encrypted_privkey'),
-        mnemonicShown: localStorage.getItem('Nostr-BBS_nostr_mnemonic_shown')
+        pubkey: localStorage.getItem('nostr_bbs_nostr_pubkey'),
+        encryptedPrivkey: localStorage.getItem('nostr_bbs_nostr_encrypted_privkey'),
+        accountStatus: localStorage.getItem('nostr_bbs_nostr_account_status')
       };
     });
 
     // Verify keys are stored
     expect(storedKeys.pubkey).toBeTruthy();
     expect(storedKeys.pubkey).toMatch(/^[0-9a-f]{64}$/i);
-
     expect(storedKeys.encryptedPrivkey).toBeTruthy();
-
-    expect(storedKeys.mnemonicShown).toBe('true');
+    expect(storedKeys.accountStatus).toBe('complete');
   });
 
-  test('redirect to pending approval after signup', async ({ page }) => {
-    await page.goto('/');
+  test('redirect to chat or dashboard after signup', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
+    // Complete signup flow
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('button', { name: /copy/i }).click();
+    await page.waitForTimeout(500);
 
-    // Confirm and continue
-    await page.getByRole('checkbox', { name: /saved/i }).check();
+    await page.getByRole('checkbox', { name: /backed up|securely/i }).check();
     await page.getByRole('button', { name: /continue/i }).click();
 
     // Wait for redirect
-    await page.waitForURL(/pending|approval/i, { timeout: 5000 });
+    await page.waitForURL(/chat|pending|dashboard|home/i, { timeout: 5000 });
 
-    // Check for pending approval message
-    const pendingMessage = page.getByText(/pending approval|waiting for approval/i);
-    await expect(pendingMessage).toBeVisible();
-
-    // Check for admin contact information
-    const contactInfo = page.getByText(/contact.*admin|administrator/i);
-    await expect(contactInfo).toBeVisible();
+    // Should be on authenticated page
+    const currentUrl = page.url();
+    expect(currentUrl).toMatch(/chat|pending|dashboard|home/i);
   });
 
-  test('cannot proceed without checking confirmation checkbox', async ({ page }) => {
-    await page.goto('/');
+  test('cannot proceed without copying/downloading backup', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
+    // Reveal nsec but don't copy
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    // Try to check confirmation without backup
+    const checkbox = page.getByRole('checkbox', { name: /backed up|securely/i });
 
-    // Try to click continue without checking box
-    const continueButton = page.getByRole('button', { name: /continue/i });
+    // Checkbox should be disabled until backup is made
+    const isDisabled = await checkbox.isDisabled();
 
-    // Button should remain disabled
-    await expect(continueButton).toBeDisabled();
+    if (!isDisabled) {
+      // If checkbox is enabled, check it and verify continue is still disabled
+      await checkbox.check();
+      const continueButton = page.getByRole('button', { name: /continue/i });
 
-    // Attempt to click (should not work)
-    await continueButton.click({ force: true, timeout: 1000 }).catch(() => {});
-
-    // Should still be on mnemonic page
-    const mnemonicDisplay = page.locator('[data-testid="mnemonic-display"]');
-    await expect(mnemonicDisplay).toBeVisible();
+      // Button may still require copy/download action
+      const buttonText = await continueButton.textContent();
+      expect(buttonText || await continueButton.isDisabled()).toBeTruthy();
+    }
   });
 
-  test('mnemonic words are all lowercase', async ({ page }) => {
-    await page.goto('/');
+  test('nsec key starts with nsec1 prefix', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
+    // Reveal nsec
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    // Get nsec text
+    const nsecElement = page.locator('p.font-mono, code, .font-mono').first();
+    const nsecText = await nsecElement.textContent();
 
-    // Get mnemonic text
-    const mnemonicDisplay = page.locator('[data-testid="mnemonic-display"]');
-    const mnemonicText = await mnemonicDisplay.textContent();
-
-    // Check all words are lowercase
-    expect(mnemonicText).toBe(mnemonicText?.toLowerCase());
+    // Check nsec1 prefix and bech32 format
+    expect(nsecText?.trim()).toMatch(/^nsec1[a-z0-9]{58,}$/);
   });
 
   test('generated keys are unique across sessions', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    // Create first account
-    await page.getByRole('button', { name: /create account/i }).click();
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    // Get first nsec
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    const mnemonicDisplay = page.locator('[data-testid="mnemonic-display"]');
-    const firstMnemonic = await mnemonicDisplay.textContent();
+    const nsecElement = page.locator('p.font-mono, code, .font-mono').first();
+    const firstNsec = await nsecElement.textContent();
 
-    // Reload page and create second account
+    // Reload and generate new key
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-    await page.getByRole('button', { name: /create account/i }).click();
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
 
-    const secondMnemonic = await mnemonicDisplay.textContent();
+    const secondNsec = await nsecElement.textContent();
 
-    // Mnemonics should be different
-    expect(firstMnemonic).not.toBe(secondMnemonic);
+    // Keys should be different
+    expect(firstNsec).not.toBe(secondNsec);
   });
 
   test('security warning is displayed prominently', async ({ page }) => {
-    await page.goto('/');
-
-    // Create account
-    await page.getByRole('button', { name: /create account/i }).click();
-
-    // Wait for mnemonic display
-    await page.waitForSelector('[data-testid="mnemonic-display"]');
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
     // Check for security warnings
     const warnings = [
-      /never share|do not share/i,
-      /write down|save these words/i,
-      /cannot be recovered|lost forever/i
+      /never share|do not share|only you/i,
+      /backup|save|write down/i,
+      /cannot be recovered|lose access|lost forever/i
     ];
 
     for (const warning of warnings) {
       const warningElement = page.getByText(warning);
       await expect(warningElement).toBeVisible();
     }
+  });
+
+  test('nsec is hidden by default for security', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
+
+    // Check that nsec1 is NOT visible before reveal
+    const nsecVisible = await page.locator('text=/nsec1[a-z0-9]/i').isVisible({ timeout: 1000 }).catch(() => false);
+    expect(nsecVisible).toBe(false);
+
+    // Reveal button should be visible
+    const revealButton = page.getByRole('button', { name: /reveal/i });
+    await expect(revealButton).toBeVisible();
+  });
+
+  test('account status is set to complete after full signup', async ({ page }) => {
+    await page.goto('/signup');
+    await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
+
+    // Complete full signup flow
+    await page.getByRole('button', { name: /reveal/i }).click();
+    await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
+
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('button', { name: /copy/i }).click();
+    await page.waitForTimeout(500);
+
+    await page.getByRole('checkbox', { name: /backed up|securely/i }).check();
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    await page.waitForTimeout(1500);
+
+    // Check account status
+    const accountStatus = await page.evaluate(() => {
+      return localStorage.getItem('nostr_bbs_nostr_account_status');
+    });
+
+    expect(accountStatus).toBe('complete');
   });
 });

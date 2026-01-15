@@ -1,62 +1,44 @@
-import { generateMnemonic, mnemonicToSeed, validateMnemonic } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english';
-import { HDKey } from '@scure/bip32';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { getPublicKey } from 'nostr-tools';
+import { getPublicKey, generateSecretKey } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 
-const NIP06_PATH = "m/44'/1237'/0'/0/0";
-
 export interface KeyPair {
-  mnemonic: string;
   privateKey: string;
   publicKey: string;
 }
 
-export async function generateNewIdentity(): Promise<KeyPair> {
-  const mnemonic = generateMnemonic(wordlist, 128);
-  const seed = await mnemonicToSeed(mnemonic, '');
-  const hdKey = HDKey.fromMasterSeed(seed);
-  const derived = hdKey.derive(NIP06_PATH);
-
-  if (!derived.privateKey) {
-    throw new Error('Failed to derive private key');
-  }
-
-  const privateKey = bytesToHex(derived.privateKey);
-  const publicKey = getPublicKey(hexToBytes(privateKey));
-
-  return { mnemonic, privateKey, publicKey };
-}
-
-export async function restoreFromMnemonic(mnemonic: string): Promise<Omit<KeyPair, 'mnemonic'>> {
-  if (!validateMnemonic(mnemonic.trim(), wordlist)) {
-    throw new Error('Invalid mnemonic phrase');
-  }
-
-  const seed = await mnemonicToSeed(mnemonic.trim(), '');
-  const hdKey = HDKey.fromMasterSeed(seed);
-  const derived = hdKey.derive(NIP06_PATH);
-
-  if (!derived.privateKey) {
-    throw new Error('Failed to derive private key');
-  }
-
-  const privateKey = bytesToHex(derived.privateKey);
-  const publicKey = getPublicKey(hexToBytes(privateKey));
+/**
+ * Generate a new secp256k1 keypair for Nostr
+ * @returns KeyPair with hex-encoded privateKey and publicKey
+ */
+export function generateKeyPair(): KeyPair {
+  const secretKey = generateSecretKey();
+  const privateKey = bytesToHex(secretKey);
+  const publicKey = getPublicKey(secretKey);
 
   return { privateKey, publicKey };
 }
 
+/**
+ * Encode a hex public key to npub bech32 format
+ */
 export function encodePubkey(pubkey: string): string {
   return nip19.npubEncode(pubkey);
 }
 
+/**
+ * Encode a hex private key to nsec bech32 format
+ */
 export function encodePrivkey(privkey: string): string {
   return nip19.nsecEncode(hexToBytes(privkey));
 }
 
-export function restoreFromNsecOrHex(input: string): { privateKey: string; publicKey: string } {
+/**
+ * Restore keys from nsec bech32 or hex format
+ * @param input - nsec1... or 64-character hex string
+ * @returns KeyPair with hex-encoded keys
+ */
+export function restoreFromNsecOrHex(input: string): KeyPair {
   const trimmed = input.trim();
   let privateKey: string;
 
@@ -79,6 +61,9 @@ export function restoreFromNsecOrHex(input: string): { privateKey: string; publi
   return { privateKey, publicKey };
 }
 
+/**
+ * Save keys to localStorage
+ */
 export function saveKeysToStorage(publicKey: string, privateKey: string): void {
   if (typeof localStorage === 'undefined') return;
 
@@ -89,7 +74,10 @@ export function saveKeysToStorage(publicKey: string, privateKey: string): void {
   }));
 }
 
-export function loadKeysFromStorage(): { publicKey: string; privateKey: string } | null {
+/**
+ * Load keys from localStorage
+ */
+export function loadKeysFromStorage(): KeyPair | null {
   if (typeof localStorage === 'undefined') return null;
 
   const stored = localStorage.getItem('nostr_bbs_keys');

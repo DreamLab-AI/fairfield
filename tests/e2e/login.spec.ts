@@ -2,24 +2,30 @@
  * E2E Tests: User Login Flow
  *
  * Tests the login process including:
- * - Restore from mnemonic
- * - Invalid mnemonic handling
+ * - Login with nsec format key
+ * - Login with hex format key
+ * - Invalid key handling
  * - Successful login and redirect
  * - Key restoration
  */
 
 import { test, expect } from '@playwright/test';
+import { TEST_NSEC_KEYS, TEST_HEX_PRIVKEY } from './fixtures/test-helpers';
 
-// Valid test mnemonic (BIP-39 compliant)
-const VALID_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+// Valid test nsec
+const VALID_NSEC = TEST_NSEC_KEYS[0];
 
-// Invalid mnemonics for testing
-const INVALID_MNEMONICS = [
-  'invalid word word word word word word word word word word word',
-  'abandon abandon abandon', // Too short
-  'abandon '.repeat(24).trim(), // Wrong length
+// Valid test hex key (64 characters)
+const VALID_HEX = TEST_HEX_PRIVKEY;
+
+// Invalid keys for testing
+const INVALID_KEYS = [
+  'invalid_key_here',
+  'nsec1invalid', // Too short nsec
+  'abc123', // Random short string
   '', // Empty
-  'ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABOUT', // Uppercase
+  'NSEC1VL029MGPSPEDVA04G90VLTKH6FVH240ZQTV9K0T9AF8935KE9LAQSNLFE5', // Uppercase nsec
+  'e8f32b5a7c5e8f', // Too short hex
 ];
 
 test.describe('User Login Flow', () => {
@@ -32,39 +38,39 @@ test.describe('User Login Flow', () => {
   test('login page is accessible', async ({ page }) => {
     await page.goto('/');
 
-    // Find and click login/restore button
-    const loginButton = page.getByRole('button', { name: /login|restore|import/i });
+    // Find and click login button
+    const loginButton = page.getByRole('link', { name: /login/i });
     await expect(loginButton).toBeVisible();
 
     await loginButton.click();
 
-    // Check for mnemonic input
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await expect(mnemonicInput).toBeVisible();
+    // Check for private key input
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await expect(keyInput).toBeVisible();
   });
 
-  test('restore from valid mnemonic', async ({ page }) => {
+  test('login with valid nsec key', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter valid mnemonic
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(VALID_MNEMONIC);
+    // Enter valid nsec
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(VALID_NSEC);
 
     // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
     // Wait for processing
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
 
     // Check that keys are stored
     const storedKeys = await page.evaluate(() => {
       return {
-        pubkey: localStorage.getItem('Nostr-BBS_nostr_pubkey'),
-        encryptedPrivkey: localStorage.getItem('Nostr-BBS_nostr_encrypted_privkey')
+        pubkey: localStorage.getItem('nostr_bbs_nostr_pubkey'),
+        encryptedPrivkey: localStorage.getItem('nostr_bbs_nostr_encrypted_privkey')
       };
     });
 
@@ -73,19 +79,48 @@ test.describe('User Login Flow', () => {
     expect(storedKeys.encryptedPrivkey).toBeTruthy();
   });
 
-  test('invalid mnemonic shows error - invalid words', async ({ page }) => {
+  test('login with valid hex key', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter invalid mnemonic
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(INVALID_MNEMONICS[0]);
+    // Enter valid hex key
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(VALID_HEX);
 
     // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
+
+    // Wait for processing
+    await page.waitForTimeout(1500);
+
+    // Check that keys are stored
+    const storedKeys = await page.evaluate(() => {
+      return {
+        pubkey: localStorage.getItem('nostr_bbs_nostr_pubkey'),
+        encryptedPrivkey: localStorage.getItem('nostr_bbs_nostr_encrypted_privkey')
+      };
+    });
+
+    expect(storedKeys.pubkey).toBeTruthy();
+    expect(storedKeys.pubkey).toMatch(/^[0-9a-f]{64}$/i);
+  });
+
+  test('invalid key shows error - random string', async ({ page }) => {
+    await page.goto('/');
+
+    // Navigate to login
+    await page.getByRole('link', { name: /login/i }).click();
+
+    // Enter invalid key
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(INVALID_KEYS[0]);
+
+    // Submit
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
     // Check for error message
     const errorMessage = page.getByText(/invalid|incorrect|error/i);
@@ -93,43 +128,43 @@ test.describe('User Login Flow', () => {
 
     // Verify keys are NOT stored
     const hasKeys = await page.evaluate(() => {
-      return !!localStorage.getItem('Nostr-BBS_nostr_pubkey');
+      return !!localStorage.getItem('nostr_bbs_nostr_pubkey');
     });
 
     expect(hasKeys).toBe(false);
   });
 
-  test('invalid mnemonic shows error - too short', async ({ page }) => {
+  test('invalid nsec shows error - too short', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter short mnemonic
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(INVALID_MNEMONICS[1]);
+    // Enter short nsec
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(INVALID_KEYS[1]);
 
     // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
     // Check for error message
-    const errorMessage = page.getByText(/invalid|incorrect|must be 12|error/i);
+    const errorMessage = page.getByText(/invalid|incorrect|error/i);
     await expect(errorMessage).toBeVisible({ timeout: 3000 });
   });
 
-  test('empty mnemonic shows validation error', async ({ page }) => {
+  test('empty key shows validation error', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Submit without entering mnemonic
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    // Submit without entering key
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
     // Check for validation error
-    const errorMessage = page.getByText(/required|enter|provide|mnemonic/i);
+    const errorMessage = page.getByText(/required|enter|provide|private key/i);
     await expect(errorMessage).toBeVisible({ timeout: 3000 });
   });
 
@@ -137,102 +172,73 @@ test.describe('User Login Flow', () => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter valid mnemonic
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(VALID_MNEMONIC);
+    // Enter valid nsec
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(VALID_NSEC);
 
     // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
     // Wait for redirect
-    await page.waitForURL(/dashboard|channels|home/i, { timeout: 5000 });
+    await page.waitForURL(/chat|pending|dashboard|channels|home/i, { timeout: 5000 });
 
-    // Verify we're on the authenticated page
+    // Verify we're on an authenticated page
     const currentUrl = page.url();
-    expect(currentUrl).toMatch(/dashboard|channels|home/i);
+    expect(currentUrl).toMatch(/chat|pending|dashboard|channels|home/i);
   });
 
-  test('mnemonic input normalizes whitespace', async ({ page }) => {
+  test('nsec input trims whitespace', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter mnemonic with extra whitespace
-    const mnemonicWithSpaces = `  abandon   abandon  abandon  abandon  abandon  abandon  abandon  abandon  abandon  abandon  abandon  about  `;
+    // Enter nsec with extra whitespace
+    const nsecWithSpaces = `  ${VALID_NSEC}  `;
 
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(mnemonicWithSpaces);
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(nsecWithSpaces);
 
     // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
-    // Should succeed (whitespace normalized)
-    await page.waitForTimeout(1000);
+    // Should succeed (whitespace trimmed)
+    await page.waitForTimeout(1500);
 
     const hasKeys = await page.evaluate(() => {
-      return !!localStorage.getItem('Nostr-BBS_nostr_pubkey');
+      return !!localStorage.getItem('nostr_bbs_nostr_pubkey');
     });
 
     expect(hasKeys).toBe(true);
   });
 
-  test('mnemonic input accepts lowercase only', async ({ page }) => {
+  test('restored keys produce valid pubkey', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter uppercase mnemonic
-    const uppercaseMnemonic = VALID_MNEMONIC.toUpperCase();
-
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(uppercaseMnemonic);
+    // Enter known nsec
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(VALID_NSEC);
 
     // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
-    // Should succeed (converted to lowercase)
-    await page.waitForTimeout(1000);
-
-    const hasKeys = await page.evaluate(() => {
-      return !!localStorage.getItem('Nostr-BBS_nostr_pubkey');
-    });
-
-    expect(hasKeys).toBe(true);
-  });
-
-  test('restored keys match expected derivation', async ({ page }) => {
-    await page.goto('/');
-
-    // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
-
-    // Enter known mnemonic
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(VALID_MNEMONIC);
-
-    // Submit
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
-
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
 
     // Get stored pubkey
     const storedPubkey = await page.evaluate(() => {
-      return localStorage.getItem('Nostr-BBS_nostr_pubkey');
+      return localStorage.getItem('nostr_bbs_nostr_pubkey');
     });
 
     // Verify it's a valid hex string (64 chars)
     expect(storedPubkey).toMatch(/^[0-9a-f]{64}$/i);
-
-    // For the test mnemonic, we can verify it produces a consistent pubkey
-    // The actual value depends on NIP-06 derivation implementation
     expect(storedPubkey?.length).toBe(64);
   });
 
@@ -240,54 +246,51 @@ test.describe('User Login Flow', () => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
     // Check for proper form labels
-    const mnemonicLabel = page.getByText(/mnemonic|recovery phrase|12 words/i);
-    await expect(mnemonicLabel).toBeVisible();
+    const keyLabel = page.getByText(/private key/i);
+    await expect(keyLabel).toBeVisible();
 
-    // Check input has aria-label or associated label
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    const ariaLabel = await mnemonicInput.getAttribute('aria-label');
-    const hasLabel = ariaLabel || await page.locator('label').filter({ hasText: /mnemonic/i }).count() > 0;
-
-    expect(hasLabel).toBeTruthy();
+    // Check for help text about nsec/hex formats
+    const formatHelp = page.getByText(/nsec.*hex|hex.*nsec/i);
+    await expect(formatHelp).toBeVisible();
   });
 
-  test('can cancel login and return to home', async ({ page }) => {
+  test('can navigate to signup from login page', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Look for cancel/back button
-    const cancelButton = page.getByRole('button', { name: /cancel|back|home/i });
-    await expect(cancelButton).toBeVisible();
-
-    await cancelButton.click();
-
-    // Should be back on home page
-    const createButton = page.getByRole('button', { name: /create account/i });
+    // Look for create account button
+    const createButton = page.getByRole('button', { name: /create.*account/i });
     await expect(createButton).toBeVisible();
+
+    await createButton.click();
+
+    // Should be on signup/create account page
+    const signupHeading = page.getByText(/welcome|create account|backup/i);
+    await expect(signupHeading).toBeVisible();
   });
 
-  test('loading state shown during restoration', async ({ page }) => {
+  test('loading state shown during authentication', async ({ page }) => {
     await page.goto('/');
 
     // Navigate to login
-    await page.getByRole('button', { name: /login|restore|import/i }).click();
+    await page.getByRole('link', { name: /login/i }).click();
 
-    // Enter valid mnemonic
-    const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-    await mnemonicInput.fill(VALID_MNEMONIC);
+    // Enter valid nsec
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    await keyInput.fill(VALID_NSEC);
 
     // Submit and immediately check for loading state
-    const restoreButton = page.getByRole('button', { name: /restore|import|login/i });
-    await restoreButton.click();
+    const loginButton = page.getByRole('button', { name: /log in/i });
+    await loginButton.click();
 
     // Check for loading indicator (spinner, disabled button, etc.)
     const isLoading = await page.evaluate(() => {
-      const button = document.querySelector('button[type="submit"]');
+      const button = document.querySelector('button[type="submit"], button:has(.loading)');
       return button?.hasAttribute('disabled') ||
              document.querySelector('[data-loading="true"]') !== null ||
              document.querySelector('.spinner, .loading') !== null;
@@ -295,5 +298,18 @@ test.describe('User Login Flow', () => {
 
     // At least one loading indicator should be present
     expect(isLoading).toBeTruthy();
+  });
+
+  test('password input hides key by default', async ({ page }) => {
+    await page.goto('/');
+
+    // Navigate to login
+    await page.getByRole('link', { name: /login/i }).click();
+
+    // Check input type is password
+    const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+    const inputType = await keyInput.getAttribute('type');
+
+    expect(inputType).toBe('password');
   });
 });

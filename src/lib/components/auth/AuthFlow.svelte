@@ -3,95 +3,79 @@
    * AuthFlow - Multi-step authentication flow for signup and login
    *
    * Flow steps:
-   * 1. Signup - Generate new keys with mnemonic
-   * 2. MnemonicDisplay - Show mnemonic with copy option (first display)
-   * 3. KeyBackup - Show mnemonic again with npub (second display)
-   * 4. PendingApproval - Wait for admin whitelist approval
+   * 1. Signup - Generate new keys (no mnemonic)
+   * 2. NsecBackup - Force user to backup nsec key (copy or download)
+   * 3. PendingApproval - Wait for admin whitelist approval
    *
-   * NOTE: Mnemonic is intentionally shown twice (in MnemonicDisplay and KeyBackup)
-   * for the private server. This high-friction design ensures users properly backup
-   * their recovery phrase. For public deployments, consider consolidating to one step.
+   * Login flow:
+   * 1. Login - Enter nsec/hex private key
+   * 2. PendingApproval - Wait for admin approval (if not already approved)
    */
   import { authStore } from '$lib/stores/auth';
-  import { saveKeysToStorage } from '$lib/nostr/keys';
   import Signup from './Signup.svelte';
-  import MnemonicDisplay from './MnemonicDisplay.svelte';
+  import NsecBackup from './NsecBackup.svelte';
   import Login from './Login.svelte';
-  import KeyBackup from './KeyBackup.svelte';
   import PendingApproval from './PendingApproval.svelte';
 
-  type FlowStep = 'signup' | 'mnemonic-display' | 'login' | 'key-backup' | 'pending-approval';
+  type FlowStep = 'signup' | 'nsec-backup' | 'login' | 'pending-approval';
 
   let currentStep: FlowStep = 'signup';
   let tempKeys: {
-    mnemonic: string;
     publicKey: string;
     privateKey: string;
   } | null = null;
 
-  function handleSignupNext(event: CustomEvent<{ mnemonic: string; publicKey: string; privateKey: string }>) {
-    const { mnemonic, publicKey, privateKey } = event.detail;
+  function handleSignupNext(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
+    const { publicKey, privateKey } = event.detail;
 
-    if (mnemonic && publicKey && privateKey) {
-      tempKeys = { mnemonic, publicKey, privateKey };
-      currentStep = 'mnemonic-display';
-    } else {
-      currentStep = 'login';
+    if (publicKey && privateKey) {
+      tempKeys = { publicKey, privateKey };
+      currentStep = 'nsec-backup';
     }
   }
 
-  function handleMnemonicContinue() {
-    if (tempKeys) {
-      currentStep = 'key-backup';
-    }
+  function handleSignupLogin() {
+    currentStep = 'login';
   }
 
   async function handleLoginSuccess(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
     const { publicKey, privateKey } = event.detail;
 
     if (publicKey && privateKey) {
-      tempKeys = { mnemonic: '', publicKey, privateKey };
-      await authStore.setKeys(publicKey, privateKey);
-      saveKeysToStorage(publicKey, privateKey);
+      tempKeys = { publicKey, privateKey };
+      // For login, keys already backed up - mark as complete
+      await authStore.setKeys(publicKey, privateKey, 'complete', true);
+      authStore.setPending(true);
       currentStep = 'pending-approval';
-    } else {
-      currentStep = 'signup';
     }
   }
 
-  async function handleKeyBackupContinue() {
+  function handleLoginSignup() {
+    currentStep = 'signup';
+  }
+
+  async function handleNsecBackupContinue() {
     if (tempKeys) {
-      const { publicKey, privateKey, mnemonic } = tempKeys;
-      await authStore.setKeys(publicKey, privateKey, mnemonic);
-      saveKeysToStorage(publicKey, privateKey);
-      // Confirm backup was shown to clear mnemonic from storage
-      authStore.confirmMnemonicBackup();
+      const { publicKey, privateKey } = tempKeys;
+      // Full signup - mark as complete with nsec backed up
+      await authStore.setKeys(publicKey, privateKey, 'complete', true);
+      authStore.confirmNsecBackup();
       authStore.setPending(true);
-
-      // Clear mnemonic from memory immediately after key derivation is complete
-      // This prevents the sensitive mnemonic from lingering in memory
-      tempKeys = { mnemonic: '', publicKey, privateKey };
-
       currentStep = 'pending-approval';
     }
   }
 </script>
 
 {#if currentStep === 'signup'}
-  <Signup on:next={handleSignupNext} />
-{:else if currentStep === 'mnemonic-display' && tempKeys}
-  <MnemonicDisplay
-    mnemonic={tempKeys.mnemonic}
-    on:continue={handleMnemonicContinue}
+  <Signup on:next={handleSignupNext} on:login={handleSignupLogin} />
+{:else if currentStep === 'nsec-backup' && tempKeys}
+  <NsecBackup
+    publicKey={tempKeys.publicKey}
+    privateKey={tempKeys.privateKey}
+    on:continue={handleNsecBackupContinue}
   />
 {:else if currentStep === 'login'}
-  <Login on:success={handleLoginSuccess} />
-{:else if currentStep === 'key-backup' && tempKeys}
-  <KeyBackup
-    publicKey={tempKeys.publicKey}
-    mnemonic={tempKeys.mnemonic}
-    on:continue={handleKeyBackupContinue}
-  />
+  <Login on:success={handleLoginSuccess} on:signup={handleLoginSignup} />
 {:else if currentStep === 'pending-approval' && tempKeys}
   <PendingApproval publicKey={tempKeys.publicKey} />
 {/if}

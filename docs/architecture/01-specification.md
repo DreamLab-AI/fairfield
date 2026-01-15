@@ -55,8 +55,8 @@ Nostr-BBS is a closed, self-hosted chat system built on Nostr protocol for a res
 ### 3.1 User Onboarding
 
 ```
-FR-001: Instant signup with BIP-39 mnemonic generation (12 words)
-FR-002: Copy-to-clipboard mnemonic backup (no verification required)
+FR-001: Instant signup with direct private key generation (crypto.getRandomValues)
+FR-002: Copy-to-clipboard or download nsec backup (NIP-19 bech32 encoding)
 FR-003: Browser localStorage for key persistence
 FR-004: New account creation available (loses old identity)
 FR-005: Progressive feature disclosure (3 tiers)
@@ -117,7 +117,7 @@ NFR-001: All channel messages E2E encrypted (private rooms)
 NFR-002: Transport encryption (WSS) for all relay communication
 NFR-003: No user PII stored (pubkey only)
 NFR-004: Local relay does NOT federate to public relays
-NFR-005: Mnemonic never transmitted to server
+NFR-005: Private key (nsec) never transmitted to server
 ```
 
 ### 4.2 Performance
@@ -150,7 +150,7 @@ NFR-032: Optional push notifications (nice-to-have)
 
 | Requirement | NIP | Notes |
 |-------------|-----|-------|
-| Key derivation | NIP-06 | BIP-39 mnemonic → secp256k1 |
+| Key derivation | NIP-19 | Direct key generation → bech32 nsec/npub encoding |
 | Basic events | NIP-01 | Event structure, relay protocol |
 | Channel messages | NIP-29 | Relay-enforced groups |
 | E2E encryption | NIP-44 | Versioned encryption |
@@ -174,8 +174,8 @@ SO THAT I can start chatting without friction
 
 GIVEN I am on the signup page
 WHEN I click "Create Account"
-THEN a 12-word mnemonic is generated and displayed
-AND I am prompted to copy it to a safe place
+THEN a private key (nsec) is generated and displayed
+AND I am prompted to copy or download it to a safe place
 AND my keys are stored in browser localStorage
 AND I am redirected to channel discovery
 ```
@@ -308,7 +308,7 @@ For "request to join" channels:
 |------|------------|
 | **Cohort** | User group determining channel visibility (business/moomaa-tribe) |
 | **Pubkey** | User's public key (Nostr identity) |
-| **Mnemonic** | 12-word backup phrase for key recovery |
+| **Nsec** | Bech32-encoded private key (NIP-19) for backup and recovery |
 | **NIP** | Nostr Implementation Possibility (protocol standard) |
 | **E2E** | End-to-end encryption |
 | **PWA** | Progressive Web App |

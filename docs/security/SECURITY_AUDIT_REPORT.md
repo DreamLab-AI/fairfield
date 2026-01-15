@@ -5,6 +5,8 @@
 **Version**: 0.1.0
 **Scope**: Full codebase security assessment
 
+> **Migration Note (v2.0 - January 2026):** This audit was conducted on the BIP-39 mnemonic-based authentication system. The system has since been refactored to use direct nsec/hex key authentication with AES-256-GCM encryption, read-only access for incomplete accounts, and mandatory key backup. See [authentication.md](../features/authentication.md) for the current implementation.
+
 ---
 
 ## Executive Summary

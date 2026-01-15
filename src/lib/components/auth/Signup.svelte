@@ -1,11 +1,14 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { generateNewIdentity } from '$lib/nostr/keys';
+  import { generateKeyPair } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
   import WelcomeModal from '$lib/components/ui/WelcomeModal.svelte';
 
-  const dispatch = createEventDispatcher<{ next: { mnemonic: string; publicKey: string; privateKey: string } }>();
+  const dispatch = createEventDispatcher<{
+    next: { publicKey: string; privateKey: string };
+    login: void;
+  }>();
 
   let isGenerating = false;
 
@@ -15,9 +18,9 @@
 
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const { mnemonic, publicKey, privateKey } = await generateNewIdentity();
+      const { publicKey, privateKey } = generateKeyPair();
 
-      dispatch('next', { mnemonic, publicKey, privateKey });
+      dispatch('next', { publicKey, privateKey });
     } catch (error) {
       authStore.setError(error instanceof Error ? error.message : 'Failed to generate keys');
     } finally {
@@ -38,9 +41,9 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <div class="flex items-center gap-2">
-          <span class="text-sm">You'll receive a 12-word recovery phrase. Keep it safe!</span>
+          <span class="text-sm">You'll receive a private key (nsec) to backup. Keep it safe!</span>
           <InfoTooltip
-            text="A recovery phrase (also called a mnemonic or seed phrase) is a set of words that can restore your account. It's derived from your private key and provides a human-friendly backup method."
+            text="Your private key (nsec) is the secret that proves you own your account. It's essential for recovery - we cannot restore lost keys."
             position="top"
           />
         </div>
@@ -74,9 +77,9 @@
 
       <button
         class="btn btn-ghost btn-sm"
-        on:click={() => dispatch('next', { mnemonic: '', publicKey: '', privateKey: '' })}
+        on:click={() => dispatch('login')}
       >
-        Already have a recovery phrase?
+        Already have an account? Log in
       </button>
     </div>
   </div>

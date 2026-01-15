@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { NDKRelay } from '@nostr-dev-kit/ndk';
-import type { ChannelSection } from '$lib/types/channel';
+import type { ChannelSection, ChannelAccessType } from '$lib/types/channel';
 
 export interface PendingRequest {
   id: string;
@@ -28,6 +28,7 @@ export interface Channel {
   description?: string;
   cohorts: string[];
   visibility: 'public' | 'cohort' | 'private';
+  accessType: ChannelAccessType;
   encrypted: boolean;
   section: ChannelSection;
   createdAt: number;
@@ -295,6 +296,7 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
         const metadata = JSON.parse(event.content);
         const cohortTag = event.tags.find(t => t[0] === 'cohort');
         const visibilityTag = event.tags.find(t => t[0] === 'visibility');
+        const accessTypeTag = event.tags.find(t => t[0] === 'access-type');
         const encryptedTag = event.tags.find(t => t[0] === 'encrypted');
         const sectionTag = event.tags.find(t => t[0] === 'section');
 
@@ -302,12 +304,15 @@ export async function fetchAllChannels(relay: NDKRelay): Promise<void> {
           ? visibilityTag[1] as 'cohort' | 'private'
           : 'public';
 
+        const accessType = accessTypeTag?.[1] === 'open' ? 'open' : 'gated';
+
         channelMap.set(event.id, {
           id: event.id,
           name: metadata.name || 'Unnamed Channel',
           description: metadata.about || metadata.description,
           cohorts: cohortTag?.[1]?.split(',') || [],
           visibility,
+          accessType,
           encrypted: encryptedTag?.[1] === 'true',
           section: (sectionTag?.[1] as ChannelSection) || 'public-lobby',
           createdAt: event.created_at,

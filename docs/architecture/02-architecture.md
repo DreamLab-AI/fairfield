@@ -15,7 +15,7 @@
 graph TB
     subgraph ClientLayer["CLIENT LAYER"]
         subgraph PWA["PWA (Progressive Web App)"]
-            Auth["Auth Module<br/>- Keygen<br/>- Mnemonic<br/>- Storage"]
+            Auth["Auth Module<br/>- Keygen<br/>- NsecBackup<br/>- Storage"]
             Chat["Chat Module<br/>- Channels<br/>- Messages<br/>- DMs"]
             Admin["Admin Module<br/>- User management<br/>- Join approvals<br/>- Moderation"]
         end
@@ -79,7 +79,7 @@ graph TB
             end
             subgraph UTILS["utils/"]
                 storage["storage.ts - localStorage/IndexedDB"]
-                crypto["crypto.ts - BIP39 utils"]
+                crypto["crypto.ts - Key encryption utils"]
                 search["search.ts - Message search"]
                 export["export.ts - Data export"]
                 mentions["mentions.ts - @mentions"]
@@ -92,7 +92,7 @@ graph TB
                 Login["Login.svelte"]
                 KeyBackup["KeyBackup.svelte"]
                 AuthFlow["AuthFlow.svelte"]
-                MnemonicDisplay["MnemonicDisplay.svelte"]
+                NsecBackup["NsecBackup.svelte"]
             end
             subgraph CHAT["chat/"]
                 ChannelList["ChannelList.svelte"]
@@ -302,8 +302,8 @@ sequenceDiagram
     participant Admin
 
     User->>PWA: 1. Signup
-    PWA->>User: 2. Generate mnemonic
-    User->>PWA: 3. Copy & confirm
+    PWA->>User: 2. Generate keys (nsec/npub)
+    User->>PWA: 3. Backup nsec & confirm
     PWA->>Relay: 4. Connect WSS
     Relay->>PWA: 5. AUTH challenge
     PWA->>Relay: 6. Sign & respond

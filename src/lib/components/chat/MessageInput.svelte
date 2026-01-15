@@ -23,12 +23,17 @@
   let autocompletePosition = { top: 0, left: 0 };
   let availableUsers: UserProfile[] = [];
 
-  $: canSend = $userMemberStatus === 'member' || $userMemberStatus === 'admin';
+  // Allow sending if: member/admin, OR channel is 'open' access type (anyone can post)
+  $: isOpenChannel = $selectedChannel?.accessType === 'open';
+  $: canSend = ($userMemberStatus === 'member' || $userMemberStatus === 'admin') ||
+               (isOpenChannel && !!$authStore.publicKey);
   $: placeholder = canSend
     ? 'Type a message... (@mention users)'
     : $userMemberStatus === 'pending'
       ? 'Your join request is pending...'
-      : 'Join this channel to send messages';
+      : isOpenChannel
+        ? 'Login to send messages'
+        : 'Join this channel to send messages';
 
   // Load draft when channel changes
   $: if ($selectedChannel) {
@@ -399,7 +404,13 @@
   {#if !canSend && $userMemberStatus !== 'pending'}
     <div class="alert alert-info mt-2 text-sm">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <span>You must be a member to send messages in this channel.</span>
+      <span>
+        {#if isOpenChannel && !$authStore.publicKey}
+          Login to send messages in this open channel.
+        {:else}
+          You must be a member to send messages in this channel.
+        {/if}
+      </span>
     </div>
   {/if}
 </div>

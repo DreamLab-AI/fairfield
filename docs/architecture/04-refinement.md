@@ -187,8 +187,8 @@ graph TB
     "@nostr-dev-kit/ndk-svelte": "^2.x",
     "@nostr-dev-kit/ndk-cache-dexie": "^2.x",
     "nostr-tools": "^2.x",
-    "bip39": "^3.x",
-    "@scure/bip32": "^1.x",
+    "@noble/curves": "^1.x",
+    "@noble/hashes": "^1.x",
     "dexie": "^4.x"
   },
   "devDependencies": {
@@ -238,7 +238,7 @@ Nostr-BBS-nostr/
 │   │   │   ├── auth/
 │   │   │   │   ├── Signup.svelte
 │   │   │   │   ├── Login.svelte
-│   │   │   │   └── MnemonicDisplay.svelte
+│   │   │   │   └── NsecBackup.svelte
 │   │   │   │
 │   │   │   ├── chat/
 │   │   │   │   ├── ChannelList.svelte
@@ -475,22 +475,33 @@ graph TB
 ```typescript
 // tests/unit/keys.test.ts
 import { describe, it, expect } from 'vitest'
-import { generateNewIdentity, restoreFromMnemonic } from '$lib/nostr/keys'
+import { generateNewIdentity, restoreFromNsec, restoreFromHex } from '$lib/nostr/keys'
 
-describe('Key Generation (NIP-06)', () => {
-  it('generates valid 12-word mnemonic', () => {
-    const { mnemonic } = generateNewIdentity()
-    expect(mnemonic.split(' ')).toHaveLength(12)
+describe('Key Generation (NIP-19)', () => {
+  it('generates valid nsec (bech32 encoded)', () => {
+    const { nsec } = generateNewIdentity()
+    expect(nsec).toMatch(/^nsec1[a-z0-9]{58,}$/)
   })
 
-  it('derives deterministic keys from mnemonic', () => {
-    const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+  it('generates valid npub (bech32 encoded)', () => {
+    const { npub } = generateNewIdentity()
+    expect(npub).toMatch(/^npub1[a-z0-9]{58,}$/)
+  })
 
-    const keys1 = restoreFromMnemonic(mnemonic)
-    const keys2 = restoreFromMnemonic(mnemonic)
+  it('derives deterministic keys from nsec', () => {
+    const original = generateNewIdentity()
+    const restored = restoreFromNsec(original.nsec)
 
-    expect(keys1.publicKey).toBe(keys2.publicKey)
-    expect(keys1.privateKey).toBe(keys2.privateKey)
+    expect(restored.publicKey).toBe(original.publicKey)
+    expect(restored.privateKey).toBe(original.privateKey)
+  })
+
+  it('restores keys from hex private key', () => {
+    const original = generateNewIdentity()
+    const restored = restoreFromHex(original.privateKey)
+
+    expect(restored.publicKey).toBe(original.publicKey)
+    expect(restored.nsec).toBe(original.nsec)
   })
 
   it('produces valid secp256k1 keys', () => {

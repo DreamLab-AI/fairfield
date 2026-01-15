@@ -24,9 +24,7 @@ export {
   loadKeys,
   clearKeys,
   hasStoredKeys,
-  getStoredPubkey,
-  setMnemonicShown,
-  hasMnemonicBeenShown
+  getStoredPubkey
 } from '../utils/storage';
 export type { StoredKeys } from '../utils/storage';
 

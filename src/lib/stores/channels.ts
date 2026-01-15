@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type NDK from '@nostr-dev-kit/ndk';
 import type { NDKEvent, NDKFilter, NDKRelay } from '@nostr-dev-kit/ndk';
-import type { ChannelSection, ChannelVisibility } from '$lib/types/channel';
+import type { ChannelSection, ChannelVisibility, ChannelAccessType } from '$lib/types/channel';
 
 // Channel interface as per SPARC specification
 export interface Channel {
@@ -12,6 +12,7 @@ export interface Channel {
   cohorts: ('business' | 'moomaa-tribe')[];
   section: ChannelSection;                       // Section category
   visibility: ChannelVisibility;                 // Visibility within section
+  accessType: ChannelAccessType;                 // open = anyone can post, gated = members only
   isEncrypted: boolean;                          // E2E vs transport only
   memberCount: number;
   createdAt: number;
@@ -207,6 +208,10 @@ function buildChannelFromEvents(
   const visibilityTag = metaEvent.tags.find(t => t[0] === 'visibility')?.[1];
   const visibility = (visibilityTag as ChannelVisibility) || 'public';
 
+  // Extract access type setting (default to gated for security)
+  const accessTypeTag = metaEvent.tags.find(t => t[0] === 'access-type')?.[1];
+  const accessType = (accessTypeTag as ChannelAccessType) || 'gated';
+
   // Check if channel is encrypted (E2E)
   const isEncrypted = metaEvent.tags.some(t => t[0] === 'encrypted');
 
@@ -223,6 +228,7 @@ function buildChannelFromEvents(
     cohorts: channelCohorts,
     section,
     visibility,
+    accessType,
     isEncrypted,
     memberCount,
     createdAt: metaEvent.created_at || 0,

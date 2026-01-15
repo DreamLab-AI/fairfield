@@ -1,7 +1,7 @@
 <script lang="ts">
   import { adminStore, type Channel } from '$lib/stores/admin';
   import { createEventDispatcher } from 'svelte';
-  import { SECTION_CONFIG, type ChannelSection } from '$lib/types/channel';
+  import { SECTION_CONFIG, type ChannelSection, type ChannelAccessType } from '$lib/types/channel';
 
   const dispatch = createEventDispatcher<{
     createChannel: { channel: Omit<Channel, 'id' | 'createdAt' | 'memberCount' | 'creatorPubkey'> };
@@ -19,6 +19,7 @@
   let formDescription = '';
   let formCohorts = '';
   let formVisibility: 'public' | 'cohort' | 'private' = 'public';
+  let formAccessType: ChannelAccessType = 'gated';
   let formEncrypted = false;
   let formSection: ChannelSection = 'public-lobby';
 
@@ -55,6 +56,7 @@
     formDescription = '';
     formCohorts = '';
     formVisibility = 'public';
+    formAccessType = 'gated';
     formEncrypted = false;
     formSection = 'public-lobby';
     editingChannel = null;
@@ -69,6 +71,7 @@
         description: formDescription.trim() || undefined,
         cohorts: formCohorts.split(',').map(c => c.trim()).filter(Boolean),
         visibility: formVisibility,
+        accessType: formAccessType,
         encrypted: formEncrypted,
         section: formSection,
       }
@@ -84,6 +87,7 @@
     formDescription = channel.description || '';
     formCohorts = channel.cohorts.join(', ');
     formVisibility = channel.visibility;
+    formAccessType = channel.accessType || 'gated';
     formEncrypted = channel.encrypted;
     formSection = channel.section || 'public-lobby';
     showCreateForm = true;
@@ -99,6 +103,7 @@
         description: formDescription.trim() || undefined,
         cohorts: formCohorts.split(',').map(c => c.trim()).filter(Boolean),
         visibility: formVisibility,
+        accessType: formAccessType,
         encrypted: formEncrypted,
         section: formSection,
       }
@@ -137,6 +142,10 @@
       private: 'badge-error',
     };
     return badges[visibility as keyof typeof badges] || 'badge-ghost';
+  }
+
+  function getAccessTypeBadge(accessType: ChannelAccessType) {
+    return accessType === 'open' ? 'badge-primary' : 'badge-secondary';
   }
 </script>
 
@@ -224,7 +233,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Visibility</span>
+              <span class="label-text">Visibility (Who can see)</span>
             </label>
             <select class="select select-bordered" bind:value={formVisibility}>
               <option value="public">Public (Anyone can see)</option>
@@ -234,15 +243,32 @@
           </div>
 
           <div class="form-control">
-            <label class="label cursor-pointer">
-              <span class="label-text">Encrypted Messages</span>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                bind:checked={formEncrypted}
-              />
+            <label class="label">
+              <span class="label-text">Access Type (Who can post)</span>
+            </label>
+            <select class="select select-bordered" bind:value={formAccessType}>
+              <option value="open">Open (Anyone can post)</option>
+              <option value="gated">Gated (Members only)</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">
+                {formAccessType === 'open'
+                  ? 'All users can post messages without joining'
+                  : 'Only approved members can post messages'}
+              </span>
             </label>
           </div>
+        </div>
+
+        <div class="form-control">
+          <label class="label cursor-pointer">
+            <span class="label-text">Encrypted Messages</span>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              bind:checked={formEncrypted}
+            />
+          </label>
         </div>
 
         <div class="card-actions justify-end gap-2 mt-4">
@@ -351,8 +377,11 @@
               <span class="badge badge-neutral" title="Section">
                 {SECTION_CONFIG[channel.section]?.icon || '👋'} {SECTION_CONFIG[channel.section]?.name || 'Guest Area'}
               </span>
-              <span class="badge {getVisibilityBadge(channel.visibility)}">
+              <span class="badge {getVisibilityBadge(channel.visibility)}" title="Visibility">
                 {channel.visibility}
+              </span>
+              <span class="badge {getAccessTypeBadge(channel.accessType)}" title="Access Type">
+                {channel.accessType === 'open' ? '🔓 Open' : '🔐 Gated'}
               </span>
               {#if channel.encrypted}
                 <span class="badge badge-info">Encrypted</span>

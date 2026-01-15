@@ -25,6 +25,7 @@
 	import Navigation from '$lib/components/ui/Navigation.svelte';
 	import MyProfileModal from '$lib/components/user/MyProfileModal.svelte';
 	import ScreenReaderAnnouncer from '$lib/components/ui/ScreenReaderAnnouncer.svelte';
+	import ReadOnlyBanner from '$lib/components/ui/ReadOnlyBanner.svelte';
 
 	let mounted = false;
 	let themePreference: 'dark' | 'light' = 'dark';
@@ -172,6 +173,9 @@
 				onThemeToggle={toggleTheme}
 				onProfileClick={toggleProfileModal}
 			/>
+			<div class="container mx-auto max-w-4xl px-4">
+				<ReadOnlyBanner />
+			</div>
 		{/if}
 		{#key $page.url.pathname}
 			<main id="main-content" role="main" tabindex="-1" in:fade={{ duration: 150, delay: 75 }} out:fade={{ duration: 75 }}>
