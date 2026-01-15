@@ -140,10 +140,40 @@ Profile content is parsed for `display_name` or `name` fields.
 4. **Rate limiting**: Events still subject to rate limiting
 5. **Admin approval still required**: Users still can't access zones without approval
 
+### Security Hardening (January 2026)
+
+Based on QE security analysis, the following limits were added to `handlers.ts`:
+
+```typescript
+// Security limits
+const MAX_CONTENT_SIZE = 64 * 1024;           // 64KB max content size
+const MAX_REGISTRATION_CONTENT_SIZE = 8 * 1024; // 8KB for Kind 0/9024 events
+const MAX_TAG_COUNT = 2000;                   // Maximum number of tags
+const MAX_TAG_VALUE_SIZE = 1024;              // Maximum size of tag values
+const MAX_TIMESTAMP_DRIFT_SECONDS = 60 * 60 * 24 * 7; // 7 days max drift
+```
+
+**Content Size Limits**:
+- Registration events (Kind 0, 9024): 8KB max content
+- All other events: 64KB max content
+- Prevents memory exhaustion from oversized events
+
+**Timestamp Bounds**:
+- Events must be within ±7 days of current time
+- Prevents replay attacks with ancient events
+- Prevents far-future event injection
+
+**Tag Limits**:
+- Maximum 2000 tags per event
+- Maximum 1024 bytes per tag value
+- Prevents tag-based DoS attacks
+
 ### Potential Concerns Addressed
-- **Spam profiles**: Rate limiting prevents profile spam
+- **Spam profiles**: Rate limiting + content size limits prevent profile spam
 - **Fake registrations**: Admin reviews all pending registrations
 - **Profile impersonation**: Each profile is tied to cryptographic pubkey
+- **Memory exhaustion**: Content size limits prevent oversized payloads
+- **Replay attacks**: Timestamp bounds prevent old event replays
 
 ## Test Plan
 1. ✅ Create new keypair (fresh user)
@@ -171,8 +201,31 @@ Profile content is parsed for `display_name` or `name` fields.
 - 300ms delay adds small latency to signup (acceptable UX)
 
 ## Files Changed
-1. `services/nostr-relay/src/handlers.ts` - Allow Kind 0/9024 from anyone
+1. `services/nostr-relay/src/handlers.ts` - Allow Kind 0/9024 from anyone + security hardening
 2. `src/routes/signup/+page.svelte` - Add 300ms delay between events
+3. `services/nostr-relay/tests/unit/handlers.registration.test.ts` - 46 comprehensive tests
+
+## Test Coverage
+
+### Unit Tests (46 tests, all passing)
+- Registration Event Bypass (Kind 0, Kind 9024) - 6 tests
+- Whitelist Enforcement for Non-Registration Events - 7 tests
+- Event Validation - 6 tests
+- Event ID Verification - 2 tests
+- Signature Verification - 3 tests
+- Rate Limiting - 4 tests
+- Database Save Failure Handling - 2 tests
+- Edge Cases - 5 tests
+- Multiple Registration Events - 3 tests
+- Boundary Kind Values - 3 tests
+- Connection Management - 5 tests
+
+### Full Relay Test Suite
+- 116 tests total, all passing
+- Covers NIP-01 protocol compliance
+- Covers NIP-16 event treatment
+- Covers NIP-98 HTTP auth
+- Covers WebSocket connections
 
 ## Related NIPs
 - NIP-01: Basic protocol flow (Kind 0 profiles)

@@ -10,6 +10,13 @@ interface ExtendedWebSocket extends WebSocket {
   ip?: string;
 }
 
+// Security limits
+const MAX_CONTENT_SIZE = 64 * 1024; // 64KB max content size
+const MAX_REGISTRATION_CONTENT_SIZE = 8 * 1024; // 8KB for registration events
+const MAX_TAG_COUNT = 2000; // Maximum number of tags per event
+const MAX_TAG_VALUE_SIZE = 1024; // Maximum size of individual tag values
+const MAX_TIMESTAMP_DRIFT_SECONDS = 60 * 60 * 24 * 7; // 7 days max drift
+
 export class NostrHandlers {
   private db: NostrDatabase;
   private whitelist: Whitelist;
@@ -142,18 +149,55 @@ export class NostrHandlers {
   }
 
   private validateEvent(event: NostrEvent): boolean {
-    return (
-      typeof event.id === 'string' &&
-      typeof event.pubkey === 'string' &&
-      typeof event.created_at === 'number' &&
-      typeof event.kind === 'number' &&
-      Array.isArray(event.tags) &&
-      typeof event.content === 'string' &&
-      typeof event.sig === 'string' &&
-      event.id.length === 64 &&
-      event.pubkey.length === 64 &&
-      event.sig.length === 128
-    );
+    // Basic type validation
+    if (
+      typeof event.id !== 'string' ||
+      typeof event.pubkey !== 'string' ||
+      typeof event.created_at !== 'number' ||
+      typeof event.kind !== 'number' ||
+      !Array.isArray(event.tags) ||
+      typeof event.content !== 'string' ||
+      typeof event.sig !== 'string'
+    ) {
+      return false;
+    }
+
+    // Length validation
+    if (event.id.length !== 64 || event.pubkey.length !== 64 || event.sig.length !== 128) {
+      return false;
+    }
+
+    // Security: Content size limit
+    const isRegistrationEvent = event.kind === 0 || event.kind === 9024;
+    const maxContent = isRegistrationEvent ? MAX_REGISTRATION_CONTENT_SIZE : MAX_CONTENT_SIZE;
+    if (event.content.length > maxContent) {
+      return false;
+    }
+
+    // Security: Tag count limit
+    if (event.tags.length > MAX_TAG_COUNT) {
+      return false;
+    }
+
+    // Security: Tag value size limit
+    for (const tag of event.tags) {
+      if (!Array.isArray(tag)) return false;
+      for (const value of tag) {
+        if (typeof value !== 'string') return false;
+        if (value.length > MAX_TAG_VALUE_SIZE) return false;
+      }
+    }
+
+    // Security: Timestamp bounds validation
+    const now = Math.floor(Date.now() / 1000);
+    if (event.created_at < now - MAX_TIMESTAMP_DRIFT_SECONDS) {
+      return false; // Too far in the past
+    }
+    if (event.created_at > now + MAX_TIMESTAMP_DRIFT_SECONDS) {
+      return false; // Too far in the future
+    }
+
+    return true;
   }
 
   private verifyEventId(event: NostrEvent): boolean {
