@@ -37,8 +37,8 @@
   }
 
   async function handleBackupContinue() {
-    await authStore.setKeys(publicKey, privateKey, mnemonic);
-    authStore.confirmMnemonicBackup();
+    await authStore.setKeys(publicKey, privateKey, 'incomplete', false);
+    authStore.confirmNsecBackup();
 
     // Move to nickname setup step
     step = 'nickname';

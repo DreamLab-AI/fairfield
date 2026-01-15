@@ -9,6 +9,7 @@
   import { RELAY_URL } from '$lib/config';
   import { getSectionWithCategory, getBreadcrumbs } from '$lib/config';
   import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
+  import SectionHero from '$lib/components/navigation/SectionHero.svelte';
   import ChannelCard from '$lib/components/forum/ChannelCard.svelte';
   import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
   import { getAppConfig } from '$lib/config/loader';
@@ -141,33 +142,26 @@
     <Breadcrumb items={breadcrumbs} />
 
     <div class="mt-6">
-      <div class="flex items-start justify-between gap-4 mb-6">
-        <div class="flex items-center gap-4">
-          <div class="text-5xl">{section.icon}</div>
-          <div>
-            <h1 class="text-3xl font-bold">{section.name}</h1>
-            <p class="text-base-content/70 mt-1">{section.description}</p>
-          </div>
-        </div>
+      <SectionHero {section} {category} />
 
-        <div class="flex gap-2">
-          {#if section.calendar?.access !== 'none'}
-            <a href="{base}/{categoryId}/{sectionId}/calendar" class="btn btn-outline btn-secondary">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Calendar
-            </a>
-          {/if}
-          {#if section.allowForumCreation}
-            <button class="btn btn-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-              New Forum
-            </button>
-          {/if}
-        </div>
+      <!-- Action Buttons -->
+      <div class="flex justify-end gap-2 mb-4">
+        {#if section.calendar?.access !== 'none'}
+          <a href="{base}/{categoryId}/{sectionId}/calendar" class="btn btn-outline btn-secondary btn-sm sm:btn-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span class="hidden sm:inline">Calendar</span>
+          </a>
+        {/if}
+        {#if section.allowForumCreation}
+          <button class="btn btn-primary btn-sm sm:btn-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span class="hidden sm:inline">New Forum</span>
+          </button>
+        {/if}
       </div>
 
       <div class="divider"></div>
