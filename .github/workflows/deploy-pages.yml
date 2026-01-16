@@ -4,6 +4,8 @@ name: Deploy to GitHub Pages
 # - RELAY_URL: WebSocket URL of Nostr relay (e.g., wss://nostr-relay-xxx.run.app)
 # - EMBEDDING_API_URL: HTTPS URL of embedding API (e.g., https://embedding-api-xxx.run.app)
 # - LINK_PREVIEW_API_URL: HTTPS URL of link preview API (e.g., https://link-preview-api-xxx.run.app)
+# - IMAGE_API_URL: HTTPS URL of image upload API (e.g., https://image-api-xxx.run.app)
+# - IMAGE_BUCKET: GCS bucket name for images (e.g., minimoonoir-images)
 # - ADMIN_PUBKEY: Nostr public key for admin access (hex format)
 
 on:
@@ -33,6 +35,9 @@ env:
   VITE_RELAY_URL: ${{ vars.RELAY_URL }}
   VITE_EMBEDDING_API_URL: ${{ vars.EMBEDDING_API_URL }}
   VITE_LINK_PREVIEW_API_URL: ${{ vars.LINK_PREVIEW_API_URL }}
+  VITE_IMAGE_API_URL: ${{ vars.IMAGE_API_URL }}
+  VITE_IMAGE_BUCKET: ${{ vars.IMAGE_BUCKET }}
+  VITE_IMAGE_ENCRYPTION_ENABLED: 'true'
   VITE_ADMIN_PUBKEY: ${{ vars.ADMIN_PUBKEY }}
   VITE_APP_NAME: Fairfield - DreamLab - Cumbria
   VITE_NDK_DEBUG: false
