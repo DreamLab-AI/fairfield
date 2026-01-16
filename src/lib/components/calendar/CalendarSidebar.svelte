@@ -193,11 +193,7 @@
 </script>
 
 <aside
-  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col bg-base-200 dark:bg-base-300"
-  class:h-screen={!compact}
-  class:border-l={!compact}
-  class:border-base-300={!compact}
-  class:dark:border-base-content/10={!compact}
+  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col bg-base-200 dark:bg-base-300 {!compact ? 'h-screen border-l border-base-300 dark:border-base-content/10' : ''}"
   class:compact-mode={compact}
   class:expanded={isExpanded}
   class:collapsed={!isExpanded}
