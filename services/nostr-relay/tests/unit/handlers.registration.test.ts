@@ -67,15 +67,17 @@ function createMockDatabase(options?: {
 // Mock Whitelist
 function createMockWhitelist(options?: {
   allowedPubkeys?: string[];
-  emptyWhitelist?: boolean;
+  devMode?: boolean;  // SECURITY: Must be explicitly set to true for dev mode
 }): jest.Mocked<Whitelist> {
   const allowedSet = new Set(options?.allowedPubkeys || []);
-  const isEmpty = options?.emptyWhitelist ?? (allowedSet.size === 0);
+  const devModeEnabled = options?.devMode ?? false;  // Secure default: deny all
 
   return {
     isAllowed: jest.fn<(pubkey: string) => boolean>((pubkey: string) => {
-      // If whitelist is empty, allow all (development mode)
-      if (isEmpty && allowedSet.size === 0) return true;
+      // SECURITY: Empty whitelist = deny all UNLESS devMode explicitly enabled
+      if (allowedSet.size === 0) {
+        return devModeEnabled;  // Only allow all if devMode is true
+      }
       return allowedSet.has(pubkey);
     }),
     add: jest.fn<(pubkey: string) => void>((pubkey: string) => {
@@ -123,8 +125,7 @@ describe('NostrHandlers Registration Flow', () => {
     // Create mocks with whitelist containing only admin
     mockDb = createMockDatabase({ isWhitelisted: false });
     mockWhitelist = createMockWhitelist({
-      allowedPubkeys: [whitelistedUser.publicKey],
-      emptyWhitelist: false
+      allowedPubkeys: [whitelistedUser.publicKey]
     });
     mockRateLimiter = createMockRateLimiter();
     mockWs = new MockWebSocket();
@@ -558,9 +559,10 @@ describe('NostrHandlers Registration Flow', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty whitelist (development mode)', async () => {
-      // In dev mode, empty whitelist allows all
-      const devWhitelist = createMockWhitelist({ emptyWhitelist: true });
+    it('should handle empty whitelist with dev mode enabled', async () => {
+      // SECURITY: In dev mode (RELAY_DEV_MODE=true), empty whitelist allows all
+      // Without devMode, empty whitelist = deny all (secure default)
+      const devWhitelist = createMockWhitelist({ devMode: true });
       const devHandlers = new NostrHandlers(mockDb, devWhitelist, mockRateLimiter);
 
       const event = createTestEvent(nonWhitelistedUser, 1, 'Test in dev mode');
@@ -569,6 +571,22 @@ describe('NostrHandlers Registration Flow', () => {
 
       const okMessages = mockWs.getMessages('OK');
       expect(okMessages[0][2]).toBe(true);
+    });
+
+    it('should deny all with empty whitelist by default (secure default)', async () => {
+      // SECURITY: Empty whitelist WITHOUT devMode = deny all (secure default)
+      const secureWhitelist = createMockWhitelist();  // No devMode = secure
+      const secureHandlers = new NostrHandlers(mockDb, secureWhitelist, mockRateLimiter);
+      const secureMockWs = new MockWebSocket();
+      secureMockWs.ip = '127.0.0.1';
+
+      const event = createTestEvent(nonWhitelistedUser, 1, 'Test secure default');
+
+      await secureHandlers.handleMessage(secureMockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      const okMessages = secureMockWs.getMessages('OK');
+      expect(okMessages[0][2]).toBe(false);  // Should be DENIED
+      expect(okMessages[0][3]).toContain('not whitelisted');
     });
 
     it('should handle malformed JSON gracefully', async () => {
