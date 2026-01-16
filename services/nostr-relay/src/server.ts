@@ -45,6 +45,14 @@ class NostrRelay {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
+    // Security headers - HSTS enforcement for Cloud Run
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
@@ -143,119 +151,12 @@ class NostrRelay {
       return;
     }
 
-    // List all whitelisted users (admin only)
-    if (url.pathname === '/api/whitelist/list' && req.method === 'GET') {
-      const limit = parseInt(url.searchParams.get('limit') || '20');
-      const offset = parseInt(url.searchParams.get('offset') || '0');
-      const cohortFilter = url.searchParams.get('cohort') || undefined;
-
-      try {
-        const result = await this.db.listWhitelistFull({ limit, offset, cohortFilter });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          users: result.users,
-          total: result.total,
-          limit,
-          offset
-        }));
-      } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to list users' }));
-      }
-      return;
-    }
-
-    // Add user to whitelist
-    if (url.pathname === '/api/whitelist/add' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      await new Promise<void>(resolve => req.on('end', resolve));
-
-      try {
-        const data = JSON.parse(body);
-        const { pubkey, cohorts, adminPubkey } = data;
-
-        if (!pubkey || !/^[0-9a-f]{64}$/i.test(pubkey)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid pubkey format' }));
-          return;
-        }
-
-        const success = await this.db.addToWhitelist(
-          pubkey,
-          cohorts || ['approved'],
-          adminPubkey || 'system'
-        );
-
-        if (success) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true }));
-        } else {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to add user' }));
-        }
-      } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid request body' }));
-      }
-      return;
-    }
-
-    // Update user cohorts
-    if (url.pathname === '/api/whitelist/update-cohorts' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      await new Promise<void>(resolve => req.on('end', resolve));
-
-      try {
-        const data = JSON.parse(body);
-        const { pubkey, cohorts, adminPubkey } = data;
-
-        if (!pubkey || !/^[0-9a-f]{64}$/i.test(pubkey)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid pubkey format' }));
-          return;
-        }
-
-        if (!Array.isArray(cohorts)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Cohorts must be an array' }));
-          return;
-        }
-
-        const success = await this.db.updateCohorts(pubkey, cohorts, adminPubkey || 'system');
-
-        if (success) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true }));
-        } else {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to update cohorts' }));
-        }
-      } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid request body' }));
-      }
-      return;
-    }
-
     // Relay info (NIP-11)
-    if (url.pathname === '/.well-known/nostr.json' ||
-        (req.headers.accept?.includes('application/nostr+json'))) {
+    // Responds to Accept: application/nostr+json header OR direct path access
+    if (url.pathname === '/' && req.headers.accept?.includes('application/nostr+json')) {
+      const relayInfo = this.buildNip11Info();
       res.writeHead(200, { 'Content-Type': 'application/nostr+json' });
-      res.end(JSON.stringify({
-        name: 'Fairfield Nostr Relay',
-        description: 'Private whitelist-only relay with NIP-16/98 support',
-        pubkey: process.env.ADMIN_PUBKEYS?.split(',')[0] || '',
-        supported_nips: [1, 11, 16, 33, 98],
-        software: 'fairfield-nostr-relay',
-        version: '2.3.0',
-        limitation: {
-          auth_required: false,
-          payment_required: false,
-          restricted_writes: true
-        }
-      }));
+      res.end(JSON.stringify(relayInfo));
       return;
     }
 
@@ -394,6 +295,107 @@ class NostrRelay {
     // 404 for unknown routes
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
+  }
+
+  /**
+   * Build NIP-11 Relay Information Document
+   * https://github.com/nostr-protocol/nips/blob/master/11.md
+   *
+   * Per NIP-11 spec (2025):
+   * - All fields are optional; clients must ignore unknown fields
+   * - Retention times in seconds, null indicates indefinite storage
+   * - Kind ranges can use tuples like [5, 7] for inclusive boundaries
+   */
+  private buildNip11Info(): object {
+    const adminPubkey = process.env.ADMIN_PUBKEYS?.split(',')[0]?.trim() || '';
+    const relayName = process.env.RELAY_NAME || 'Fairfield Nostr Relay';
+    const relayDescription = process.env.RELAY_DESCRIPTION ||
+      'Private whitelist-only relay for the Fairfield BBS community.\n\n' +
+      'Supports NIP-01 (basic protocol), NIP-11 (relay info), NIP-16 (replaceable events), ' +
+      'NIP-33 (parameterized replaceable events), and NIP-98 (HTTP auth).\n\n' +
+      'Write access is restricted to whitelisted pubkeys. Registration requests (kind 9024) ' +
+      'and profile metadata (kind 0) are accepted from anyone to support the onboarding flow.';
+    const relayContact = process.env.RELAY_CONTACT || (adminPubkey ? `nostr:${adminPubkey}` : '');
+    const baseUrl = process.env.RELAY_BASE_URL || 'https://fairfield.dev';
+
+    // Limits from handlers.ts and rateLimit.ts
+    const maxContentLength = 64 * 1024; // 64KB
+    const maxTagCount = 2000;
+    const maxTimestampDrift = 60 * 60 * 24 * 7; // 7 days in seconds
+    const maxSubscriptions = 20; // Reasonable default
+    const maxFilters = 10; // Per subscription
+    const maxLimit = 1000; // Query result limit
+    const eventsPerSecond = parseInt(process.env.RATE_LIMIT_EVENTS_PER_SECOND || '10', 10);
+    const maxConnections = parseInt(process.env.RATE_LIMIT_MAX_CONNECTIONS || '20', 10);
+
+    return {
+      // Core identity fields
+      name: relayName,
+      description: relayDescription,
+      pubkey: adminPubkey,
+      contact: relayContact,
+
+      // Software identification
+      supported_nips: [1, 11, 16, 33, 98],
+      software: 'https://github.com/fairfield-programming/nostr-relay',
+      version: '2.3.0',
+
+      // Visual branding
+      icon: `${baseUrl}/favicon.png`,
+      banner: `${baseUrl}/relay-banner.png`,
+
+      // Limitations per NIP-11 specification
+      limitation: {
+        // Message and content constraints
+        max_message_length: maxContentLength,
+        max_content_length: maxContentLength,
+        max_event_tags: maxTagCount,
+
+        // Subscription constraints
+        max_subscriptions: maxSubscriptions,
+        max_filters: maxFilters,
+        max_limit: maxLimit,
+        max_subid_length: 64,
+
+        // Rate limiting
+        max_events_per_second: eventsPerSecond,
+        max_connections: maxConnections,
+
+        // Proof of work (0 = not required)
+        min_pow_difficulty: 0,
+
+        // Access control
+        auth_required: false,
+        payment_required: false,
+        restricted_writes: true,
+
+        // Timestamp bounds (events outside this range are rejected)
+        created_at_lower_limit: Math.floor(Date.now() / 1000) - maxTimestampDrift,
+        created_at_upper_limit: Math.floor(Date.now() / 1000) + maxTimestampDrift
+      },
+
+      // Relay policies and legal
+      relay_countries: ['US'],
+      language_tags: ['en'],
+      tags: ['community', 'private', 'whitelisted'],
+      posting_policy: `${baseUrl}/relay-policy`,
+      privacy_policy: `${baseUrl}/privacy`,
+      terms_of_service: `${baseUrl}/terms`,
+
+      // Data retention (time in seconds, null = indefinite)
+      // Per NIP-11: kind ranges can use tuples [min, max] inclusive
+      retention: [
+        { kinds: [0], time: null },          // Profile metadata: indefinite
+        { kinds: [3], time: null },          // Contact lists: indefinite
+        { kinds: [1], time: 7776000 },       // Notes: 90 days
+        { kinds: [7], time: 2592000 },       // Reactions: 30 days
+        { kinds: [4], time: 604800 },        // Legacy DMs (NIP-04): 7 days
+        { kinds: [1059], time: 604800 },     // Gift wraps (NIP-59): 7 days
+        { kinds: [9024], time: 86400 },      // Registration requests: 1 day
+        { kinds: [[10000, 19999]], time: null }, // Replaceable events: indefinite
+        { kinds: [[30000, 39999]], time: null }  // Parameterized replaceable: indefinite
+      ]
+    };
   }
 
   async start(): Promise<void> {
