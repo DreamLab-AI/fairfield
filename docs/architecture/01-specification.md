@@ -1,27 +1,35 @@
 ---
-title: Nostr-BBS SPARC Specification
-description: Complete specification document for the Nostr-BBS private chatroom system including business requirements, functional requirements, and technical constraints
-last_updated: 2025-12-23
+title: Nostr-BBS SPARC Specification (Legacy)
+description: Original specification document - SUPERSEDED by docs/PRD.md for current requirements
+last_updated: 2026-01-16
 category: reference
-tags: [specification, architecture, sparc-methodology, nostr-protocol]
+tags: [specification, architecture, sparc-methodology, nostr-protocol, legacy]
 difficulty: intermediate
 version: 0.1.0-draft
 date: 2024-12-11
-status: active
+status: superseded
+superseded_by: docs/PRD.md
 related-docs:
+  - docs/PRD.md
   - docs/architecture/02-architecture.md
-  - docs/architecture/03-pseudocode.md
   - README.md
 ---
 
 [← Back to Main README](../../README.md)
 
-# Nostr-BBS - SPARC Specification
+# Nostr-BBS - SPARC Specification (Legacy Document)
+
+> **NOTICE:** This document is superseded by [PRD.md](../PRD.md) which contains the current requirements.
+> This file is retained for historical reference only. Current terminology:
+> - "Moomaa-tribe" → "Minimoonoir" (social zone)
+> - "Business" → "DreamLab" (business zone)
+> - Added "Fairfield Family" (family zone)
+> - "Section" → "Zone" for top-level contexts (Zone → Section → Forum hierarchy)
 
 > **Project:** Private Chatroom System for Residential Retreat & Course Booking
-> **Version:** 0.1.0-draft
+> **Version:** 0.1.0-draft (Legacy)
 > **Date:** 2024-12-11
-> **Status:** Discovery Phase
+> **Status:** Superseded by PRD.md v2.1.0
 > **[Back to Main README](../../README.md)**
 
 ---

@@ -3,7 +3,7 @@ title: Nostr-BBS Documentation Index
 description: Master documentation hub for Nostr-BBS with guides, architecture, features, and deployment documentation
 category: reference
 tags: [documentation, index, navigation]
-last_updated: 2025-12-23
+last_updated: 2026-01-16
 ---
 
 # Nostr-BBS Documentation Index
@@ -11,7 +11,7 @@ last_updated: 2025-12-23
 **Master documentation hub for Nostr-BBS** - A decentralised community bulletin board system built on the Nostr protocol with NIP-52 calendar events, NIP-28 public chat channels, NIP-17/59 encrypted direct messages, and AI-powered semantic search.
 
 **Version:** 1.0.0
-**Last Updated:** 2025-12-21
+**Last Updated:** 2026-01-16
 
 ---
 
@@ -20,10 +20,13 @@ last_updated: 2025-12-23
 - [Getting Started](#getting-started)
 - [Architecture](#architecture)
 - [Features](#features)
+- [Authentication](#authentication)
+- [Guides](#guides)
 - [Development](#development)
 - [Deployment](#deployment)
 - [Reference](#reference)
 - [Maintenance & Quality](#maintenance-quality)
+- [Archive](#archive)
 
 ---
 
@@ -159,6 +162,39 @@ WCAG 2.1 Level AA compliance, keyboard navigation, and screen reader support.
 
 ---
 
+## Authentication
+
+### Authentication Design Package
+
+**[AUTH_DESIGN_SUMMARY.md](AUTH_DESIGN_SUMMARY.md)**
+High-level overview of authentication design patterns, user flows, and security considerations.
+
+**[AUTH_FLOW_DESIGN.md](AUTH_FLOW_DESIGN.md)**
+Screen-by-screen authentication flow specification with wireframes, button states, and validation rules.
+
+**[AUTH_IMPLEMENTATION_GUIDE.md](AUTH_IMPLEMENTATION_GUIDE.md)**
+Developer implementation reference with crypto utilities, validation, storage, and Nostr integration code.
+
+**[AUTH_PACKAGE_INDEX.md](AUTH_PACKAGE_INDEX.md)**
+Complete index of the authentication design package with component specifications.
+
+**[COMPONENT_STRUCTURE.md](COMPONENT_STRUCTURE.md)**
+React component hierarchy and specifications with TypeScript interfaces.
+
+**[NIP07_ANALYSIS.md](NIP07_ANALYSIS.md)**
+Analysis of NIP-07 browser extension integration for secure key management.
+
+---
+
+## Guides
+
+### Implementation Guides
+
+**[Quick Start Guide](guides/quick-start.md)**
+Step-by-step implementation guide for getting started with the authentication system.
+
+---
+
 ## Development
 
 ### Development Guides
@@ -238,6 +274,30 @@ Actionable remediation plan for fixing broken documentation links.
 
 **[Diagram Audit Report](diagram-audit-report.md)**
 Audit of Mermaid diagrams for correctness, accessibility, and documentation alignment.
+
+---
+
+## Archive
+
+### Historical Research Documents
+
+**[Auth Design Delivery](archive/auth-design-delivery.md)**
+Original authentication design delivery document with initial specifications.
+
+**[Research Index](archive/research-index.md)**
+Index of research conducted during the authentication design phase.
+
+**[Security Research](archive/security-research.md)**
+Security research findings and recommendations from the design phase.
+
+**[Security Onboarding](archive/security-onboarding.md)**
+Detailed onboarding security research and implementation recommendations.
+
+**[UI Patterns](archive/ui-patterns.md)**
+UI pattern research and component design explorations.
+
+**[Visual Summary](archive/visual-summary.md)**
+Visual design summary with mockups and component previews.
 
 ---
 
@@ -328,10 +388,15 @@ docs/
 ├── CONTRIBUTION.md            # Contributing guidelines
 ├── MAINTENANCE.md             # Maintenance procedures
 ├── architecture/              # System design (SPARC)
+├── archive/                   # Historical research and design documents
 ├── deployment/                # Production deployment
 ├── development/               # Development guides
+├── ddd/                       # Domain-Driven Design documentation
 ├── features/                  # Feature documentation
+├── guides/                    # Implementation and quick-start guides
 ├── reference/                 # API and configuration
+├── security/                  # Security documentation
+├── user/                      # End-user documentation
 └── working/                   # Quality improvement tracking
 ```
 
@@ -354,6 +419,6 @@ docs/
 
 ---
 
-**Last validated:** 2025-12-21
+**Last validated:** 2026-01-16
 **Link validation status:** 489 broken links identified, remediation in progress
 **Documentation version:** 1.0.0

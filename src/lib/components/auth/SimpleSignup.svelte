@@ -73,7 +73,7 @@
 
     try {
       // Set keys in auth store first
-      await authStore.setKeys(publicKey, privateKey, mnemonic);
+      await authStore.setKeys(publicKey, privateKey, 'incomplete');
 
       // Connect to relay if not already connected
       if (!isConnected()) {

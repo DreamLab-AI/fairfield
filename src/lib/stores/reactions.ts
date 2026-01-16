@@ -87,6 +87,12 @@ function createReactionStore() {
       return null;
     }
 
+    // Ensure required fields are present
+    if (!event.id || !event.tags) {
+      console.debug('[Reactions] Event missing required id or tags');
+      return null;
+    }
+
     const ndkEvent = new NDKEvent(ndkInstance);
     ndkEvent.id = event.id;
     ndkEvent.pubkey = event.pubkey;
@@ -227,7 +233,7 @@ function createReactionStore() {
         // Replace optimistic with real reaction
         const realReaction: ReactionData = {
           ...optimisticReaction,
-          reactionEventId: event.id,
+          reactionEventId: event.id || optimisticId,
         };
 
         update(state => {

@@ -165,6 +165,11 @@ export function parsePinList(
   try {
     const pins: string[] = [];
 
+    // Check if tags exist
+    if (!event.tags) {
+      return { pins };
+    }
+
     // Extract pins from tags (NIP-51 format)
     for (const tag of event.tags) {
       if (tag[0] === 'e' && tag[1]) {

@@ -20,16 +20,20 @@ Traditional BBS systems use Category → Forum → Thread hierarchy. Need to map
 
 ## Decision
 
-Implement three-tier hierarchy: **Category → Section → Forum**
+Implement three-tier hierarchy: **Zone (Category) → Section → Forum**
+
+> **Terminology Note:** In the PRD and user-facing docs, "Zone" is the preferred term for Tier 1
+> (e.g., Fairfield Family Zone, Minimoonoir Zone, DreamLab Zone). In code and config files,
+> "Category" is used interchangeably. Both terms refer to the same concept.
 
 ### Tier Definitions
 
 ```
-Category (Tier 1)
-├── Logical grouping of sections
-├── Navigation/UI only
+Zone/Category (Tier 1)
+├── Top-level context boundary (Family/Social/Business)
+├── Navigation/UI grouping
 ├── No Nostr event representation
-└── Defined in sections.yaml
+└── Defined in config/sections.yaml as "categories"
 
 Section (Tier 2)
 ├── Access control boundary

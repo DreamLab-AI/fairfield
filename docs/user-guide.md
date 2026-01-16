@@ -8,7 +8,7 @@ Welcome to Fairfield, a decentralized chat and community application built on th
 2. [Creating an Account](#creating-an-account)
 3. [Logging In](#logging-in)
 4. [Understanding Your Keys](#understanding-your-keys)
-5. [Navigating Sections](#navigating-sections)
+5. [Navigating Zones and Sections](#navigating-zones-and-sections)
 6. [Chat Features](#chat-features)
 7. [Events and Calendar](#events-and-calendar)
 8. [Direct Messages](#direct-messages)
@@ -114,21 +114,29 @@ Your key should be stored:
 
 ---
 
-## Navigating Sections
+## Navigating Zones and Sections
 
-Fairfield is organized into sections (areas) with different access levels:
+Fairfield is organized into three **Zones**, each containing multiple **Sections**:
 
-### Available Sections
+### The Three Zones
 
-| Section | Access | Description |
-|---------|--------|-------------|
-| **Fairfield Guests** | Open | No approval needed |
-| **Fairfield** | Requires Approval | Request access from admin |
-| **DreamLab** | Requires Approval | Limited calendar visibility |
+| Zone | Purpose | Who it's for |
+|------|---------|--------------|
+| **Fairfield Family** | Private family space | Core family members |
+| **Minimoonoir** | Social gathering space | Friends and visitors |
+| **DreamLab** | Business and training | Trainees and business collaborators |
+
+### Zone Access
+
+| Zone | Access | Description |
+|------|--------|-------------|
+| **Minimoonoir Welcome** | Open | No approval needed for authenticated users |
+| **Fairfield Family** | Requires Approval | Family cohort membership required |
+| **DreamLab** | Requires Approval | Business/trainee cohort membership required |
 
 ### Requesting Access
 
-1. Navigate to the section you want to join
+1. Navigate to the zone or section you want to join
 2. Click **"Request Access"**
 3. Optionally add a message explaining why
 4. Wait for admin approval
@@ -138,7 +146,7 @@ Fairfield is organized into sections (areas) with different access levels:
 
 | Status | Meaning |
 |--------|---------|
-| **Approved** | Full access to section channels |
+| **Approved** | Full access to zone/section forums |
 | **Pending** | Waiting for admin review |
 | **Not Requested** | Click to request access |
 

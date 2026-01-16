@@ -2,7 +2,18 @@
 
 This directory contains Architecture Decision Records for the Nostr BBS project.
 
+## Terminology Note
+
+The codebase uses a **3-tier hierarchy**:
+- **Zone** (Category): Top-level context boundary (Fairfield Family / Minimoonoir / DreamLab)
+- **Section**: Topical grouping within a zone (e.g., "Family Home", "Training Rooms")
+- **Forum**: NIP-28 channel for discussions
+
+In code, "Category" and "Zone" are used interchangeably for the top tier.
+
 ## ADR Index
+
+### Architecture ADRs (Numbered)
 
 | ID | Title | Status | Date |
 |----|-------|--------|------|
@@ -14,6 +25,12 @@ This directory contains Architecture Decision Records for the Nostr BBS project.
 | [ADR-006](006-client-side-wasm-search.md) | Client-Side WASM Search | Accepted | 2024-03 |
 | [ADR-007](007-sveltekit-ndk-frontend.md) | SvelteKit + NDK Frontend | Accepted | 2024-01 |
 | [ADR-008](008-postgresql-relay-storage.md) | PostgreSQL Relay Storage | Accepted | 2024-02 |
+
+### Implementation ADRs (Bug Fixes / Features)
+
+| ID | Title | Status | Date |
+|----|-------|--------|------|
+| [ADR-001-user-registration-flow](ADR-001-user-registration-flow.md) | User Registration Flow Fix | Resolved | 2026-01 |
 
 ## ADR Template
 

@@ -86,6 +86,11 @@ export function parseReactionEvent(event: NostrEvent): ReactionData | null {
     return null;
   }
 
+  // Ensure required fields are present
+  if (!event.tags || !event.id) {
+    return null;
+  }
+
   // Find the 'e' tag (event being reacted to)
   const eventTag = event.tags.find(tag => tag[0] === 'e');
   if (!eventTag || !eventTag[1]) {

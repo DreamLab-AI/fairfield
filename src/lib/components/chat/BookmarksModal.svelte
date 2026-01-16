@@ -19,7 +19,9 @@
       firstButton.focus();
     }
     // Prefetch profiles for bookmarked authors
-    const pubkeys = $bookmarks.map(b => b.authorPubkey).filter(pk => pk !== $authStore.publicKey);
+    const pubkeys: string[] = bookmarks
+      .map((b: { authorPubkey: string }) => b.authorPubkey)
+      .filter((pk: string) => pk !== $authStore.publicKey);
     if (pubkeys.length > 0) {
       profileCache.prefetchProfiles([...new Set(pubkeys)]);
     }

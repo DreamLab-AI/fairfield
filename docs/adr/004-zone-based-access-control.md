@@ -13,7 +13,7 @@ Accepted
 Private community requires:
 - Whitelist-only relay access
 - Role-based permissions within sections
-- Cohort membership for cross-section access
+- Cohort membership for cross-zone access
 - Admin/moderator capabilities
 
 Traditional RBAC doesn't map well to Nostr's event-based model.
@@ -21,6 +21,10 @@ Traditional RBAC doesn't map well to Nostr's event-based model.
 ## Decision
 
 Implement zone-based access control with cohorts and section roles.
+
+> **Terminology:** A "Zone" is the top-level context boundary (Fairfield Family, Minimoonoir, DreamLab).
+> Each zone contains multiple "Sections" which contain "Forums" (NIP-28 channels).
+> See ADR-002 for the full 3-tier hierarchy.
 
 ### Access Model
 
