@@ -59,21 +59,35 @@ export async function decryptMessage(
 
 ### Migration Strategy
 
+**Concrete Dates (Set 2025-01-16):**
+
 ```
-Phase 1 (Current): Dual-read, NIP-44 write
+Phase 1 (2025-01-01 → 2025-05-31): Warning Phase
 ├── New DMs use NIP-44 (kind 1059 gift wrap)
 ├── Old DMs decrypted with NIP-04
-└── UI shows "legacy" badge for NIP-04 messages
+├── UI shows "legacy" badge for NIP-04 messages
+└── Warning: "This message uses legacy encryption"
 
-Phase 2 (Future): NIP-04 deprecation warning
-├── Show warning when viewing NIP-04 messages
-├── Prompt user to re-encrypt conversations
-└── Admin can set deprecation date
+Phase 2 (2025-06-01 → 2025-11-30): Read-Only Phase
+├── NIP-04 ENCRYPTION DISABLED - all new messages use NIP-44
+├── NIP-04 decryption still works for old messages
+├── Prompt to export/archive legacy conversations
+└── Error if attempting to send NIP-04 encrypted message
 
-Phase 3 (Future): NIP-04 removal
-├── Remove NIP-04 decrypt capability
-├── Archive/export old messages first
-└── Clean migration path
+Phase 3 (2025-12-01+): Removal Phase
+├── NIP-04 decrypt capability removed
+├── Old kind 4 messages display "Archive required" notice
+└── Migration code can be safely removed
+```
+
+**Configuration:** `src/lib/config/migrations.ts`
+
+```typescript
+export const NIP04_MIGRATION = {
+  WARN_DATE: '2025-01-01',     // Show deprecation warnings
+  DISABLE_DATE: '2025-06-01', // Read-only mode
+  REMOVE_DATE: '2025-12-01',  // Complete removal
+} as const;
 ```
 
 ### Event Kind Mapping
