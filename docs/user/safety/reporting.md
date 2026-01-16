@@ -1,3 +1,12 @@
+---
+title: "Reporting & Blocking"
+description: "Handle unwanted behaviour and keep your experience positive."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Reporting & Blocking
 
 Handle unwanted behaviour and keep your experience positive.

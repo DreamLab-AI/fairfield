@@ -1,3 +1,12 @@
+---
+title: "Fairfield Nostr BBS - Product Requirements Document"
+description: "**Version:** 2.1.0 **Last Updated:** 2026-01-16 **Status:** Living Document"
+category: tutorial
+tags: ['developer', 'nostr', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Fairfield Nostr BBS - Product Requirements Document
 
 **Version:** 2.1.0
@@ -718,10 +727,10 @@ Accessibility is a core requirement, not an afterthought. The platform must work
 
 ### 12.1 Immediate (P0)
 
-- [ ] NIP-07 browser extension support
+- [x] NIP-07 browser extension support (Implemented: src/lib/nostr/nip07.ts, auth.ts, Login.svelte)
 - [ ] Per-pubkey rate limiting
 - [ ] Admin NIP-98 authentication for all endpoints
-- [ ] NIP-11 relay information completion
+- [x] NIP-11 relay information (Implemented: server.ts buildNip11Info() - full spec compliance)
 
 ### 12.2 Short-term (P1)
 

@@ -1,57 +1,52 @@
+---
+title: "Bounded Contexts"
+description: "## Context Map"
+category: explanation
+tags: ['ddd', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Bounded Contexts
 
 ## Context Map
 
+```mermaid
+graph TB
+    subgraph Upstream["UPSTREAM CONTEXTS"]
+        Identity["Identity Context<br/>━━━━━━━━━━<br/>Keypair<br/>Profile<br/>Session"]
+    end
+
+    subgraph Supporting["SUPPORTING CONTEXTS"]
+        Access["Access Context<br/>━━━━━━━━━━<br/>Cohort<br/>Role<br/>Whitelist"]
+        Organization["Organization Context<br/>━━━━━━━━━━<br/>Category<br/>Section<br/>Forum"]
+    end
+
+    subgraph Core["CORE DOMAIN"]
+        Messaging["Messaging Context<br/>━━━━━━━━━━<br/>Message<br/>DM<br/>Thread<br/>Reaction"]
+    end
+
+    subgraph Downstream["DOWNSTREAM CONTEXTS"]
+        Search["Search Context<br/>━━━━━━━━━━<br/>Index<br/>Query"]
+        Calendar["Calendar Context<br/>━━━━━━━━━━<br/>Event<br/>RSVP"]
+    end
+
+    Identity -->|Published<br/>Language| Access
+    Access -->|OHS| Organization
+    Access -->|ACL| Messaging
+    Organization -->|OHS| Messaging
+    Messaging --> Search
+    Messaging --> Calendar
+
+    style Identity fill:#e1f5fe
+    style Access fill:#fff9c4
+    style Organization fill:#fff9c4
+    style Messaging fill:#c8e6c9
+    style Search fill:#f8bbd0
+    style Calendar fill:#f8bbd0
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Context Map                                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   UPSTREAM                                                      │
-│   ┌─────────────────┐                                          │
-│   │    Identity     │                                          │
-│   │    Context      │                                          │
-│   │  ┌───────────┐  │                                          │
-│   │  │ Keypair   │  │                                          │
-│   │  │ Profile   │  │                                          │
-│   │  │ Session   │  │                                          │
-│   │  └───────────┘  │                                          │
-│   └────────┬────────┘                                          │
-│            │ Published Language                                 │
-│            ▼                                                    │
-│   ┌─────────────────┐     ┌─────────────────┐                  │
-│   │     Access      │────>│  Organization   │                  │
-│   │    Context      │ OHS │    Context      │                  │
-│   │  ┌───────────┐  │     │  ┌───────────┐  │                  │
-│   │  │ Cohort    │  │     │  │ Category  │  │                  │
-│   │  │ Role      │  │     │  │ Section   │  │                  │
-│   │  │ Whitelist │  │     │  │ Forum     │  │                  │
-│   │  └───────────┘  │     │  └───────────┘  │                  │
-│   └────────┬────────┘     └────────┬────────┘                  │
-│            │                       │                            │
-│            │     ACL               │ OHS                        │
-│            ▼                       ▼                            │
-│   ┌─────────────────────────────────────────┐                  │
-│   │           Messaging Context              │  CORE DOMAIN    │
-│   │  ┌───────────┐  ┌───────────┐           │                  │
-│   │  │ Message   │  │ Thread    │           │                  │
-│   │  │ DM        │  │ Reaction  │           │                  │
-│   │  └───────────┘  └───────────┘           │                  │
-│   └──────────┬─────────────┬────────────────┘                  │
-│              │             │                                    │
-│   DOWNSTREAM │             │                                    │
-│              ▼             ▼                                    │
-│   ┌─────────────────┐  ┌─────────────────┐                     │
-│   │    Search       │  │   Calendar      │                     │
-│   │    Context      │  │    Context      │                     │
-│   │  ┌───────────┐  │  │  ┌───────────┐  │                     │
-│   │  │ Index     │  │  │  │ Event     │  │                     │
-│   │  │ Query     │  │  │  │ RSVP      │  │                     │
-│   │  └───────────┘  │  │  └───────────┘  │                     │
-│   └─────────────────┘  └─────────────────┘                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+*Domain-Driven Design context map showing upstream identity, core messaging domain, and downstream contexts*
 
 ## Context Definitions
 
@@ -110,7 +105,7 @@ interface IdentityService {
 
 **Integrations**:
 - **Inbound**: Receives pubkey from Identity Context
-- **Outbound**: Provides permissions to Organization Context
+- **Outbound**: Provides permissions to Organisation Context
 - **Technology**: PostgreSQL, NIP-42
 
 ```typescript
@@ -125,7 +120,7 @@ interface AccessService {
 
 ---
 
-### 3. Organization Context
+### 3. Organisation Context
 
 **Purpose**: Structure the BBS hierarchy.
 
@@ -148,8 +143,8 @@ interface AccessService {
 - **Technology**: sections.yaml, NIP-28/29
 
 ```typescript
-// Organization Context Public API
-interface OrganizationService {
+// Organisation Context Public API
+interface OrganisationService {
   getCategories(): Category[];
   getSections(categoryId?: CategoryId): Section[];
   getForums(sectionId: SectionId): Forum[];
@@ -180,7 +175,7 @@ interface OrganizationService {
 | Gift Wrap | NIP-59 privacy envelope |
 
 **Integrations**:
-- **Inbound**: Structure from Organization, Identity from Identity
+- **Inbound**: Structure from Organisation, Identity from Identity
 - **Outbound**: Content to Search Context
 - **Technology**: NDK, NIP-01/17/25/28/44/59
 
@@ -281,11 +276,11 @@ class MessagingPermissionAdapter {
 
 ### Open Host Service (OHS)
 
-Organization Context exposes structure via well-defined API.
+Organisation Context exposes structure via well-defined API.
 
 ```typescript
-// OHS: Organization Context public interface
-const organizationApi = {
+// OHS: Organisation Context public interface
+const organisationApi = {
   '/categories': () => getCategories(),
   '/sections/:id': (id) => getSection(id),
   '/sections/:id/forums': (id) => getForums(id)

@@ -1,3 +1,16 @@
+---
+title: "User Documentation"
+description: "Complete user guide for the platform covering getting started, zone guides, features, and safety"
+category: tutorial
+tags: [user, guide, tutorial, zones, features]
+difficulty: beginner
+related-docs:
+  - ./getting-started/index.md
+  - ./zones/index.md
+  - ./features/index.md
+last-updated: 2026-01-16
+---
+
 # User Documentation
 
 Welcome to the user documentation. This guide will help you get the most out of the platform, whether you're joining Minimoonoir for social events, collaborating in DreamLab, or staying connected with family.

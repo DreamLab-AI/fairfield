@@ -1,3 +1,12 @@
+---
+title: "Semantic Vector Search"
+description: "AI-powered search that understands meaning, not just keywords."
+category: tutorial
+tags: ['developer', 'search', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Semantic Vector Search
 
 AI-powered search that understands meaning, not just keywords.

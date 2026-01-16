@@ -1,3 +1,12 @@
+---
+title: "API Reference"
+description: "Internal API documentation for services and utilities."
+category: reference
+tags: ['developer', 'reference', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # API Reference
 
 Internal API documentation for services and utilities.

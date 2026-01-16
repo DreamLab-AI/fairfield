@@ -1,3 +1,12 @@
+---
+title: "NIP-07 Browser Extension Support Analysis"
+description: "**Date**: 2026-01-16 **Status**: Incomplete Implementation **Priority**: High (Security & UX Enhancement)"
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # NIP-07 Browser Extension Support Analysis
 
 **Date**: 2026-01-16

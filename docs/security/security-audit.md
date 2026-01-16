@@ -1,3 +1,12 @@
+---
+title: "Security Audit Report - Nostr-BBS"
+description: "[← Back to Main README](../README.md)"
+category: tutorial
+tags: ['developer', 'nostr', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 [← Back to Main README](../README.md)
 
 # Security Audit Report - Nostr-BBS

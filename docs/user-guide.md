@@ -1,3 +1,12 @@
+---
+title: "Fairfield User Guide"
+description: "Welcome to Fairfield, a decentralized chat and community application built on the Nostr protocol. This guide will help you get started and make the most of the platform."
+category: howto
+tags: ['developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Fairfield User Guide
 
 Welcome to Fairfield, a decentralized chat and community application built on the Nostr protocol. This guide will help you get started and make the most of the platform.
@@ -116,7 +125,7 @@ Your key should be stored:
 
 ## Navigating Zones and Sections
 
-Fairfield is organized into three **Zones**, each containing multiple **Sections**:
+Fairfield is organised into three **Zones**, each containing multiple **Sections**:
 
 ### The Three Zones
 
@@ -208,7 +217,7 @@ Events display:
 - Date and time
 - Location (if visible)
 - Description (if visible)
-- Host/organizer
+- Host/organiser
 
 ---
 

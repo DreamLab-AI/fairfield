@@ -1,3 +1,12 @@
+---
+title: "Event Kinds Reference"
+description: "Nostr event types used in the platform."
+category: reference
+tags: ['calendar', 'developer', 'reference', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Event Kinds Reference
 
 Nostr event types used in the platform.

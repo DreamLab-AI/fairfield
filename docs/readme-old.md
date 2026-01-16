@@ -1,3 +1,12 @@
+---
+title: "Documentation"
+description: "<div align="center">"
+category: tutorial
+tags: ['developer', 'messaging', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Documentation
 
 <div align="center">

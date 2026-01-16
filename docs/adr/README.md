@@ -1,3 +1,12 @@
+---
+title: "Architecture Decision Records"
+description: "Index of architecture decision records documenting key technical decisions for the Nostr BBS project"
+category: reference
+tags: [architecture, adr, reference, developer, decisions]
+difficulty: intermediate
+last-updated: 2026-01-16
+---
+
 # Architecture Decision Records (ADR)
 
 This directory contains Architecture Decision Records for the Nostr BBS project.
@@ -54,7 +63,7 @@ Use [000-template.md](000-template.md) when creating new ADRs.
 
 ### Key Decisions
 1. Nostr for identity and messaging (no traditional auth)
-2. Three-tier hierarchy for BBS organization
+2. Three-tier hierarchy for BBS organisation
 3. Zone-based cohort access control
 4. NIP-44 mandatory for new encryption
 5. Client-side semantic search (WiFi-only sync)

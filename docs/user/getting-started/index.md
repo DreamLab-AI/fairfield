@@ -1,3 +1,12 @@
+---
+title: "Getting Started"
+description: "Welcome! This guide will help you set up your account and start using the platform."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Getting Started
 
 Welcome! This guide will help you set up your account and start using the platform.

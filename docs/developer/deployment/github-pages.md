@@ -1,3 +1,12 @@
+---
+title: "GitHub Pages Deployment"
+description: "Deploy the platform as a static site to GitHub Pages."
+category: tutorial
+tags: ['deployment', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # GitHub Pages Deployment
 
 Deploy the platform as a static site to GitHub Pages.

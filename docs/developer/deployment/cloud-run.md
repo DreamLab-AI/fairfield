@@ -1,3 +1,12 @@
+---
+title: "Google Cloud Run Deployment"
+description: "Deploy the platform to Google Cloud Run for serverless container hosting."
+category: tutorial
+tags: ['deployment', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Google Cloud Run Deployment
 
 Deploy the platform to Google Cloud Run for serverless container hosting.

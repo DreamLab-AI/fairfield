@@ -1,3 +1,12 @@
+---
+title: "NIP Protocol Reference"
+description: "Definitive reference for all Nostr Implementation Proposal (NIP) implementations in the platform."
+category: reference
+tags: ['developer', 'reference', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # NIP Protocol Reference
 
 Definitive reference for all Nostr Implementation Proposal (NIP) implementations in the platform.

@@ -1,3 +1,12 @@
+---
+title: "Getting Started"
+description: "Set up your development environment and make your first contribution."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Getting Started
 
 Set up your development environment and make your first contribution.

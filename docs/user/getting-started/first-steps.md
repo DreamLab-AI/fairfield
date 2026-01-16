@@ -1,3 +1,12 @@
+---
+title: "First Steps"
+description: "Now that you have an account, let's explore the platform and learn how to use it."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # First Steps
 
 Now that you have an account, let's explore the platform and learn how to use it.

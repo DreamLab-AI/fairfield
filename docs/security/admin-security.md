@@ -1,3 +1,12 @@
+---
+title: "Admin Security Hardening"
+description: "This document describes the security hardening measures implemented for admin workflows in Fairfield."
+category: tutorial
+tags: ['admin', 'developer', 'messaging', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Admin Security Hardening
 
 This document describes the security hardening measures implemented for admin workflows in Fairfield.
@@ -331,4 +340,4 @@ npm test -- tests/unit/nostr/admin-security.test.ts
 ## Related Documentation
 
 - [Authentication](../features/authentication.md)
-- [Security Audit Report](../security-audit-report.md)
+- [Security Audit Report](security-audit-report.md)

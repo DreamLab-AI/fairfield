@@ -1,3 +1,12 @@
+---
+title: "Notifications"
+description: "Stay informed about activity that matters to you."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Notifications
 
 Stay informed about activity that matters to you.

@@ -1,3 +1,12 @@
+---
+title: "Reactions"
+description: "Express yourself with emoji reactions on messages."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Reactions
 
 Express yourself with emoji reactions on messages.

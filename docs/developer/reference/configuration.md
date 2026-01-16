@@ -1,3 +1,12 @@
+---
+title: "Configuration Reference"
+description: "All configuration options for the platform."
+category: reference
+tags: ['developer', 'reference', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Configuration Reference
 
 All configuration options for the platform.

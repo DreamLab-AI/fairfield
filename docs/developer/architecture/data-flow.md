@@ -1,3 +1,12 @@
+---
+title: "Data Flow"
+description: "Message lifecycle and state management patterns."
+category: explanation
+tags: ['architecture', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Data Flow
 
 Message lifecycle and state management patterns.

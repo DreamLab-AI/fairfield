@@ -1,0 +1,19 @@
+# UK English Spelling Exceptions
+# Add legitimate US spellings here (one per line)
+# Format: word # reason/context
+
+# Code and API identifiers
+color # CSS property, JavaScript APIs
+backgroundColor # JavaScript property
+textColor # JavaScript property
+optimize # npm package names, webpack config
+organization # GitHub API, npm organization scope
+
+# Library and framework names
+React # library name
+Node # Node.js
+Rollup # build tool
+
+# Technical terms (standardised US spelling)
+TypeScript # language name
+JavaScript # language name

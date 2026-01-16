@@ -1,3 +1,12 @@
+---
+title: "Community Zones"
+description: "The platform is organised into three distinct zones, each serving a specific community with its own purpose, culture, and features."
+category: tutorial
+tags: ['developer', 'user', 'zones']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Community Zones
 
 The platform is organised into three distinct zones, each serving a specific community with its own purpose, culture, and features.

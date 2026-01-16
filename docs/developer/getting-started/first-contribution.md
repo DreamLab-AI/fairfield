@@ -1,3 +1,12 @@
+---
+title: "First Contribution"
+description: "Make your first code change to the platform."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # First Contribution
 
 Make your first code change to the platform.

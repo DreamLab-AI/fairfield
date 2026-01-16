@@ -1,3 +1,16 @@
+---
+title: "Developer Documentation"
+description: "Technical documentation for building, extending, and deploying the platform with architecture guides and API reference"
+category: reference
+tags: [developer, architecture, api, deployment, contributing]
+difficulty: advanced
+related-docs:
+  - ./getting-started/index.md
+  - ./architecture/index.md
+  - ../adr/README.md
+last-updated: 2026-01-16
+---
+
 # Developer Documentation
 
 Technical documentation for building, extending, and deploying the platform.

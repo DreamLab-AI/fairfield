@@ -1,3 +1,12 @@
+---
+title: "Calendar & Events"
+description: "Technical implementation of the calendar system using NIP-52."
+category: tutorial
+tags: ['calendar', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Calendar & Events
 
 Technical implementation of the calendar system using NIP-52.

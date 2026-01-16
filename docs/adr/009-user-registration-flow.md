@@ -1,3 +1,12 @@
+---
+title: "ADR-009: User Registration Flow"
+description: "Decision on simplified user registration with password-based key derivation"
+category: reference
+tags: ['adr', 'authentication', 'user', 'registration', 'security']
+difficulty: intermediate
+last-updated: 2026-01-16
+---
+
 # ADR-001: User Registration and Approval Flow
 
 ## Status

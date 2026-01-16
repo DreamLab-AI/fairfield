@@ -1,3 +1,12 @@
+---
+title: "Progressive Security Onboarding: Implementation Quick Start Guide"
+description: "**For:** Nostr chat app development team **Focus:** Build Phase 1 (MVP) in 2-3 weeks **Expected Outcome:** Users can chat within 30 seconds; security onboarding happens over their first week"
+category: howto
+tags: ['developer', 'guide', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Progressive Security Onboarding: Implementation Quick Start Guide
 
 **For:** Nostr chat app development team

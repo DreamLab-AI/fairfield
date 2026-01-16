@@ -1,12 +1,21 @@
-# ADR-XXX: [Title]
+---
+title: "ADR-000: Architecture Decision Record Template"
+description: "Template for creating new architecture decision records with standard structure"
+category: reference
+tags: [adr, template, architecture, developer]
+difficulty: intermediate
+last-updated: 2026-01-16
+---
+
+# ADR-000: Architecture Decision Record Template
 
 ## Status
 
-[Proposed | Accepted | Deprecated | Rejected]
+Template (not an actual decision)
 
 ## Date
 
-YYYY-MM-DD
+This is a template file for creating new ADRs
 
 ## Context
 
@@ -41,6 +50,6 @@ What is the change that we're proposing and/or doing?
 
 ## References
 
-- Related ADRs: ADR-XXX
-- External docs: [link]
-- NIPs: NIP-XX
+- Related ADRs: (list related ADRs)
+- External docs: (add links to supporting documentation)
+- NIPs: (reference relevant Nostr Implementation Possibilities)

@@ -1,3 +1,12 @@
+---
+title: "ADR-008: PostgreSQL Relay Storage"
+description: "Decision to use PostgreSQL for relay event storage with strfry"
+category: reference
+tags: ['adr', 'database', 'postgresql', 'relay', 'storage']
+difficulty: advanced
+last-updated: 2026-01-16
+---
+
 # ADR-008: PostgreSQL Relay Storage
 
 ## Status

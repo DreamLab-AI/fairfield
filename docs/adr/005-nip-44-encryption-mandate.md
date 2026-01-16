@@ -1,3 +1,12 @@
+---
+title: "ADR-005: NIP-44 Encryption Mandate"
+description: "Decision to mandate NIP-44 encryption for all new encrypted content"
+category: reference
+tags: ['adr', 'security', 'encryption', 'nostr', 'nip-44']
+difficulty: advanced
+last-updated: 2026-01-16
+---
+
 # ADR-005: NIP-44 Encryption Mandate
 
 ## Status

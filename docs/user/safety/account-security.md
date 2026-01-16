@@ -1,3 +1,12 @@
+---
+title: "Account Security"
+description: "Keep your account safe and secure."
+category: tutorial
+tags: ['developer', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Account Security
 
 Keep your account safe and secure.

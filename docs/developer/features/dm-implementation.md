@@ -1,3 +1,12 @@
+---
+title: "Private Messages Implementation"
+description: "Technical implementation of end-to-end encrypted direct messages using NIP-17 and NIP-59."
+category: tutorial
+tags: ['developer', 'messaging', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Private Messages Implementation
 
 Technical implementation of end-to-end encrypted direct messages using NIP-17 and NIP-59.

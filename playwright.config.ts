@@ -32,6 +32,9 @@ export default defineConfig({
     // Base URL to use in actions like `await page.goto('/')`
     baseURL: process.env.BASE_URL || 'http://localhost:5173',
 
+    // Bypass CSP for testing (CSP blocks SvelteKit inline scripts in strict-dynamic mode)
+    bypassCSP: true,
+
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
 
@@ -63,7 +66,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        },
+      },
     },
 
     {

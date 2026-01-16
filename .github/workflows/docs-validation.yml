@@ -1,0 +1,93 @@
+name: Documentation Validation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-validation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+
+jobs:
+  validate:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for link validation
+
+      - name: Make scripts executable
+        run: chmod +x docs/scripts/*.sh
+
+      - name: Run validation suite
+        id: validation
+        run: |
+          # Run all validators and capture output
+          docs/scripts/validate-all.sh 2>&1 | tee validation-output.txt
+          echo "validation_result=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: validation-output.txt
+          retention-days: 30
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.validation.outputs.validation_result != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('validation-output.txt', 'utf8');
+
+            const body = `## 📋 Documentation Validation Failed
+
+            \`\`\`
+            ${output}
+            \`\`\`
+
+            Please fix the issues above before merging.
+
+            See [MAINTENANCE.md](../blob/main/docs/MAINTENANCE.md) for guidance.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Fail if validation failed
+        if: steps.validation.outputs.validation_result != '0'
+        run: exit 1
+
+      - name: Success comment on PR
+        if: github.event_name == 'pull_request' && steps.validation.outputs.validation_result == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## ✅ Documentation Validation Passed
+
+            All validation checks completed successfully:
+            - ✅ Structure validation
+            - ✅ Front matter validation
+            - ✅ Link validation
+            - ✅ UK English spelling
+
+            Ready to merge!`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

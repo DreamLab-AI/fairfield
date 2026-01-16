@@ -1,3 +1,12 @@
+---
+title: "DreamLab"
+description: "![DreamLab Hero](../../../../static/images/zones/dreamlab-hero.webp)"
+category: tutorial
+tags: ['developer', 'user', 'zones']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # DreamLab
 
 ![DreamLab Hero](../../../../static/images/zones/dreamlab-hero.webp)

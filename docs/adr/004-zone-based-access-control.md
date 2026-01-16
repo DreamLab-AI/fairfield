@@ -1,3 +1,12 @@
+---
+title: "ADR-004: Zone-Based Access Control"
+description: "Decision to implement zone-based cohort access control using admin whitelists"
+category: reference
+tags: ['adr', 'security', 'access-control', 'zones', 'admin']
+difficulty: advanced
+last-updated: 2026-01-16
+---
+
 # ADR-004: Zone-Based Access Control
 
 ## Status

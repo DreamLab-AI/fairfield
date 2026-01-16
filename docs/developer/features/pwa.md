@@ -1,3 +1,12 @@
+---
+title: "PWA Implementation"
+description: "Technical implementation of Progressive Web App features."
+category: tutorial
+tags: ['developer', 'pwa', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # PWA Implementation
 
 Technical implementation of Progressive Web App features.

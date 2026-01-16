@@ -1,3 +1,12 @@
+---
+title: "Messaging System"
+description: "Technical implementation of the channel messaging system using NIP-29 relay-based groups."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Messaging System
 
 Technical implementation of the channel messaging system using NIP-29 relay-based groups.

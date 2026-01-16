@@ -1,3 +1,12 @@
+---
+title: "Authentication System"
+description: "Fairfield uses a Nostr-native authentication system based on nsec private keys with secure local storage and optional read-only access."
+category: tutorial
+tags: ['authentication', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Authentication System
 
 Fairfield uses a Nostr-native authentication system based on nsec private keys with secure local storage and optional read-only access.

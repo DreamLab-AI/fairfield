@@ -1,3 +1,12 @@
+---
+title: "Summary"
+description: "================================================================================ SECURITY SCAN SUMMARY - Project2 (Minimoonoir/Nostr BBS) Date: 2026-01-08 ============================================="
+category: tutorial
+tags: ['developer', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 ================================================================================
 SECURITY SCAN SUMMARY - Project2 (Minimoonoir/Nostr BBS)
 Date: 2026-01-08

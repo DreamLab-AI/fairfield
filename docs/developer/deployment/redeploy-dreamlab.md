@@ -1,3 +1,12 @@
+---
+title: "Redeploy Dreamlab"
+description: "redeploy to dreamlab"
+category: tutorial
+tags: ['deployment', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 redeploy to dreamlab
 
 

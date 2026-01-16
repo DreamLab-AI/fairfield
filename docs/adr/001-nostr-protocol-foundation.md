@@ -1,3 +1,15 @@
+---
+title: "ADR-001: Nostr Protocol as Foundation"
+description: "Decision to use Nostr protocol for identity, authentication, and messaging instead of traditional centralized solutions"
+category: reference
+tags: [adr, nostr, architecture, authentication, protocol]
+difficulty: advanced
+related-docs:
+  - ../architecture.md
+  - ./002-three-tier-hierarchy.md
+last-updated: 2024-01-15
+---
+
 # ADR-001: Nostr Protocol as Foundation
 
 ## Status

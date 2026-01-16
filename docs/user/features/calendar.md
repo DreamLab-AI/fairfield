@@ -1,3 +1,12 @@
+---
+title: "Calendar"
+description: "View upcoming events, plan gatherings, and coordinate with your community."
+category: tutorial
+tags: ['calendar', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Calendar
 
 View upcoming events, plan gatherings, and coordinate with your community.

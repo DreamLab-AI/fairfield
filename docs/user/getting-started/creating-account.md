@@ -1,3 +1,12 @@
+---
+title: "Creating Your Account"
+description: "This guide walks you through creating your secure account on the platform."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Creating Your Account
 
 This guide walks you through creating your secure account on the platform.

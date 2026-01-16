@@ -1,3 +1,12 @@
+---
+title: "Nostr Chat App - Complete Authentication Flow Design"
+description: "## Overview"
+category: tutorial
+tags: ['authentication', 'developer', 'nostr', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Nostr Chat App - Complete Authentication Flow Design
 
 ## Overview

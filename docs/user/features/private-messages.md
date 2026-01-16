@@ -1,3 +1,12 @@
+---
+title: "Private Messages"
+description: "Secure, encrypted one-to-one conversations that only you and the recipient can read."
+category: tutorial
+tags: ['developer', 'messaging', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Private Messages
 
 Secure, encrypted one-to-one conversations that only you and the recipient can read.

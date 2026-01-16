@@ -1,3 +1,12 @@
+---
+title: "Fairfield Architecture Overview"
+description: "This document provides a high-level overview of the Fairfield application architecture. For detailed SPARC documentation, see the architecture files: - [01-specification.md](./architecture/01-specific"
+category: explanation
+tags: ['architecture', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Fairfield Architecture Overview
 
 This document provides a high-level overview of the Fairfield application architecture. For detailed SPARC documentation, see the architecture files:
@@ -11,35 +20,34 @@ This document provides a high-level overview of the Fairfield application archit
 
 Fairfield is a decentralized chat and community application built on the Nostr protocol with the following core components:
 
+```mermaid
+graph TB
+    subgraph Client["CLIENT LAYER (PWA)"]
+        subgraph Modules["Application Modules"]
+            Auth["Auth Module<br/>- Keygen<br/>- NsecBackup<br/>- Storage"]
+            Chat["Chat Module<br/>- Channels<br/>- Messages<br/>- DMs"]
+            Admin["Admin Module<br/>- Users<br/>- Approvals<br/>- Moderation"]
+        end
+        NDK["Nostr SDK (NDK)<br/>Event Signing | NIP-44 Encryption | Subscriptions"]
+        Modules --> NDK
+    end
+
+    NDK -->|WSS WebSocket| Relay
+
+    subgraph Relay["RELAY LAYER"]
+        subgraph RelayComponents["Relay Components"]
+            NIPAuth["NIP-42 AUTH<br/>- Whitelist<br/>- Challenge"]
+            GroupLogic["Group Logic<br/>- Membership<br/>- Roles"]
+            EventStore["Event Store<br/>- Messages<br/>- Metadata"]
+        end
+    end
+
+    style Client fill:#e3f2fd
+    style Relay fill:#f3e5f5
+    style NDK fill:#fff3e0
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      CLIENT LAYER (PWA)                        │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │ Auth Module  │  │ Chat Module  │  │ Admin Module │          │
-│  │  - Keygen    │  │  - Channels  │  │  - Users     │          │
-│  │  - NsecBackup│  │  - Messages  │  │  - Approvals │          │
-│  │  - Storage   │  │  - DMs       │  │  - Moderation│          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│                           │                                     │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │               Nostr SDK (NDK)                           │   │
-│  │   Event Signing | NIP-44 Encryption | Subscriptions     │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                        WSS (WebSocket)
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                      RELAY LAYER                                │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │ NIP-42 AUTH  │  │ Group Logic  │  │ Event Store  │          │
-│  │  - Whitelist │  │  - Membership│  │  - Messages  │          │
-│  │  - Challenge │  │  - Roles     │  │  - Metadata  │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+*Fairfield two-layer architecture: PWA client communicates with Nostr relay via WebSocket*
 
 ## Technology Stack
 
@@ -98,30 +106,24 @@ Fairfield is a decentralized chat and community application built on the Nostr p
 
 ### Authentication
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant App
+    participant Crypto as Web Crypto API
+    participant Storage as Browser Storage
+
+    User->>App: 1. Enter nsec/hex key
+    App->>App: 2. Key validation (NIP-19 decode or hex verify)
+    App->>App: 3. Rate limit check (5 attempts / 15 min)
+    App->>Crypto: 4. Session key generation
+    Crypto-->>App: Random session key
+    App->>Crypto: 5. Key encryption (AES-256-GCM, PBKDF2 600k)
+    Crypto-->>App: Encrypted key
+    App->>Storage: 6. Store encrypted key (localStorage)<br/>Store session token (sessionStorage)
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Authentication Flow                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   1. User enters nsec/hex key                                   │
-│      │                                                          │
-│      ▼                                                          │
-│   2. Key validation (NIP-19 decode or hex verify)               │
-│      │                                                          │
-│      ▼                                                          │
-│   3. Rate limit check (5 attempts / 15 min)                     │
-│      │                                                          │
-│      ▼                                                          │
-│   4. Session key generation (crypto.getRandomValues)            │
-│      │                                                          │
-│      ▼                                                          │
-│   5. Key encryption (AES-256-GCM, PBKDF2 600k iterations)       │
-│      │                                                          │
-│      ▼                                                          │
-│   6. Storage (encrypted in localStorage, session in sessionStorage)│
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+*Authentication flow with client-side key encryption*
 
 ### Key Security Features
 
@@ -147,57 +149,68 @@ Fairfield is a decentralized chat and community application built on the Nostr p
 
 ### Section Hierarchy
 
+```mermaid
+graph TD
+    FG[Fairfield Guests - Open] --> FG1[Public channels<br/>no approval needed]
+
+    F[Fairfield - Requires Approval] --> F1[Member channels]
+    F --> F2[Full calendar visibility]
+
+    DL[DreamLab - Requires Approval] --> DL1[Private channels]
+    DL --> DL2[Limited calendar visibility<br/>dates only]
+
+    style FG fill:#a5d6a7
+    style F fill:#fff59d
+    style DL fill:#ef9a9a
 ```
-Fairfield Guests (Open)
-    │
-    ├── Public channels (no approval needed)
-    │
-Fairfield (Requires Approval)
-    │
-    ├── Member channels
-    ├── Full calendar visibility
-    │
-DreamLab (Requires Approval)
-    │
-    ├── Private channels
-    ├── Limited calendar visibility (dates only)
-```
+
+*Access hierarchy from public guest area to restricted DreamLab section*
 
 ## Data Flow
 
 ### Message Flow
 
+```mermaid
+flowchart LR
+    Input[User Input] --> Validation --> Creation[Event Creation]
+    Creation --> Signing --> Relay
+    Relay --> Subs[Subscribers]
+    Relay --> Cache[IndexedDB Cache]
+    Subs --> UI[Real-time UI]
+    Cache --> Offline[Offline Access]
+
+    style Relay fill:#4fc3f7
+    style UI fill:#81c784
+    style Offline fill:#ffb74d
 ```
-User Input → Validation → Event Creation → Signing → Relay → Storage
-                                                        │
-                                              ┌─────────┴─────────┐
-                                              │                   │
-                                        Subscribers          IndexedDB Cache
-                                              │                   │
-                                        Real-time UI         Offline Access
-```
+
+*Message lifecycle from user input to real-time display and offline caching*
 
 ### DM Flow (NIP-17/59)
 
+```mermaid
+sequenceDiagram
+    participant Sender
+    participant App
+    participant Relay
+    participant Recipient
+
+    Note over Sender,App: 1. Create sealed rumor (kind 14)
+    Sender->>App: Compose DM
+    App->>App: Encrypt with NIP-44<br/>Real timestamp
+
+    Note over App: 2. Wrap with gift-wrap (kind 1059)
+    App->>App: Random ephemeral key<br/>Fuzzed timestamp<br/>Encrypt sealed rumor
+
+    Note over App,Relay: 3. Publish to relay
+    App->>Relay: Encrypted blob<br/>No metadata leakage
+
+    Note over Relay,Recipient: 4. Recipient unwraps
+    Relay->>Recipient: Encrypted event
+    Recipient->>Recipient: Decrypt gift-wrap<br/>Decrypt rumor<br/>Display message
 ```
-1. Create sealed rumor (kind 14)
-   - Encrypt content with NIP-44
-   - Real timestamp
 
-2. Wrap with gift-wrap (kind 1059)
-   - Random ephemeral sender key
-   - Fuzzed timestamp
-   - Encrypt sealed rumor
-
-3. Publish to relay
-   - Relay sees only encrypted blob
-   - No metadata leakage
-
-4. Recipient unwraps
-   - Decrypt gift-wrap
-   - Decrypt rumor
-   - Display message
-```
+*Privacy-preserving direct message flow using NIP-17/59 gift wrapping*
 
 ## File Structure
 
@@ -274,11 +287,11 @@ For comprehensive technical details, see:
 
 ## Related Documentation
 
-- [Authentication System](./features/authentication.md) - Detailed auth flows
-- [Admin Security](./security/admin-security.md) - Admin hardening measures
-- [User Guide](./user-guide.md) - End-user documentation
-- [Admin Guide](./admin-guide.md) - Administrator documentation
-- [Security Audit Report](./security-audit-report.md) - Security findings
+- [Authentication System](features/authentication.md) - Detailed auth flows
+- [Admin Security](security/admin-security.md) - Admin hardening measures
+- [User Guide](user-guide.md) - End-user documentation
+- [Admin Guide](admin-guide.md) - Administrator documentation
+- [Security Audit Report](security-audit-report.md) - Security findings
 
 ---
 

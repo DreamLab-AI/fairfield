@@ -1,3 +1,12 @@
+---
+title: "Code Style Guide"
+description: "Coding standards and conventions for the project."
+category: tutorial
+tags: ['developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Code Style Guide
 
 Coding standards and conventions for the project.
@@ -414,7 +423,7 @@ function findMessage(id: string): Message | undefined {
 count++;
 
 // ❌ Bad: Outdated comments
-// TODO: Remove this hack (added 2 years ago)
+// FIXME: Legacy workaround from v1.0
 ```
 
 ### JSDoc

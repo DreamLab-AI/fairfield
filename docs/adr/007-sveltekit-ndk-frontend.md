@@ -1,3 +1,12 @@
+---
+title: "ADR-007: SvelteKit + NDK Frontend"
+description: "Decision to use SvelteKit with NDK for frontend development"
+category: reference
+tags: ['adr', 'architecture', 'frontend', 'svelte', 'ndk']
+difficulty: intermediate
+last-updated: 2026-01-16
+---
+
 # ADR-007: SvelteKit + NDK Frontend
 
 ## Status

@@ -1,3 +1,12 @@
+---
+title: "Contributing Guide"
+description: "How to contribute to the platform."
+category: tutorial
+tags: ['developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Contributing Guide
 
 How to contribute to the platform.

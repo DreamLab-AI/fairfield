@@ -1,3 +1,12 @@
+---
+title: "Project Structure"
+description: "Understand the codebase layout and where to find things."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Project Structure
 
 Understand the codebase layout and where to find things.

@@ -1,3 +1,12 @@
+---
+title: "Store Reference"
+description: "Svelte stores managing application state throughout the platform."
+category: reference
+tags: ['developer', 'reference', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Store Reference
 
 Svelte stores managing application state throughout the platform.

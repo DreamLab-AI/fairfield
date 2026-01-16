@@ -1,3 +1,12 @@
+---
+title: "Aggregates"
+description: "## Overview"
+category: explanation
+tags: ['ddd', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Aggregates
 
 ## Overview

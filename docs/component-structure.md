@@ -1,3 +1,12 @@
+---
+title: "Authentication Components - Structure & Specifications"
+description: "This document outlines the component hierarchy, props, state management, and implementation details for the Nostr chat signup and login flows."
+category: tutorial
+tags: ['authentication', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Authentication Components - Structure & Specifications
 
 This document outlines the component hierarchy, props, state management, and implementation details for the Nostr chat signup and login flows.

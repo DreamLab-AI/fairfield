@@ -1,3 +1,12 @@
+---
+title: "Nostr Chat Authentication - Design Summary"
+description: "Complete specification for signup and login flows with Nostr abstraction."
+category: tutorial
+tags: ['authentication', 'developer', 'nostr', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Nostr Chat Authentication - Design Summary
 
 Complete specification for signup and login flows with Nostr abstraction.

@@ -1,3 +1,12 @@
+---
+title: "Privacy"
+description: "How your data is protected on the platform."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Privacy
 
 How your data is protected on the platform.

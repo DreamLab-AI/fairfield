@@ -1,3 +1,12 @@
+---
+title: "ADR-002: Three-Tier BBS Hierarchy"
+description: "Decision to use three-tier hierarchy (Zone/Section/Forum) for BBS organization"
+category: reference
+tags: ['adr', 'architecture', 'nostr', 'channels', 'design']
+difficulty: advanced
+last-updated: 2026-01-16
+---
+
 # ADR-002: Three-Tier BBS Hierarchy
 
 ## Status
@@ -10,8 +19,8 @@ Accepted
 
 ## Context
 
-Community forums need organizational structure for:
-- Topic categorization
+Community forums need organisational structure for:
+- Topic categorisation
 - Access control boundaries
 - Navigation and discovery
 - Content moderation scope
@@ -82,7 +91,7 @@ sections:
 ## Consequences
 
 ### Positive
-- Clear organizational structure
+- Clear organisational structure
 - Granular access control at section level
 - Familiar BBS mental model
 - Efficient permission checking
@@ -99,7 +108,7 @@ sections:
 ## Alternatives Considered
 
 ### Two-Tier (Section → Forum only)
-- Simpler but less organization
+- Simpler but less organisation
 - Rejected: Insufficient for large communities
 
 ### Four-Tier (add Sub-forums)

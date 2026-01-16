@@ -1,3 +1,12 @@
+---
+title: "Domain Events"
+description: "## Overview"
+category: explanation
+tags: ['calendar', 'ddd', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Domain Events
 
 ## Overview
@@ -85,7 +94,7 @@ interface SectionRoleAssigned {
 }
 ```
 
-### Organization Context Events
+### Organisation Context Events
 
 ```typescript
 // Forum (channel) created (NIP-28 kind 40)

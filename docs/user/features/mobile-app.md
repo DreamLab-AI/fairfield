@@ -1,3 +1,12 @@
+---
+title: "Mobile App"
+description: "Install the app on your phone for the best mobile experience."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Mobile App
 
 Install the app on your phone for the best mobile experience.

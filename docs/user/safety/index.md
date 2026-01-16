@@ -1,3 +1,12 @@
+---
+title: "Safety & Privacy"
+description: "Learn how your data is protected and how to stay safe on the platform."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Safety & Privacy
 
 Learn how your data is protected and how to stay safe on the platform.

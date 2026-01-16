@@ -1,3 +1,12 @@
+---
+title: "Security Audit Report - Nostr-BBS Nostr PWA"
+description: "**Audit Date**: 2025-12-14 **Auditor**: Code Analyzer Agent **Version**: 0.1.0 **Scope**: Full codebase security assessment"
+category: tutorial
+tags: ['developer', 'nostr', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Security Audit Report - Nostr-BBS Nostr PWA
 
 **Audit Date**: 2025-12-14

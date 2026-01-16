@@ -1,3 +1,14 @@
+---
+title: "Administrator Guide"
+description: "Administrative functions, security management, and platform configuration guide for Fairfield administrators"
+category: howto
+tags: [admin, security, config, management, moderation]
+difficulty: advanced
+related-docs:
+  - ./security/admin-security.md
+last-updated: 2026-01-16
+---
+
 # Fairfield Administrator Guide
 
 This guide covers administrative functions, security management, and platform configuration for Fairfield administrators.
@@ -523,9 +534,9 @@ For CI/CD deployments:
 
 ## Related Documentation
 
-- [Authentication System](./features/authentication.md)
-- [Admin Security Hardening](./security/admin-security.md)
-- [Security Audit Report](./security-audit-report.md)
+- [Authentication System](features/authentication.md)
+- [Admin Security Hardening](security/admin-security.md)
+- [Security Audit Report](security-audit-report.md)
 
 ---
 

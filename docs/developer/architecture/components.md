@@ -1,3 +1,12 @@
+---
+title: "Component Architecture"
+description: "Frontend component structure and design patterns."
+category: explanation
+tags: ['architecture', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Component Architecture
 
 Frontend component structure and design patterns.

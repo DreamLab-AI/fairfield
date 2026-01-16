@@ -1,3 +1,12 @@
+---
+title: "Customisation"
+description: "Personalise your experience to match your preferences."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Customisation
 
 Personalise your experience to match your preferences.

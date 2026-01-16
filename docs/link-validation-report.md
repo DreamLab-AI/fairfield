@@ -1,3 +1,12 @@
+---
+title: "Documentation Link Validation Report"
+description: "**Generated:** 2026-01-16T13:05:07.863Z"
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Documentation Link Validation Report
 
 **Generated:** 2026-01-16T13:05:07.863Z

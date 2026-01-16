@@ -1,3 +1,12 @@
+---
+title: "Pull Request Guidelines"
+description: "How to submit and review pull requests."
+category: tutorial
+tags: ['developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Pull Request Guidelines
 
 How to submit and review pull requests.

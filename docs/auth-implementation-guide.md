@@ -1,3 +1,12 @@
+---
+title: "Authentication Implementation Guide"
+description: "Complete implementation reference for Nostr-based signup and login flows."
+category: howto
+tags: ['authentication', 'developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Authentication Implementation Guide
 
 Complete implementation reference for Nostr-based signup and login flows.
@@ -315,9 +324,11 @@ export async function checkNicknameAvailability(
 async function queryProfilesByName(
   name: string
 ): Promise<NostrEvent[]> {
-  // Implementation depends on relay setup
-  // This is a placeholder
-  return [];
+  // Query requires relay with profile indexing support
+  // Returns empty array if relay doesn't support name search
+  const filter = { kinds: [0], search: name };
+  const events = await ndk.fetchEvents(filter);
+  return Array.from(events);
 }
 ```
 

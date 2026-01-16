@@ -93,12 +93,26 @@ export function getFaviconUrl(url: string): string {
 }
 
 /**
+ * Encryption data for encrypted media
+ */
+export interface MediaEncryptionData {
+	/** Whether the media is encrypted */
+	encrypted: true;
+	/** NIP-44 encrypted AES key for this recipient */
+	encryptedKey: string;
+	/** Sender's public key for decryption */
+	senderPubkey: string;
+}
+
+/**
  * Determine media type for a URL
  */
 export interface MediaType {
 	type: 'image' | 'video' | 'youtube' | 'link';
 	url: string;
 	youtubeId?: string;
+	/** Present when media is encrypted */
+	encryption?: MediaEncryptionData;
 }
 
 export function getMediaType(url: string): MediaType {

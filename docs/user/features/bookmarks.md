@@ -1,3 +1,12 @@
+---
+title: "Bookmarks"
+description: "Save important messages for quick access later."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Bookmarks
 
 Save important messages for quick access later.

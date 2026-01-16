@@ -1,3 +1,12 @@
+---
+title: "System Architecture"
+description: "Comprehensive overview of the platform's architecture, design decisions, and technical infrastructure."
+category: explanation
+tags: ['architecture', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # System Architecture
 
 Comprehensive overview of the platform's architecture, design decisions, and technical infrastructure.

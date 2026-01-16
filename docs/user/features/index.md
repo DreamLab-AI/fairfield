@@ -1,3 +1,12 @@
+---
+title: "Features"
+description: "Learn how to use the platform's capabilities."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Features
 
 Learn how to use the platform's capabilities.

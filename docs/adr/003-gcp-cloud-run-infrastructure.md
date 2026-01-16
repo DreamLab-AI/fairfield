@@ -1,3 +1,12 @@
+---
+title: "ADR-003: GCP Cloud Run Infrastructure"
+description: "Decision to deploy relay on Google Cloud Run with PostgreSQL storage"
+category: reference
+tags: ['adr', 'deployment', 'gcp', 'infrastructure', 'devops']
+difficulty: advanced
+last-updated: 2026-01-16
+---
+
 # ADR-003: GCP Cloud Run Infrastructure
 
 ## Status

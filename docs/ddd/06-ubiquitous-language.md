@@ -1,3 +1,12 @@
+---
+title: "Ubiquitous Language"
+description: "## Glossary"
+category: explanation
+tags: ['ddd', 'developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Ubiquitous Language
 
 ## Glossary
@@ -28,7 +37,7 @@ This glossary defines the shared vocabulary used across the Nostr BBS domain.
 | **Global Admin** | A member with admin cohort membership. Has access to all sections and admin functions. | - |
 | **Superuser** | The ADMIN_PUBKEY from environment. Has absolute authority, cannot be removed. | - |
 
-### Organization Terms
+### Organisation Terms
 
 | Term | Definition | Example |
 |------|------------|---------|

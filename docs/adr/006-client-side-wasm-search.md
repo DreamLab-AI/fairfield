@@ -1,3 +1,12 @@
+---
+title: "ADR-006: Client-Side WASM Search"
+description: "Decision to implement client-side semantic search using WASM and HNSW indexing"
+category: reference
+tags: ['adr', 'search', 'wasm', 'performance', 'pwa']
+difficulty: advanced
+last-updated: 2026-01-16
+---
+
 # ADR-006: Client-Side WASM Search
 
 ## Status

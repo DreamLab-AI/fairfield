@@ -1,3 +1,16 @@
+---
+title: "Domain-Driven Design Documentation"
+description: "Domain-driven design artifacts including domain model, bounded contexts, aggregates, and ubiquitous language"
+category: reference
+tags: [ddd, architecture, developer, domain, design]
+difficulty: advanced
+related-docs:
+  - ./01-domain-model.md
+  - ./02-bounded-contexts.md
+  - ../adr/README.md
+last-updated: 2026-01-16
+---
+
 # Domain-Driven Design Documentation
 
 This directory contains Domain-Driven Design artifacts for the Nostr BBS project.
@@ -26,7 +39,7 @@ This directory contains Domain-Driven Design artifacts for the Nostr BBS project
 │  ├── Profile               ├── Reaction                 │
 │  └── Session               └── DirectMessage            │
 │                                                         │
-│  Organization Context      Access Context               │
+│  Organisation Context      Access Context               │
 │  ├── Category              ├── Cohort                   │
 │  ├── Section               ├── Role                     │
 │  ├── Forum                 ├── Permission               │
@@ -44,7 +57,7 @@ This directory contains Domain-Driven Design artifacts for the Nostr BBS project
 
 ### Core Domain
 - **Messaging**: The primary value - community communication
-- **Organization**: BBS structure (Category → Section → Forum)
+- **Organisation**: BBS structure (Category → Section → Forum)
 
 ### Supporting Domains
 - **Identity**: Nostr keypair management
@@ -68,10 +81,10 @@ This directory contains Domain-Driven Design artifacts for the Nostr BBS project
 ## Context Map
 
 ```
-┌────────────┐     ┌────────────┐     ┌────────────┐
-│  Identity  │────>│  Access    │────>│Organization│
-│  Context   │ ACL │  Context   │ OHS │  Context   │
-└────────────┘     └────────────┘     └────────────┘
+┌────────────┐     ┌────────────┐     ┌──────────────┐
+│  Identity  │────>│  Access    │────>│Organisation  │
+│  Context   │ ACL │  Context   │ OHS │  Context     │
+└────────────┘     └────────────┘     └──────────────┘
       │                  │                  │
       │                  │                  │
       ▼                  ▼                  ▼

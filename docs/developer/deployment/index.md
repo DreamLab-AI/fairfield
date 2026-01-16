@@ -1,3 +1,12 @@
+---
+title: "Deployment Guide"
+description: "Deploy the platform to production environments."
+category: tutorial
+tags: ['deployment', 'developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Deployment Guide
 
 Deploy the platform to production environments.

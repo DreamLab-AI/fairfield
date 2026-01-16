@@ -36,25 +36,30 @@
 
   $: categories = getCategories();
 
-  // Use whitelistStatusStore for authoritative admin check
+  // Use whitelistStatusStore for authoritative admin/approval check
   $: userCohorts = $whitelistStatusStore?.cohorts ?? $userStore.profile?.cohorts ?? [];
   $: isAdmin = $whitelistStatusStore?.isAdmin ?? $userStore.profile?.isAdmin ?? false;
+  $: isApproved = $whitelistStatusStore?.isWhitelisted ?? $userStore.profile?.isApproved ?? false;
 
   // Check if user has access to a zone
   function hasZoneAccess(cat: CategoryConfig): boolean {
-    if (isAdmin) return true; // Admins see all
+    // Admins see all zones
+    if (isAdmin) return true;
+
+    // Unapproved users cannot access any zone
+    if (!isApproved) return false;
 
     const visibleTo = cat.access?.visibleToCohorts || [];
     const hiddenFrom = cat.access?.hiddenFromCohorts || [];
 
-    // If no restrictions, show to all
+    // If no restrictions, show to all approved users
     if (visibleTo.length === 0 && hiddenFrom.length === 0) return true;
 
     // Check if user is in hidden cohorts
     const userCohortStrings = userCohorts as string[];
     if (hiddenFrom.some(c => userCohortStrings.includes(c))) return false;
 
-    // Check if user is in visible cohorts (or visibleTo is empty = visible to all)
+    // Check if user is in visible cohorts (or visibleTo is empty = visible to all approved)
     if (visibleTo.length === 0) return true;
     return visibleTo.some(c => userCohortStrings.includes(c) || c === 'cross-access');
   }
@@ -124,8 +129,14 @@
     </button>
   </div>
 
+  <!-- Debug: Show current admin/approval status -->
+  {#if false}
+  <div class="text-xs p-2 bg-warning/20">Admin: {isAdmin}, Approved: {isApproved}</div>
+  {/if}
+
   <ul class="menu menu-sm gap-1">
-    {#each categories as category, catIndex (category.id)}
+    <!-- Key includes isAdmin to force re-render when admin status changes -->
+    {#each categories as category, catIndex (`${category.id}-${isAdmin}-${isApproved}`)}
       {@const color = getCategoryColor(category)}
       {@const isActive = isCurrentCategory(category.id)}
       {@const hasAccess = hasZoneAccess(category)}
@@ -201,13 +212,10 @@
 
 <style>
   .zone-nav {
-    @apply w-full;
+    @apply w-full min-w-0;
   }
 
-  .zone-nav.collapsed {
-    @apply w-16;
-  }
-
+  /* Let parent container control width - don't set width here */
   .zone-nav.collapsed summary {
     @apply justify-center;
   }

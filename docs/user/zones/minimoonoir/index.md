@@ -1,3 +1,12 @@
+---
+title: "Minimoonoir"
+description: "![Minimoonoir Hero](../../../../static/images/zones/minimoonoir-hero.webp)"
+category: tutorial
+tags: ['developer', 'user', 'zones']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Minimoonoir
 
 ![Minimoonoir Hero](../../../../static/images/zones/minimoonoir-hero.webp)

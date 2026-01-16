@@ -1,3 +1,12 @@
+---
+title: "Searching"
+description: "Find messages, people, events, and content across your zones."
+category: tutorial
+tags: ['developer', 'search', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Searching
 
 Find messages, people, events, and content across your zones.

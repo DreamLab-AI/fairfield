@@ -1,3 +1,12 @@
+---
+title: "Messaging"
+description: "Learn how to send and receive messages in channels."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Messaging
 
 Learn how to send and receive messages in channels.

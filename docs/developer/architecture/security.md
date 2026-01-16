@@ -1,3 +1,12 @@
+---
+title: "Security Model"
+description: "Authentication, encryption, and access control architecture."
+category: explanation
+tags: ['architecture', 'developer', 'security', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Security Model
 
 Authentication, encryption, and access control architecture.

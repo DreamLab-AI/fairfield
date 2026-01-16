@@ -1,3 +1,12 @@
+---
+title: "Development Setup"
+description: "Set up your local development environment to contribute to the platform."
+category: tutorial
+tags: ['developer', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Development Setup
 
 Set up your local development environment to contribute to the platform.

@@ -1,3 +1,12 @@
+---
+title: "Self-Hosting Guide"
+description: "Run your own instance of the platform on your own infrastructure."
+category: tutorial
+tags: ['deployment', 'developer', 'guide', 'user']
+difficulty: beginner
+last-updated: 2026-01-16
+---
+
 # Self-Hosting Guide
 
 Run your own instance of the platform on your own infrastructure.
