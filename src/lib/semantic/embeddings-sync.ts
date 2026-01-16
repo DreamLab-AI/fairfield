@@ -43,16 +43,79 @@ interface NavigatorWithConnection extends Navigator {
   connection?: NetworkInformation;
 }
 
+// Storage key for user's sync preference
+const SYNC_PREFERENCE_KEY = 'embedding_sync_preference';
+
+/**
+ * Detect if running on Safari (iOS or macOS)
+ * Safari doesn't support navigator.connection API
+ */
+function isSafari(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  // Safari but not Chrome/Edge (which include Safari in UA)
+  return /Safari/.test(ua) && !/Chrome|CriOS|Edg/.test(ua);
+}
+
+/**
+ * Detect if running on iOS (Safari or PWA)
+ */
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Check if user has explicitly opted in/out of mobile sync
+ */
+export function getUserSyncPreference(): 'wifi-only' | 'always' | 'manual' | null {
+  if (typeof localStorage === 'undefined') return null;
+  return localStorage.getItem(SYNC_PREFERENCE_KEY) as 'wifi-only' | 'always' | 'manual' | null;
+}
+
+/**
+ * Set user's sync preference
+ */
+export function setUserSyncPreference(pref: 'wifi-only' | 'always' | 'manual'): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(SYNC_PREFERENCE_KEY, pref);
+}
+
 /**
  * Check if we should sync embeddings
- * Only sync on WiFi or unmetered connections
+ * Safari-compatible: Uses fallback heuristics when navigator.connection unavailable
  */
 export function shouldSync(): boolean {
   if (typeof navigator === 'undefined') return false;
 
+  // Check user preference first
+  const preference = getUserSyncPreference();
+  if (preference === 'always') return true;
+  if (preference === 'manual') return false;
+
   const connection = (navigator as NavigatorWithConnection).connection;
+
+  // Safari/iOS fallback: navigator.connection not supported
   if (!connection) {
-    // Can't detect connection type, allow sync
+    // On iOS, be conservative - default to manual sync
+    // Users can opt-in via settings
+    if (isIOS()) {
+      if (import.meta.env.DEV) {
+        console.log('[EmbeddingSync] iOS detected without connection API - defaulting to manual sync');
+      }
+      return false;
+    }
+
+    // Desktop Safari on macOS: likely on WiFi, allow sync
+    if (isSafari()) {
+      if (import.meta.env.DEV) {
+        console.log('[EmbeddingSync] macOS Safari detected - assuming WiFi connection');
+      }
+      return true;
+    }
+
+    // Unknown browser without connection API - allow sync (desktop likely)
     return true;
   }
 
@@ -74,6 +137,60 @@ export function shouldSync(): boolean {
   }
 
   return false;
+}
+
+/**
+ * Get human-readable connection status for UI
+ */
+export function getConnectionStatus(): { canSync: boolean; reason: string; platform: string } {
+  if (typeof navigator === 'undefined') {
+    return { canSync: false, reason: 'Server-side rendering', platform: 'ssr' };
+  }
+
+  const preference = getUserSyncPreference();
+  if (preference === 'always') {
+    return { canSync: true, reason: 'User preference: always sync', platform: 'user-override' };
+  }
+  if (preference === 'manual') {
+    return { canSync: false, reason: 'User preference: manual sync only', platform: 'user-override' };
+  }
+
+  const connection = (navigator as NavigatorWithConnection).connection;
+
+  if (!connection) {
+    if (isIOS()) {
+      return {
+        canSync: false,
+        reason: 'iOS detected - enable "Always sync" in settings to sync on mobile',
+        platform: 'ios'
+      };
+    }
+    if (isSafari()) {
+      return { canSync: true, reason: 'macOS Safari - assuming WiFi', platform: 'macos-safari' };
+    }
+    return { canSync: true, reason: 'Connection type unknown - allowing sync', platform: 'unknown' };
+  }
+
+  const type = connection.type;
+  const effectiveType = connection.effectiveType;
+
+  if (type === 'wifi' || type === 'ethernet') {
+    return { canSync: true, reason: `Connected via ${type}`, platform: type };
+  }
+
+  if (effectiveType === '4g' && !connection.saveData) {
+    return { canSync: true, reason: 'Fast 4G connection', platform: '4g' };
+  }
+
+  if (connection.metered === false) {
+    return { canSync: true, reason: 'Unmetered connection', platform: 'unmetered' };
+  }
+
+  return {
+    canSync: false,
+    reason: `Metered ${effectiveType || type || 'mobile'} connection - sync on WiFi`,
+    platform: effectiveType || type || 'mobile'
+  };
 }
 
 /**
