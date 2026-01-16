@@ -3,32 +3,6 @@
  * Provides low-level crypto operations for key management
  */
 
-import { validateMnemonic as bip39Validate, mnemonicToSeedSync } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english';
-
-/**
- * Validate a BIP-39 mnemonic phrase
- * @param mnemonic - Space-separated mnemonic words
- * @returns true if valid, false otherwise
- */
-export function validateMnemonic(mnemonic: string): boolean {
-  try {
-    return bip39Validate(mnemonic, wordlist);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Convert mnemonic to seed bytes
- * @param mnemonic - BIP-39 mnemonic phrase
- * @param passphrase - Optional passphrase for additional security
- * @returns 64-byte seed
- */
-export function mnemonicToSeed(mnemonic: string, passphrase: string = ''): Uint8Array {
-  return mnemonicToSeedSync(mnemonic, passphrase);
-}
-
 /**
  * Convert hex string to Uint8Array
  * @param hex - Hex string (with or without 0x prefix)

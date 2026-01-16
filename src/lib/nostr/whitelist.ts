@@ -9,7 +9,6 @@
  */
 
 import { browser } from '$app/environment';
-import { RELAY_URL } from '$lib/config';
 
 export type CohortName = 'admin' | 'approved' | 'business' | 'moomaa-tribe';
 
@@ -34,21 +33,14 @@ export interface WhitelistStatus {
 const statusCache = new Map<string, { status: WhitelistStatus; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Debug logging helper
-const debug = (message: string, ...args: unknown[]) => {
-  if (import.meta.env.DEV) {
-    console.log(`[Whitelist] ${message}`, ...args);
-  }
-};
+// Get relay URL from environment (GCP Cloud Run relay)
+const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app';
 
 /**
  * Convert WebSocket URL to HTTP URL for API calls
- * Uses centralized RELAY_URL from config
  */
 function getRelayHttpUrl(): string {
-  const httpUrl = RELAY_URL.replace('wss://', 'https://').replace('ws://', 'http://');
-  debug('Using relay HTTP URL:', httpUrl);
-  return httpUrl;
+  return RELAY_URL.replace('wss://', 'https://').replace('ws://', 'http://');
 }
 
 /**
@@ -72,9 +64,15 @@ export async function verifyWhitelistStatus(pubkey: string): Promise<WhitelistSt
   }
 
   try {
-    // Call relay API endpoint directly
+    // Validate pubkey format before API call (must be 64 lowercase hex chars)
+    if (!/^[0-9a-f]{64}$/i.test(pubkey)) {
+      console.warn('[Whitelist] Invalid pubkey format, using fallback');
+      return createFallbackStatus(pubkey);
+    }
+
+    // Call relay API endpoint directly with URL-encoded pubkey
     const httpUrl = getRelayHttpUrl();
-    const response = await fetch(`${httpUrl}/api/check-whitelist?pubkey=${pubkey}`, {
+    const response = await fetch(`${httpUrl}/api/check-whitelist?pubkey=${encodeURIComponent(pubkey)}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json'
@@ -206,10 +204,9 @@ export async function publishRegistrationRequest(
   try {
     // Dynamic import to avoid SSR issues
     const { ndk, connectRelay, isConnected } = await import('./relay');
+    const { RELAY_URL } = await import('$lib/config');
     const { NDKEvent } = await import('@nostr-dev-kit/ndk');
     const { KIND_USER_REGISTRATION } = await import('./groups');
-
-    debug('Publishing registration request, connecting to:', RELAY_URL);
 
     // Connect if not already connected
     if (!isConnected()) {
@@ -254,22 +251,17 @@ export async function publishRegistrationRequest(
 /**
  * Approve a user registration via relay API
  *
- * Adds the user to the whitelist with specified cohorts.
+ * Adds the user to the whitelist with 'approved' cohort.
  *
  * @param pubkey - User's public key to approve
  * @param adminPubkey - Admin's public key (for authorization)
- * @param cohorts - Array of cohort IDs to assign (defaults to ['approved'])
  * @returns Promise resolving to success status
  */
 export async function approveUserRegistration(
   pubkey: string,
-  adminPubkey: string,
-  cohorts: string[] = ['approved']
+  adminPubkey: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Ensure 'approved' is always included
-    const finalCohorts = cohorts.includes('approved') ? cohorts : ['approved', ...cohorts];
-
     const httpUrl = getRelayHttpUrl();
     const response = await fetch(`${httpUrl}/api/whitelist/add`, {
       method: 'POST',
@@ -278,7 +270,7 @@ export async function approveUserRegistration(
       },
       body: JSON.stringify({
         pubkey,
-        cohorts: finalCohorts,
+        cohorts: ['approved'],
         adminPubkey,
       }),
     });
@@ -286,11 +278,6 @@ export async function approveUserRegistration(
     if (response.ok) {
       // Clear cache to force re-check
       clearWhitelistCache(pubkey);
-
-      if (import.meta.env.DEV) {
-        console.log('[Whitelist] User approved with cohorts:', pubkey.slice(0, 8), finalCohorts);
-      }
-
       return { success: true };
     }
 
@@ -308,9 +295,10 @@ export async function approveUserRegistration(
   }
 }
 
-/**
- * User entry from whitelist API
- */
+// ============================================================================
+// User Management Functions (for admin panel)
+// ============================================================================
+
 export interface WhitelistUserEntry {
   pubkey: string;
   cohorts: string[];
@@ -343,7 +331,6 @@ export async function fetchWhitelistUsers(options?: {
   if (options?.cohort) params.set('cohort', options.cohort);
 
   const url = `${httpUrl}/api/whitelist/list?${params}`;
-  debug('Fetching whitelist users from:', url);
 
   try {
     const response = await fetch(url, {
@@ -353,11 +340,8 @@ export async function fetchWhitelistUsers(options?: {
       }
     });
 
-    debug('Response status:', response.status);
-
     if (response.ok) {
       const data = await response.json();
-      debug('Fetched users:', data.users?.length, 'total:', data.total);
       return {
         users: data.users || [],
         total: data.total || 0,
@@ -366,13 +350,11 @@ export async function fetchWhitelistUsers(options?: {
       };
     }
 
-    // Log actual error response for debugging
     const errorText = await response.text().catch(() => 'Unable to read error response');
     console.error('[Whitelist] Failed to fetch users:', response.status, errorText);
     throw new Error(`API returned ${response.status}: ${errorText.slice(0, 100)}`);
   } catch (error) {
     console.error('[Whitelist] Failed to fetch users:', error);
-    // Re-throw instead of silently returning empty - let caller handle the error
     throw error;
   }
 }
@@ -405,13 +387,7 @@ export async function updateUserCohorts(
     });
 
     if (response.ok) {
-      // Clear cache to force re-check
       clearWhitelistCache(pubkey);
-
-      if (import.meta.env.DEV) {
-        console.log('[Whitelist] Updated cohorts for:', pubkey.slice(0, 8), cohorts);
-      }
-
       return { success: true };
     }
 

@@ -11,13 +11,13 @@ export interface AuthState {
   isAuthenticated: boolean;
   publicKey: string | null;
   privateKey: string | null;
-  mnemonic: string | null;
   nickname: string | null;
   avatar: string | null;
   isPending: boolean;
   error: string | null;
   isEncrypted: boolean;
-  mnemonicBackedUp: boolean;
+  accountStatus: 'incomplete' | 'complete';
+  nsecBackedUp: boolean;
   isReady: boolean;
 }
 
@@ -27,13 +27,13 @@ const initialState: AuthState = {
   isAuthenticated: false,
   publicKey: null,
   privateKey: null,
-  mnemonic: null,
   nickname: null,
   avatar: null,
   isPending: false,
   error: null,
   isEncrypted: false,
-  mnemonicBackedUp: false,
+  accountStatus: 'incomplete',
+  nsecBackedUp: false,
   isReady: false
 };
 
@@ -140,7 +140,7 @@ function createAuthStore() {
               avatar: pwaData.avatar || null,
               isAuthenticated: true,
               isEncrypted: false,
-              mnemonicBackedUp: pwaData.mnemonicBackedUp || false,
+              nsecBackedUp: pwaData.nsecBackedUp || false,
               isReady: true
             })
           }));
@@ -174,7 +174,8 @@ function createAuthStore() {
               avatar: parsed.avatar || null,
               isAuthenticated: true,
               isEncrypted: true,
-              mnemonicBackedUp: parsed.mnemonicBackedUp || false,
+              accountStatus: parsed.accountStatus || 'incomplete',
+              nsecBackedUp: parsed.nsecBackedUp || false,
               isReady: true
             })
           }));
@@ -218,7 +219,8 @@ function createAuthStore() {
             ...parsed,
             isAuthenticated: true,
             isEncrypted: false,
-            mnemonicBackedUp: parsed.mnemonicBackedUp || false,
+            accountStatus: parsed.accountStatus || 'incomplete',
+            nsecBackedUp: parsed.nsecBackedUp || false,
             isReady: true
           })
         }));
@@ -249,23 +251,28 @@ function createAuthStore() {
     /**
      * Set keys with encryption
      */
-    setKeys: async (publicKey: string, privateKey: string, mnemonic?: string) => {
+    setKeys: async (
+      publicKey: string,
+      privateKey: string,
+      accountStatus: 'incomplete' | 'complete' = 'incomplete',
+      nsecBackedUp: boolean = false
+    ) => {
       const sessionKey = getSessionKey();
 
       const authData: Partial<AuthState> = {
         publicKey,
         privateKey,
-        mnemonic: mnemonic || null,
         isAuthenticated: true,
         isPending: false,
         error: null,
         isEncrypted: isEncryptionAvailable(),
-        mnemonicBackedUp: false
+        accountStatus,
+        nsecBackedUp
       };
 
       if (browser) {
         const existing = localStorage.getItem(STORAGE_KEY);
-        let existingData: { nickname?: string; avatar?: string; mnemonicBackedUp?: boolean } = {};
+        let existingData: { nickname?: string; avatar?: string; accountStatus?: string; nsecBackedUp?: boolean } = {};
         if (existing) {
           try { existingData = JSON.parse(existing); } catch { /* ignore */ }
         }
@@ -274,19 +281,16 @@ function createAuthStore() {
           publicKey,
           nickname: existingData.nickname || null,
           avatar: existingData.avatar || null,
-          mnemonicBackedUp: existingData.mnemonicBackedUp || false
+          accountStatus: accountStatus,
+          nsecBackedUp: nsecBackedUp
         };
 
         // Encrypt private key if available
         if (isEncryptionAvailable()) {
           storageData.encryptedPrivateKey = await encryptPrivateKey(privateKey, sessionKey);
-          // Don't store mnemonic at all after encryption is set up
         } else {
           // Fallback for environments without Web Crypto (shouldn't happen in modern browsers)
           storageData.privateKey = privateKey;
-          if (mnemonic) {
-            storageData.mnemonic = mnemonic;
-          }
         }
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
@@ -303,7 +307,7 @@ function createAuthStore() {
             privateKey,
             nickname: existingData.nickname || null,
             avatar: existingData.avatar || null,
-            mnemonicBackedUp: existingData.mnemonicBackedUp || false
+            nsecBackedUp: existingData.nsecBackedUp || false
           };
           localStorage.setItem(PWA_AUTH_KEY, JSON.stringify(pwaAuthData));
           console.log('[Auth] PWA persistent auth stored');
@@ -314,13 +318,12 @@ function createAuthStore() {
     },
 
     /**
-     * Mark mnemonic as backed up and clear it from memory
+     * Mark nsec as backed up
      */
-    confirmMnemonicBackup: () => {
+    confirmNsecBackup: () => {
       update(state => ({
         ...state,
-        mnemonic: null, // Clear mnemonic from memory
-        mnemonicBackedUp: true
+        nsecBackedUp: true
       }));
 
       if (browser) {
@@ -328,8 +331,28 @@ function createAuthStore() {
         if (stored) {
           try {
             const data = JSON.parse(stored);
-            delete data.mnemonic; // Remove mnemonic from storage
-            data.mnemonicBackedUp = true;
+            data.nsecBackedUp = true;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          } catch { /* ignore */ }
+        }
+      }
+    },
+
+    /**
+     * Mark account signup as complete
+     */
+    completeSignup: () => {
+      update(state => ({
+        ...state,
+        accountStatus: 'complete'
+      }));
+
+      if (browser) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            data.accountStatus = 'complete';
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
           } catch { /* ignore */ }
         }
@@ -364,7 +387,7 @@ function createAuthStore() {
             privateKey,
             nickname: parsed.nickname || null,
             avatar: parsed.avatar || null,
-            mnemonicBackedUp: parsed.mnemonicBackedUp || false
+            nsecBackedUp: parsed.nsecBackedUp || false
           };
           localStorage.setItem(PWA_AUTH_KEY, JSON.stringify(pwaAuthData));
           console.log('[Auth] PWA persistent auth stored after unlock');
@@ -433,3 +456,5 @@ function createAuthStore() {
 export const authStore = createAuthStore();
 export const isAuthenticated = derived(authStore, $auth => $auth.isAuthenticated);
 export const isReady = derived(authStore, $auth => $auth.isReady);
+export const isReadOnly = derived(authStore, $auth => $auth.accountStatus === 'incomplete');
+export const accountStatus = derived(authStore, $auth => $auth.accountStatus);

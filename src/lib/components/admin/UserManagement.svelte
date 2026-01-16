@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * User Management Component
-   * Paginated list of all whitelisted users with cohort assignment
+   * Paginated list of all whitelisted users with multi-zone cohort assignment
    */
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores/auth';
@@ -11,7 +11,7 @@
     type WhitelistUserEntry
   } from '$lib/nostr/whitelist';
 
-  // Available zone cohorts for radio buttons
+  // Available zone cohorts for checkboxes (multi-select)
   const ZONE_COHORTS = [
     { id: 'family', label: 'Family', color: '#4a7c59' },
     { id: 'dreamlab', label: 'DreamLab', color: '#ec4899' },
@@ -37,13 +37,11 @@
   let filterCohort = '';
 
   // Track pending updates
-  let pendingUpdates = new Map<string, string>();
+  let pendingUpdates = new Set<string>();
 
   async function loadUsers() {
     loading = true;
     error = null;
-
-    console.log('[UserManagement] Loading users with offset:', offset, 'limit:', pageSize);
 
     try {
       const result = await fetchWhitelistUsers({
@@ -52,14 +50,12 @@
         cohort: filterCohort || undefined
       });
 
-      console.log('[UserManagement] Loaded', result.users.length, 'users, total:', result.total);
       users = result.users;
       total = result.total;
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to load users';
       console.error('[UserManagement] Error loading users:', errorMessage);
       error = errorMessage;
-      // Reset to empty state on error
       users = [];
       total = 0;
     } finally {
@@ -67,58 +63,65 @@
     }
   }
 
-  function getUserPrimaryZone(user: WhitelistUserEntry): string | null {
-    // Return the first matching zone cohort
-    for (const zone of ZONE_COHORTS) {
-      if (user.cohorts.includes(zone.id)) {
-        return zone.id;
-      }
-    }
-    return null;
+  function getUserZones(user: WhitelistUserEntry): string[] {
+    return ZONE_COHORTS.filter(zone => user.cohorts.includes(zone.id)).map(z => z.id);
   }
 
-  async function handleCohortChange(user: WhitelistUserEntry, newCohort: string) {
+  function hasZone(user: WhitelistUserEntry, zoneId: string): boolean {
+    return user.cohorts.includes(zoneId);
+  }
+
+  async function handleZoneToggle(user: WhitelistUserEntry, zoneId: string, checked: boolean) {
     const adminPubkey = $authStore.publicKey;
     if (!adminPubkey) {
       error = 'Not authenticated';
       return;
     }
 
-    // Mark as pending
-    pendingUpdates.set(user.pubkey, newCohort);
+    pendingUpdates.add(user.pubkey);
     pendingUpdates = pendingUpdates;
 
-    // Build new cohorts list - replace zone cohorts with selected one
+    // Build new cohorts list - toggle the specified zone
     const nonZoneCohorts = user.cohorts.filter(
       c => !ZONE_COHORTS.some(z => z.id === c)
     );
 
-    // Add 'approved' if not present
-    const newCohorts = newCohort === 'none'
-      ? [...nonZoneCohorts, 'approved']
-      : [...nonZoneCohorts, newCohort, 'approved'];
+    // Get current zone cohorts and add/remove the toggled one
+    const currentZones = getUserZones(user);
+    let newZones: string[];
 
-    // Remove duplicates
+    if (checked) {
+      newZones = [...currentZones, zoneId];
+    } else {
+      newZones = currentZones.filter(z => z !== zoneId);
+    }
+
+    // Build final cohorts: non-zone + zones + approved (if any zones selected)
+    const newCohorts = newZones.length > 0
+      ? [...nonZoneCohorts, ...newZones, 'approved']
+      : [...nonZoneCohorts, 'approved'];
+
     const uniqueCohorts = [...new Set(newCohorts)];
 
     try {
       const result = await updateUserCohorts(user.pubkey, uniqueCohorts, adminPubkey);
 
       if (result.success) {
-        // Update local state
         const userIndex = users.findIndex(u => u.pubkey === user.pubkey);
         if (userIndex >= 0) {
           users[userIndex] = { ...users[userIndex], cohorts: uniqueCohorts };
           users = users;
         }
 
-        successMessage = `Updated ${user.displayName || truncatePubkey(user.pubkey)} to ${newCohort === 'none' ? 'no zone' : newCohort}`;
+        const zoneLabel = ZONE_COHORTS.find(z => z.id === zoneId)?.label || zoneId;
+        const action = checked ? 'added to' : 'removed from';
+        successMessage = `${user.displayName || truncatePubkey(user.pubkey)} ${action} ${zoneLabel}`;
         setTimeout(() => { successMessage = null; }, 3000);
       } else {
-        error = result.error || 'Failed to update cohorts';
+        error = result.error || 'Failed to update zones';
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to update cohorts';
+      error = e instanceof Error ? e.message : 'Failed to update zones';
     } finally {
       pendingUpdates.delete(user.pubkey);
       pendingUpdates = pendingUpdates;
@@ -151,7 +154,6 @@
     loadUsers();
   }
 
-  // Filter users by search query (client-side)
   $: filteredUsers = searchQuery
     ? users.filter(user => {
         const query = searchQuery.toLowerCase();
@@ -239,7 +241,7 @@
           <tr>
             <th>User</th>
             <th>Added</th>
-            <th class="text-center">Zone Assignment</th>
+            <th class="text-center">Zone Access (multi-select)</th>
           </tr>
         </thead>
         <tbody>
@@ -257,7 +259,7 @@
             </tr>
           {:else}
             {#each filteredUsers as user (user.pubkey)}
-              {@const currentZone = getUserPrimaryZone(user)}
+              {@const userZones = getUserZones(user)}
               {@const isPending = pendingUpdates.has(user.pubkey)}
               <tr class:opacity-50={isPending}>
                 <td>
@@ -283,49 +285,34 @@
                 <td>
                   <div class="flex flex-wrap justify-center gap-2">
                     {#each ZONE_COHORTS as zone}
+                      {@const isSelected = hasZone(user, zone.id)}
                       <label
                         class="flex items-center gap-1 cursor-pointer px-2 py-1 rounded-lg border-2 transition-all"
-                        class:border-transparent={currentZone !== zone.id}
-                        class:bg-base-100={currentZone !== zone.id}
-                        class:opacity-70={currentZone !== zone.id}
-                        style={currentZone === zone.id ? `border-color: ${zone.color}; background-color: ${zone.color}20;` : ''}
+                        class:border-transparent={!isSelected}
+                        class:bg-base-100={!isSelected}
+                        class:opacity-70={!isSelected}
+                        style={isSelected ? `border-color: ${zone.color}; background-color: ${zone.color}20;` : ''}
                       >
                         <input
-                          type="radio"
-                          name="zone-{user.pubkey}"
-                          class="radio radio-sm"
+                          type="checkbox"
+                          class="checkbox checkbox-sm"
                           style={`--chkbg: ${zone.color}; --bc: ${zone.color};`}
-                          checked={currentZone === zone.id}
+                          checked={isSelected}
                           disabled={isPending}
-                          on:change={() => handleCohortChange(user, zone.id)}
+                          on:change={(e) => handleZoneToggle(user, zone.id, e.currentTarget.checked)}
                         />
-                        <span class="text-xs font-medium" style={currentZone === zone.id ? `color: ${zone.color};` : ''}>
+                        <span class="text-xs font-medium" style={isSelected ? `color: ${zone.color};` : ''}>
                           {zone.label}
                         </span>
                       </label>
                     {/each}
-                    <!-- None option -->
-                    <label
-                      class="flex items-center gap-1 cursor-pointer px-2 py-1 rounded-lg border-2 transition-all"
-                      class:border-transparent={currentZone !== null}
-                      class:bg-base-100={currentZone !== null}
-                      class:opacity-70={currentZone !== null}
-                      class:border-base-content={currentZone === null}
-                    >
-                      <input
-                        type="radio"
-                        name="zone-{user.pubkey}"
-                        class="radio radio-sm"
-                        checked={currentZone === null}
-                        disabled={isPending}
-                        on:change={() => handleCohortChange(user, 'none')}
-                      />
-                      <span class="text-xs font-medium">None</span>
-                    </label>
                     {#if isPending}
                       <span class="loading loading-spinner loading-xs"></span>
                     {/if}
                   </div>
+                  {#if userZones.length === 0}
+                    <div class="text-xs text-warning text-center mt-1">No zones assigned</div>
+                  {/if}
                 </td>
               </tr>
             {/each}

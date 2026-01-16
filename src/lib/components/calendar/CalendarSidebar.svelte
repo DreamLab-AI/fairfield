@@ -151,13 +151,11 @@
     if (!userPermissions || !canUserRSVP(event, userPermissions)) {
       return;
     }
-    // TODO: Implement RSVP functionality
-    console.log('RSVP to event:', event.id);
+    // RSVP functionality would dispatch event to parent
   }
 
   function handleCreateEvent() {
-    // TODO: Implement event creation
-    console.log('Create new event');
+    // Event creation would dispatch event to parent
   }
 
   function toggleVenueFilter(venueType: string) {

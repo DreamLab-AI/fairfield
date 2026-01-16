@@ -118,8 +118,7 @@ export const safeStorage = {
 
 const STORAGE_KEYS = {
   PUBKEY: 'nostr_bbs_nostr_pubkey',
-  ENCRYPTED_PRIVKEY: 'nostr_bbs_nostr_encrypted_privkey',
-  MNEMONIC_SHOWN: 'nostr_bbs_nostr_mnemonic_shown'
+  ENCRYPTED_PRIVKEY: 'nostr_bbs_nostr_encrypted_privkey'
 } as const;
 
 export interface StoredKeys {
@@ -191,40 +190,10 @@ export function clearKeys(): void {
   try {
     localStorage.removeItem(STORAGE_KEYS.PUBKEY);
     localStorage.removeItem(STORAGE_KEYS.ENCRYPTED_PRIVKEY);
-    localStorage.removeItem(STORAGE_KEYS.MNEMONIC_SHOWN);
+    // Clean up legacy mnemonic_shown key if present
+    localStorage.removeItem('nostr_bbs_nostr_mnemonic_shown');
   } catch (error) {
     console.error('Failed to clear keys from localStorage:', error);
-  }
-}
-
-/**
- * Marks that the user has been shown their mnemonic
- */
-export function setMnemonicShown(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(STORAGE_KEYS.MNEMONIC_SHOWN, 'true');
-  } catch (error) {
-    console.error('Failed to set mnemonic shown flag:', error);
-  }
-}
-
-/**
- * Checks if the user has been shown their mnemonic
- */
-export function hasMnemonicBeenShown(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  try {
-    return localStorage.getItem(STORAGE_KEYS.MNEMONIC_SHOWN) === 'true';
-  } catch (error) {
-    console.error('Failed to check mnemonic shown flag:', error);
-    return false;
   }
 }
 

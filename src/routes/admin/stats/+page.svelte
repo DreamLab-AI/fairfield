@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
   import { adminStore } from '$lib/stores/admin';
   import { channelStatsStore, type PlatformStats } from '$lib/stores/channelStats';
+  import { verifyWhitelistStatus } from '$lib/nostr/whitelist';
   import ActivityGraph from '$lib/components/forum/ActivityGraph.svelte';
 
   let platformStats: PlatformStats | null = null;
@@ -37,17 +39,29 @@
     : [];
 
   onMount(async () => {
-    // Check if user is admin
+    // Check if user is authenticated
     if (!$authStore.publicKey) {
-      goto('/');
+      goto(`${base}/`);
       return;
     }
 
-    // For now, allow any authenticated user to view stats
-    // In production, implement proper admin role checking
-    isAdmin = true;
+    // Verify admin status via relay (server-side source of truth)
+    try {
+      const status = await verifyWhitelistStatus($authStore.publicKey);
+      isAdmin = status.isAdmin;
 
-    loadStats();
+      if (!isAdmin) {
+        error = 'Access denied: Admin privileges required';
+        setTimeout(() => goto(`${base}/chat`), 2000);
+        return;
+      }
+
+      loadStats();
+    } catch (err) {
+      console.error('Failed to verify admin status:', err);
+      error = 'Failed to verify admin privileges';
+      setTimeout(() => goto(`${base}/chat`), 2000);
+    }
   });
 
   async function loadStats() {

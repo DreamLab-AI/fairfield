@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
-  import { authStore } from '$lib/stores/auth';
+  import { authStore, isReadOnly } from '$lib/stores/auth';
   import { dmStore } from '$lib/stores/dm';
   import { toast } from '$lib/stores/toast';
   import { hexToBytes } from '@noble/hashes/utils.js';
@@ -164,22 +164,30 @@
 
     <div class="bg-base-200 border-t border-base-300 p-4">
       <div class="container mx-auto max-w-2xl">
-        <form on:submit|preventDefault={sendMessage} class="flex gap-2">
-          <input
-            type="text"
-            class="input input-bordered flex-1"
-            placeholder="Type a message..."
-            bind:value={messageInput}
-            disabled={sending}
-          />
-          <button
-            type="submit"
-            class="btn btn-primary"
-            disabled={sending || !messageInput.trim()}
-          >
-            {sending ? 'Sending...' : 'Send'}
-          </button>
-        </form>
+        {#if $isReadOnly}
+          <div class="text-center text-base-content/60 py-2">
+            <span>Messaging is disabled in read-only mode. </span>
+            <a href="{base}/signup" class="link link-primary font-semibold">Complete signup</a>
+            <span> to send messages.</span>
+          </div>
+        {:else}
+          <form on:submit|preventDefault={sendMessage} class="flex gap-2">
+            <input
+              type="text"
+              class="input input-bordered flex-1"
+              placeholder="Type a message..."
+              bind:value={messageInput}
+              disabled={sending}
+            />
+            <button
+              type="submit"
+              class="btn btn-primary"
+              disabled={sending || !messageInput.trim()}
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </form>
+        {/if}
       </div>
     </div>
   </div>

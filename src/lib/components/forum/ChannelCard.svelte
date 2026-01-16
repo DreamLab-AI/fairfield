@@ -164,8 +164,11 @@
       <div class="flex-1 min-w-0">
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
               <h3 class="font-bold text-base truncate">{channel.name}</h3>
+              {#if channel.accessType === 'open'}
+                <span class="badge badge-success badge-xs" title="Open - anyone can post">Open</span>
+              {/if}
               {#if !loading && unreadCount > 0}
                 <span class="badge badge-primary badge-sm rounded-full">
                   {formatUnreadCount(unreadCount)}

@@ -237,9 +237,6 @@
 
       dispatch('eventCreated', fairfieldEvent);
 
-      // Show success toast (you can implement a toast system)
-      console.log('Event created successfully:', fairfieldEvent);
-
       // Close modal and reset
       handleClose();
     } catch (error) {

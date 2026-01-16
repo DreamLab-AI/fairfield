@@ -7,6 +7,11 @@
 	import { browser } from '$app/environment';
 	import ImageUpload from '$lib/components/ui/ImageUpload.svelte';
 	import type { ImageUploadResult } from '$lib/utils/imageUpload';
+	import { canInstall, triggerInstall, isPWAInstalled } from '$lib/stores/pwa';
+	import { getAppConfig } from '$lib/config/loader';
+
+	const appConfig = getAppConfig();
+	const appName = appConfig.name.split(' - ')[0];
 
 	export let open = false;
 
@@ -25,6 +30,16 @@
 	let profileError: string | null = null;
 	let previousFocusElement: HTMLElement | null = null;
 	let useImageUpload = false;
+	let pwaInstalling = false;
+
+	async function handlePWAInstall() {
+		pwaInstalling = true;
+		try {
+			await triggerInstall();
+		} finally {
+			pwaInstalling = false;
+		}
+	}
 
 	function handleAvatarUpload(event: CustomEvent<ImageUploadResult>) {
 		const result = event.detail;
@@ -335,6 +350,37 @@
 					Save & Publish Profile
 				{/if}
 			</button>
+
+			<!-- PWA Install Option -->
+			{#if $canInstall}
+				<div class="alert alert-info mb-4">
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+					</svg>
+					<div class="flex-1">
+						<p class="font-semibold text-sm">Install {appName}</p>
+						<p class="text-xs opacity-80">Get offline access and faster loading</p>
+					</div>
+					<button
+						class="btn btn-sm btn-primary"
+						on:click={handlePWAInstall}
+						disabled={pwaInstalling}
+					>
+						{#if pwaInstalling}
+							<span class="loading loading-spinner loading-xs"></span>
+						{:else}
+							Install
+						{/if}
+					</button>
+				</div>
+			{:else if $isPWAInstalled}
+				<div class="flex items-center gap-2 text-sm text-success mb-4 px-2">
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5">
+						<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+					</svg>
+					<span>App installed</span>
+				</div>
+			{/if}
 
 			<div class="divider my-2"></div>
 

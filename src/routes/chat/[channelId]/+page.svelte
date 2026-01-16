@@ -141,8 +141,7 @@
     messageInput = '';
 
     try {
-      const msgId = await sendChannelMessage(channelId, content);
-      console.log('Message sent:', msgId);
+      await sendChannelMessage(channelId, content);
       scrollToBottom();
     } catch (e) {
       console.error('Error sending message:', e);

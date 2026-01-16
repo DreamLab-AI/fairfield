@@ -22,12 +22,11 @@
   import AdminStats from '$lib/components/admin/AdminStats.svelte';
   import RelaySettings from '$lib/components/admin/RelaySettings.svelte';
   import ChannelManagement from '$lib/components/admin/ChannelManagement.svelte';
-  import PendingUserApproval from '$lib/components/admin/PendingUserApproval.svelte';
+  import UserRegistrations from '$lib/components/admin/UserRegistrations.svelte';
+  import UserManagement from '$lib/components/admin/UserManagement.svelte';
   import SectionRequests from '$lib/components/admin/SectionRequests.svelte';
   import ChannelJoinRequests from '$lib/components/admin/ChannelJoinRequests.svelte';
   import QuickActions from '$lib/components/admin/QuickActions.svelte';
-  import UserCohortManager from '$lib/components/admin/UserCohortManager.svelte';
-  import UserManagement from '$lib/components/admin/UserManagement.svelte';
 
   // State
   let pendingRequests: SectionAccessRequest[] = [];
@@ -298,15 +297,13 @@
     }
   }
 
-  async function handleApproveUserRegistration(detail: { registration: UserRegistrationRequest; cohorts: string[]; approved: boolean }) {
-    const { registration, cohorts } = detail;
+  async function handleApproveUserRegistration(registration: UserRegistrationRequest) {
     try {
       isLoading = true;
       error = null;
       successMessage = null;
 
-      // Approve with cohorts - pass cohorts to the whitelist API
-      const result = await approveUserRegistration(registration.pubkey, $authStore.publicKey || '', cohorts);
+      const result = await approveUserRegistration(registration.pubkey, $authStore.publicKey || '');
 
       if (!result.success) {
         console.warn('[Admin] Whitelist API failed:', result.error);
@@ -317,18 +314,6 @@
         throw new Error('No signer available');
       }
 
-      // Publish a cohort assignment event (kind 9025)
-      if (cohorts.length > 0) {
-        const cohortEvent = new NDKEvent(ndkInstance);
-        cohortEvent.kind = 9025; // Custom kind for cohort assignment
-        cohortEvent.tags = [
-          ['p', registration.pubkey],
-          ...cohorts.map(c => ['cohort', c])
-        ];
-        cohortEvent.content = JSON.stringify({ cohorts, assignedBy: $authStore.publicKey });
-        await cohortEvent.publish();
-      }
-
       const deleteEvent = new NDKEvent(ndkInstance);
       deleteEvent.kind = KIND_DELETION;
       deleteEvent.tags = [['e', registration.id]];
@@ -337,12 +322,11 @@
 
       pendingUserRegistrations = pendingUserRegistrations.filter(r => r.id !== registration.id);
 
-      const cohortText = cohorts.length > 0 ? ` with cohorts: ${cohorts.join(', ')}` : '';
-      successMessage = `Approved user registration${cohortText}. User can now access the system.`;
+      successMessage = `Approved user registration. User can now access the system.`;
       setTimeout(() => { successMessage = null; }, 5000);
 
       if (import.meta.env.DEV) {
-        console.log('[Admin] Approved user registration:', registration.pubkey.slice(0, 8) + '...', 'cohorts:', cohorts);
+        console.log('[Admin] Approved user registration:', registration.pubkey.slice(0, 8) + '...');
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to approve registration';
@@ -387,7 +371,7 @@
       const result = await approveSectionAccess(request);
       if (result.success) {
         pendingRequests = pendingRequests.filter(r => r.id !== request.id);
-        const sectionName = SECTION_CONFIG[request.section]?.name || request.section;
+        const sectionName = (request.section && SECTION_CONFIG[request.section]?.name) || request.section || 'Unknown Section';
         successMessage = `Approved access to ${sectionName}. User has been notified.`;
         setTimeout(() => { successMessage = null; }, 5000);
       } else {
@@ -592,15 +576,15 @@
 
   <ChannelManagement {channels} {isLoading} on:create={handleCreateChannel} />
 
-  <UserManagement />
-
-  <PendingUserApproval
+  <UserRegistrations
     {pendingUserRegistrations}
     {isLoading}
     on:approve={(e) => handleApproveUserRegistration(e.detail)}
     on:reject={(e) => handleRejectUserRegistration(e.detail)}
     on:refresh={loadUserRegistrations}
   />
+
+  <UserManagement />
 
   <SectionRequests
     {pendingRequests}

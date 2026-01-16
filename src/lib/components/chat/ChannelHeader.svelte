@@ -33,6 +33,25 @@
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 mb-1">
         <h1 class="text-xl font-bold truncate">{$selectedChannel.name}</h1>
+        {#if $selectedChannel.accessType === 'open'}
+          <div class="tooltip tooltip-bottom" data-tip="Open channel - anyone can post">
+            <div class="badge badge-sm badge-success gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+              </svg>
+              Open
+            </div>
+          </div>
+        {:else}
+          <div class="tooltip tooltip-bottom" data-tip="Members only - join to post">
+            <div class="badge badge-sm badge-secondary gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+              </svg>
+              Gated
+            </div>
+          </div>
+        {/if}
         {#if $selectedChannel.isEncrypted}
           <div class="tooltip tooltip-bottom" data-tip="End-to-end encrypted">
             <div class="badge badge-sm badge-primary gap-1">

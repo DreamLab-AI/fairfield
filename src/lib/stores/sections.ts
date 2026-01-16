@@ -29,6 +29,10 @@ import type {
 } from '$lib/types/channel';
 import { currentPubkey, isAdminVerified } from './user';
 import { notificationStore } from './notifications';
+import {
+  checkRateLimit,
+  recordRateLimitAttempt,
+} from '$lib/nostr/admin-security';
 
 // NIP event kinds for section access
 const KIND_SECTION_REQUEST = 9022;     // User requests section access
@@ -137,14 +141,28 @@ function createSectionStore() {
 
     /**
      * Request access to a section (sends event to relay)
+     * Includes rate limiting with exponential backoff
      */
     async requestSectionAccess(
       section: ChannelSection,
       message?: string
-    ): Promise<{ success: boolean; error?: string }> {
+    ): Promise<{ success: boolean; error?: string; waitMs?: number }> {
       const pubkey = get(currentPubkey);
       if (!pubkey) {
         return { success: false, error: 'Not authenticated' };
+      }
+
+      // Check rate limit before proceeding
+      const rateLimitKey = `section_access:${pubkey}:${section}`;
+      const rateCheck = checkRateLimit(rateLimitKey, 'sectionAccessRequest');
+
+      if (!rateCheck.allowed) {
+        console.warn('[Sections] Rate limited:', rateCheck.reason);
+        return {
+          success: false,
+          error: rateCheck.reason || 'Too many requests. Please wait.',
+          waitMs: rateCheck.waitMs,
+        };
       }
 
       // Check if already has access or pending request
@@ -165,6 +183,7 @@ function createSectionStore() {
             { section, status: 'approved', approvedAt: Date.now() }
           ]
         }));
+        recordRateLimitAttempt(rateLimitKey, 'sectionAccessRequest', true);
         return { success: true };
       }
 
@@ -182,6 +201,9 @@ function createSectionStore() {
       const result = await requestSectionAccess(section, message);
 
       if (!result.success) {
+        // Record failed attempt (triggers exponential backoff)
+        recordRateLimitAttempt(rateLimitKey, 'sectionAccessRequest', false);
+
         // Rollback local state on failure
         update(state => ({
           ...state,
@@ -189,6 +211,9 @@ function createSectionStore() {
         }));
         return { success: false, error: result.error };
       }
+
+      // Record successful attempt
+      recordRateLimitAttempt(rateLimitKey, 'sectionAccessRequest', true);
 
       return { success: true };
     },

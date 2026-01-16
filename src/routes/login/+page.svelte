@@ -1,6 +1,6 @@
 <script lang="ts">
-  import SimpleLogin from '$lib/components/auth/SimpleLogin.svelte';
   import Login from '$lib/components/auth/Login.svelte';
+  import PendingApproval from '$lib/components/auth/PendingApproval.svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
@@ -8,21 +8,33 @@
 
   const appConfig = getAppConfig();
 
-  type LoginMode = 'simple' | 'secure';
-  let loginMode: LoginMode = 'simple';
+  type PageState = 'login' | 'pending';
+  let pageState: PageState = 'login';
+  let pendingPubkey = '';
 
-  async function handleSuccess(event: CustomEvent<{ publicKey: string; privateKey: string; keepSignedIn?: boolean }>) {
+  async function handleSuccess(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
     const { publicKey, privateKey } = event.detail;
-    await authStore.setKeys(publicKey, privateKey);
+    // Login with existing key - assume already backed up (complete account)
+    await authStore.setKeys(publicKey, privateKey, 'complete', true);
     goto(`${base}/chat`);
   }
 
-  function switchToSecure() {
-    loginMode = 'secure';
+  async function handlePending(event: CustomEvent<{ publicKey: string; privateKey: string }>) {
+    const { publicKey, privateKey } = event.detail;
+    // Set keys but mark as pending approval
+    await authStore.setKeys(publicKey, privateKey, 'complete', true);
+    authStore.setPending(true);
+    pendingPubkey = publicKey;
+    pageState = 'pending';
   }
 
-  function switchToSimple() {
-    loginMode = 'simple';
+  function handleApproved() {
+    authStore.setPending(false);
+    goto(`${base}/chat`);
+  }
+
+  function handleSignup() {
+    goto(`${base}/signup`);
   }
 </script>
 
@@ -30,17 +42,8 @@
   <title>Login - {appConfig.name}</title>
 </svelte:head>
 
-{#if loginMode === 'simple'}
-  <SimpleLogin on:success={handleSuccess} on:switchToSecure={switchToSecure} />
-{:else}
-  <div class="flex flex-col items-center justify-center min-h-screen p-4 bg-base-200">
-    <div class="w-full max-w-2xl">
-      <div class="mb-4 text-center">
-        <button class="btn btn-ghost btn-sm" on:click={switchToSimple}>
-          &larr; Back to Quick Login
-        </button>
-      </div>
-      <Login on:success={handleSuccess} />
-    </div>
-  </div>
+{#if pageState === 'login'}
+  <Login on:success={handleSuccess} on:pending={handlePending} on:signup={handleSignup} />
+{:else if pageState === 'pending'}
+  <PendingApproval publicKey={pendingPubkey} on:approved={handleApproved} />
 {/if}

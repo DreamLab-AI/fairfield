@@ -11,6 +11,7 @@ export type SectionId = string;
 export type ForumId = string;
 export type CalendarAccessLevel = 'full' | 'availability' | 'cohort' | 'none';
 export type ChannelVisibility = 'public' | 'cohort' | 'invite';
+export type ChannelAccessType = 'open' | 'gated';
 
 export interface RoleCapability {
 	id: string;
@@ -202,6 +203,12 @@ export interface CalendarAccessLevelConfig {
 
 export interface ChannelVisibilityConfig {
 	id: ChannelVisibility;
+	name: string;
+	description: string;
+}
+
+export interface ChannelAccessTypeConfig {
+	id: ChannelAccessType;
 	name: string;
 	description: string;
 }

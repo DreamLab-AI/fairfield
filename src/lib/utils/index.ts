@@ -3,8 +3,6 @@
  */
 
 export {
-  validateMnemonic,
-  mnemonicToSeed,
   hexToBytes,
   bytesToHex,
   secureWipe,

@@ -7,17 +7,40 @@
 
   $: totalSections = category.sections?.length ?? 0;
   $: totalChannels = category.sections?.reduce((sum, sec) => sum + (sectionStats[sec.id]?.channelCount ?? 0), 0) ?? 0;
+  $: heroUrl = category.branding?.heroImageUrl;
+  $: logoUrl = category.branding?.logoUrl;
+  $: displayName = category.branding?.displayName || category.name;
 </script>
 
 <a
   href="{base}/{category.id}"
-  class="card bg-base-100 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer"
+  class="card bg-base-100 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer overflow-hidden"
 >
-  <div class="card-body">
+  {#if heroUrl}
+    <figure class="relative h-32">
+      <img
+        src="{base}{heroUrl}"
+        alt="{displayName}"
+        class="w-full h-full object-cover"
+        loading="lazy"
+      />
+      <div class="absolute inset-0 bg-gradient-to-t from-base-100 to-transparent" />
+    </figure>
+  {/if}
+
+  <div class="card-body {heroUrl ? 'pt-2' : ''}">
     <div class="flex items-start gap-4">
-      <div class="text-5xl">{category.icon}</div>
+      {#if logoUrl}
+        <img
+          src="{base}{logoUrl}"
+          alt="{displayName} logo"
+          class="w-12 h-12 rounded-lg object-cover bg-base-200 {heroUrl ? '-mt-8 shadow-lg border-2 border-base-100' : ''}"
+        />
+      {:else}
+        <div class="text-5xl {heroUrl ? '-mt-8 bg-base-100 rounded-lg p-1 shadow-lg' : ''}">{category.icon}</div>
+      {/if}
       <div class="flex-1">
-        <h2 class="card-title text-xl">{category.name}</h2>
+        <h2 class="card-title text-xl">{displayName}</h2>
         <p class="text-sm text-base-content/70 mt-1">{category.description}</p>
       </div>
     </div>

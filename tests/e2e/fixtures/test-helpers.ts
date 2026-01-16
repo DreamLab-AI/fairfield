@@ -1,37 +1,45 @@
 /**
  * E2E Test Helpers
  * Common utilities for Playwright tests
+ * Updated for nsec-based authentication (no mnemonic)
  */
 
 import { Page, expect } from '@playwright/test';
 
 /**
  * Test user credentials from .env
- */
-/**
- * Admin credentials - MUST be provided via environment variables
- * Never hardcode actual credentials in test files
+ * Now uses nsec format instead of mnemonic
  */
 export const ADMIN_CREDENTIALS = {
   pubkey: process.env.VITE_ADMIN_PUBKEY || (() => { throw new Error('VITE_ADMIN_PUBKEY environment variable required for admin tests'); })(),
-  mnemonic: process.env.ADMIN_KEY || (() => { throw new Error('ADMIN_KEY environment variable required for admin tests'); })()
+  // Admin key should now be in nsec or hex format
+  nsec: process.env.ADMIN_KEY || (() => { throw new Error('ADMIN_KEY environment variable required for admin tests'); })()
 };
 
 /**
- * Generate a valid test mnemonic for regular users
+ * Valid test nsec keys for regular users
+ * These are well-known test keys - DO NOT use in production
  */
-export function generateTestMnemonic(): string {
-  // Use BIP-39 compliant test mnemonics
-  const testMnemonics = [
-    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-    'legal winner thank year wave sausage worth useful legal winner thank yellow',
-    'letter advice cage absurd amount doctor acoustic avoid letter advice cage above',
-    'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong',
-    'device into kiss venue type drift valve vendor hello kiss device abandon'
-  ];
+export const TEST_NSEC_KEYS = [
+  // Test key 1 - corresponds to known test pubkey
+  'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5',
+  // Test key 2 - another known test key
+  'nsec1a2kvxppk8m5wqhxgqrrcqg8jjj5v2x5g0mvp4pwn9fmgjgzp6q4qfhe50r'
+];
 
-  return testMnemonics[Math.floor(Math.random() * testMnemonics.length)];
+/**
+ * Generate a test nsec for testing
+ * Returns a random test nsec from the pool
+ */
+export function getTestNsec(): string {
+  return TEST_NSEC_KEYS[Math.floor(Math.random() * TEST_NSEC_KEYS.length)];
 }
+
+/**
+ * Valid 64-character hex private key for testing
+ * This is a test key - DO NOT use in production
+ */
+export const TEST_HEX_PRIVKEY = 'e8f32b5a7c5e8f32b5a7c5e8f32b5a7c5e8f32b5a7c5e8f32b5a7c5e8f32b5a7';
 
 /**
  * Login as admin user
@@ -39,17 +47,17 @@ export function generateTestMnemonic(): string {
 export async function loginAsAdmin(page: Page): Promise<void> {
   await page.goto('/');
 
-  // Navigate to login/login page
+  // Navigate to login page
   const loginButton = page.getByRole('link', { name: /login|setup/i });
   await loginButton.click();
 
-  // Enter admin mnemonic
-  const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-  await mnemonicInput.fill(ADMIN_CREDENTIALS.mnemonic);
+  // Enter admin nsec/hex key
+  const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+  await keyInput.fill(ADMIN_CREDENTIALS.nsec);
 
   // Submit
-  const restoreButton = page.getByRole('button', { name: /restore|import|login|continue/i });
-  await restoreButton.click();
+  const loginSubmit = page.getByRole('button', { name: /log in|restore|import|continue/i });
+  await loginSubmit.click();
 
   // Wait for authentication to complete
   await page.waitForTimeout(2000);
@@ -60,33 +68,34 @@ export async function loginAsAdmin(page: Page): Promise<void> {
 }
 
 /**
- * Login as regular user with generated or provided mnemonic
+ * Login as regular user with nsec or hex key
  */
-export async function loginAsUser(page: Page, mnemonic?: string): Promise<string> {
-  const userMnemonic = mnemonic || generateTestMnemonic();
+export async function loginAsUser(page: Page, nsecOrHex?: string): Promise<string> {
+  const userKey = nsecOrHex || getTestNsec();
 
   await page.goto('/');
 
-  // Navigate to login/login page
+  // Navigate to login page
   const loginButton = page.getByRole('link', { name: /login|setup/i });
   await loginButton.click();
 
-  // Enter mnemonic
-  const mnemonicInput = page.getByPlaceholder(/mnemonic|12 words|recovery phrase/i);
-  await mnemonicInput.fill(userMnemonic);
+  // Enter nsec/hex key
+  const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+  await keyInput.fill(userKey);
 
   // Submit
-  const restoreButton = page.getByRole('button', { name: /restore|import|login|continue/i });
-  await restoreButton.click();
+  const loginSubmit = page.getByRole('button', { name: /log in|restore|import|continue/i });
+  await loginSubmit.click();
 
   // Wait for authentication
   await page.waitForTimeout(2000);
 
-  return userMnemonic;
+  return userKey;
 }
 
 /**
  * Create a new account via signup flow
+ * Returns the nsec for the new account
  */
 export async function signupNewUser(page: Page): Promise<string> {
   await page.goto('/');
@@ -95,15 +104,27 @@ export async function signupNewUser(page: Page): Promise<string> {
   const createButton = page.getByRole('link', { name: /create account|signup/i });
   await createButton.click();
 
-  // Wait for mnemonic generation
-  await page.waitForSelector('[data-testid="mnemonic-display"]', { timeout: 5000 });
+  // Wait for key generation - should show NsecBackup component
+  await page.waitForSelector('text=/Backup Your Private Key/i', { timeout: 5000 });
 
-  // Get the generated mnemonic
-  const mnemonicDisplay = page.locator('[data-testid="mnemonic-display"]');
-  const mnemonic = await mnemonicDisplay.textContent();
+  // Click reveal button to show nsec
+  const revealButton = page.getByRole('button', { name: /reveal/i });
+  await revealButton.click();
 
-  // Confirm mnemonic saved
-  const checkbox = page.getByRole('checkbox', { name: /saved|written down/i });
+  // Wait for nsec to be displayed
+  await page.waitForSelector('text=/nsec1/i', { timeout: 3000 });
+
+  // Get the generated nsec
+  const nsecElement = page.locator('p.font-mono');
+  const nsec = await nsecElement.textContent();
+
+  // Copy to clipboard (this marks hasBackedUp = true)
+  const copyButton = page.getByRole('button', { name: /copy/i });
+  await copyButton.click();
+  await page.waitForTimeout(500);
+
+  // Confirm backup checkbox
+  const checkbox = page.getByRole('checkbox', { name: /backed up|securely/i });
   await checkbox.check();
 
   // Continue
@@ -113,7 +134,7 @@ export async function signupNewUser(page: Page): Promise<string> {
   // Wait for redirect
   await page.waitForTimeout(1000);
 
-  return mnemonic?.trim() || '';
+  return nsec?.trim() || '';
 }
 
 /**
@@ -176,7 +197,6 @@ export async function approvePendingRequest(page: Page, userPubkey: string): Pro
   await page.waitForTimeout(1000);
 
   // Find and approve the specific request
-  // (This may need adjustment based on actual UI implementation)
   const approveButtons = page.getByRole('button', { name: /approve/i });
   const count = await approveButtons.count();
 
@@ -209,7 +229,6 @@ export async function createChatroom(page: Page, name: string, section: string, 
   }
 
   // Select section (if section selector exists)
-  // This assumes a section dropdown exists in the create form
   const sectionSelect = page.locator('select[name="section"]');
   if (await sectionSelect.isVisible({ timeout: 1000 }).catch(() => false)) {
     await sectionSelect.selectOption(section);
