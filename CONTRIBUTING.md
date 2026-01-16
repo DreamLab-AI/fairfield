@@ -328,14 +328,6 @@ npm run docs:spelling      # UK English check
 
 When contributing code that uses third-party dependencies, ensure proper attribution in the README.md. Key dependencies include:
 
-### JavaScriptSolidServer (AGPL-3.0-only)
-
-The Solid pod integration uses [JavaScriptSolidServer](https://github.com/JavaScriptSolidServer/JavaScriptSolidServer) licensed under AGPL-3.0-only. When modifying Solid-related functionality:
-
-- Ensure any derivative work complies with AGPL-3.0 requirements
-- Document changes in `docs/solid/README.md`
-- Reference the original project in any related documentation
-
 ## Licence
 
 By contributing, you agree that your contributions will be licenced under the same licence as the project.

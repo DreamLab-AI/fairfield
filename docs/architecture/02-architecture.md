@@ -42,13 +42,13 @@ graph TB
         end
     end
 
-    subgraph RelayLayer["RELAY LAYER (Cloudflare Workers)"]
-        subgraph Relay["Cloudflare Workers Relay"]
+    subgraph RelayLayer["RELAY LAYER (Google Cloud Run)"]
+        subgraph Relay["Node.js Relay Service"]
             NIP42["NIP-42 AUTH<br/>- Pubkey whitelist<br/>- Challenge"]
             Groups["Group Logic<br/>- Membership<br/>- Roles<br/>- Moderation"]
-            Store["Event Store (Durable Objects)<br/>- Messages<br/>- Metadata<br/>- Deletion support"]
+            Store["Event Store (PostgreSQL)<br/>- Messages<br/>- Metadata<br/>- Deletion support"]
         end
-        Backup["Backup Service<br/>- Durable Objects snapshots<br/>- R2 storage sync"]
+        Backup["Backup Service<br/>- Cloud SQL backups<br/>- Cloud Storage sync"]
     end
 
     Auth --> NDK
@@ -70,8 +70,8 @@ sequenceDiagram
     participant UI as UI Components
     participant NDK as NDK Library
     participant WS as WebSocket
-    participant R as Relay Worker
-    participant DO as Durable Objects
+    participant R as Relay Service
+    participant DB as PostgreSQL
     participant SUB as Subscribers
 
     Note over U,SUB: Message Creation & Publishing Flow
@@ -100,12 +100,12 @@ sequenceDiagram
         R->>WS: 13a. NOTICE: Auth failed
         WS->>UI: 14a. Show error
     else User authorised
-        R->>DO: 13b. Store event
+        R->>DB: 13b. Store event
 
-        Note over DO: Durable Objects Storage
-        DO->>DO: 14b. Write to LMDB
-        DO->>DO: 15b. Update channel index
-        DO->>DO: 16b. Update user message count
+        Note over DB: PostgreSQL Storage
+        DB->>DB: 14b. INSERT into events table
+        DB->>DB: 15b. Update channel index
+        DB->>DB: 16b. Update user message count
 
         R->>SUB: 17. Broadcast to subscribers
         Note over SUB: All connected clients<br/>subscribed to channel
@@ -129,7 +129,7 @@ sequenceDiagram
 | 4-7 | NDK | Event creation: build, tag, timestamp, sign |
 | 8-9 | Transport | WebSocket transmission to relay |
 | 10-12 | Relay | NIP-42 AUTH: verify signature, whitelist, membership |
-| 13-16 | Storage | Durable Objects: persist event, update indexes |
+| 13-16 | Storage | PostgreSQL: persist event, update indexes |
 | 17-19 | Distribution | Broadcast to all channel subscribers |
 | 20-22 | Confirmation | Relay confirms, UI shows success |
 
@@ -141,7 +141,7 @@ sequenceDiagram
     participant UI as UI
     participant NDK as NDK
     participant R as Relay
-    participant DO as Durable Objects
+    participant DB as PostgreSQL
     participant SUB as Subscribers
 
     U->>UI: Click "Delete" on message
@@ -162,8 +162,8 @@ sequenceDiagram
 
     NDK->>R: Publish deletion event
     R->>R: Verify deletion authority
-    R->>DO: Mark event as deleted
-    DO->>DO: Update deletion index
+    R->>DB: Mark event as deleted
+    DB->>DB: Update deletion index
 
     R->>SUB: Broadcast deletion
     SUB->>SUB: Remove message from UI
@@ -172,7 +172,7 @@ sequenceDiagram
     style DO fill:#90EE90,stroke:#333
 ```
 
-**Text Alternative:** User initiates deletion. For own messages, creates NIP-09 deletion event (kind 5). For admin deletions, creates NIP-29 moderation event (kind 9005). Relay verifies authority, marks event as deleted in Durable Objects, broadcasts deletion to all subscribers who remove the message from their UI.
+**Text Alternative:** User initiates deletion. For own messages, creates NIP-09 deletion event (kind 5). For admin deletions, creates NIP-29 moderation event (kind 9005). Relay verifies authority, marks event as deleted in PostgreSQL, broadcasts deletion to all subscribers who remove the message from their UI.
 
 ---
 
@@ -300,10 +300,10 @@ graph TB
 | `src/routes/` | SvelteKit file-based routing |
 | `static/` | PWA assets (manifest, icons, service worker) |
 
-### 2.2 Relay Configuration (Cloudflare Workers)
+### 2.2 Relay Configuration (Google Cloud Run)
 
 ```typescript
-// relay/workers/config.ts
+// services/nostr-relay/src/config.ts
 export const relayConfig = {
   info: {
     name: "Nostr-BBS Private Relay",
@@ -328,10 +328,11 @@ export const relayConfig = {
   // No federation
   upstream: [],
 
-  // Storage via Durable Objects
+  // Storage via PostgreSQL (Cloud SQL)
   storage: {
-    use_durable_objects: true,
-    max_size: 1073741824,  // 1GB
+    type: 'postgresql',
+    connectionString: process.env.DATABASE_URL,
+    pool: { max: 20, idleTimeoutMillis: 30000 },
   },
 };
 ```
@@ -593,7 +594,7 @@ flowchart LR
 flowchart TB
     User -->|msg| Nostr-BBSRelay["Nostr-BBS Relay (ONLY)"]
     User -->|delete| Nostr-BBSRelay
-    Nostr-BBSRelay -->|"Event removed"| LMDB[(LMDB)]
+    Nostr-BBSRelay -->|"Event removed"| PG[(PostgreSQL)]
 ```
 
 *Guarantee: We control the only relay, deletion is real*
@@ -616,18 +617,20 @@ flowchart TB
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Core Relay | Cloudflare Workers | Edge deployment, global distribution |
-| Storage | Durable Objects | Consistent state, WebSocket support |
+| Core Relay | Node.js + Express + WS | WebSocket support, npm ecosystem |
+| Storage | PostgreSQL (Cloud SQL) | ACID compliance, pgvector for semantic search |
 | Group Logic | Custom NIP-29 impl | Full control over group features |
-| CDN/Proxy | Cloudflare | Auto-HTTPS, WebSocket, DDoS protection |
+| Hosting | Google Cloud Run | Auto-scaling containers, managed infrastructure |
 
 ### 8.3 Infrastructure
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Hosting | Cloudflare Workers + Pages | Serverless, global edge |
-| Storage | Durable Objects + R2 | Persistent state, backup storage |
-| Monitoring | Cloudflare Analytics | Built-in metrics and logging |
+| PWA Hosting | GitHub Pages | Free, fast CDN, simple deployment |
+| Relay Hosting | Google Cloud Run | Serverless containers, auto-scaling |
+| Database | Cloud SQL PostgreSQL | Managed DB, automatic backups, pgvector |
+| File Storage | Google Cloud Storage | Media files, vector indices |
+| Monitoring | Cloud Logging + Monitoring | Built-in GCP observability |
 
 ---
 

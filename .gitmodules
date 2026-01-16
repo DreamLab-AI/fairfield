@@ -1,5 +1,1 @@
-[submodule "JavaScriptSolidServer"]
-	path = JavaScriptSolidServer
-	url = https://github.com/JavaScriptSolidServer/JavaScriptSolidServer.git
-	branch = main
-	ignore = dirty
+# Git submodules (none currently configured)

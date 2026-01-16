@@ -425,17 +425,6 @@ Features:
 
 See [did:nostr Implementation](docs/features/did-nostr.md) for details.
 
-### Solid Protocol Integration
-
-Decentralized storage with Solid pods:
-
-- **OIDC Authentication** - Login with Solid identity providers
-- **WebID Bridge** - Link did:nostr to Solid WebID
-- **Pod Storage** - Store encrypted Nostr events in user pods
-- **Access Control** - Web Access Control (WAC) integration
-- **Offline Sync** - Queue operations for background sync
-
-See [Solid Integration](docs/features/solid-integration.md) for details.
 
 ### Cohort-Based Access Control
 
@@ -1236,7 +1225,6 @@ await sendChannelMessage(channelId, 'Hello channel!');
 ### Feature Documentation
 - [Authentication](docs/features/authentication.md) - Nsec-based key management and read-only mode
 - [did:nostr Implementation](docs/features/did-nostr.md) - W3C DID integration for Nostr
-- [Solid Integration](docs/features/solid-integration.md) - Decentralized storage with Solid pods
 - [Direct Messages](docs/features/dm-implementation.md) - NIP-17/59 encrypted messaging
 - [Message Threading](docs/features/threading-implementation.md) - Threaded conversations
 - [Reactions](docs/features/nip-25-reactions-implementation.md) - NIP-25 emoji reactions
@@ -1284,13 +1272,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Third Party Dependencies
 
 This project incorporates the following third-party open-source components:
-
-### JavaScriptSolidServer
-
-- **Repository**: https://github.com/JavaScriptSolidServer/JavaScriptSolidServer
-- **License**: AGPL-3.0-only
-- **Usage**: Provides Solid pod storage functionality with Nostr DID authentication integration
-- **Description**: Community Solid Server implementation enabling decentralized data storage. Used for personal data pod functionality allowing users to store and control their own data while authenticating via Nostr keypairs. See [docs/solid/README.md](docs/solid/README.md) for integration details.
 
 ## Credits and Attribution
 

@@ -83,22 +83,6 @@ export const TIMEOUTS = {
 } as const;
 
 /**
- * Solid Pod Server URL
- * For user file storage with Nostr DID authentication
- */
-export const SOLID_SERVER_URL = getEnv('VITE_SOLID_SERVER_URL', 'http://localhost:3030');
-
-/**
- * Solid pod integration enabled
- */
-export const SOLID_ENABLED = getEnv('VITE_SOLID_ENABLED', 'false') === 'true';
-
-/**
- * Solid storage backend
- */
-export const SOLID_STORAGE_BACKEND = getEnv('VITE_SOLID_STORAGE_BACKEND', 'filesystem');
-
-/**
  * Validate configuration
  */
 export function validateConfig(): { valid: boolean; errors: string[] } {

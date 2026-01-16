@@ -17,8 +17,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RELAY_URL = process.env.RELAY_URL || 'wss://nostr-relay-617806532906.us-central1.run.app';
 const SYNTHETIC_EVENTS_PATH = path.resolve(__dirname, '../../../scripts/embeddings/output/synthetic_events.json');
 
-// Admin pubkey from frontend .env - events will be tagged to this admin
-const ADMIN_PUBKEY = '11ed64225dd5e2c5e18f61ad43d5ad9272d08739d3a20dd25886197b0738663c';
+// Admin pubkey from environment (required)
+const ADMIN_PUBKEY = process.env.ADMIN_PUBKEY;
+if (!ADMIN_PUBKEY) {
+  console.error('ERROR: ADMIN_PUBKEY environment variable is required');
+  console.error('Usage: ADMIN_PUBKEY=<hex-pubkey> node publish-test-data.mjs');
+  process.exit(1);
+}
 
 function generateKeypairFromSeed(seed) {
   // Create deterministic private key from seed

@@ -5,9 +5,13 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-const LIVE_URL = 'https://dreamlab-ai.github.io/fairfield';
-const ADMIN_MNEMONIC = 'glimpse marble confirm army sleep imitate lake balance home panic view brand';
-const ADMIN_PUBKEY = '11ed64225dd5e2c5e18f61ad43d5ad9272d08739d3a20dd25886197b0738663c';
+const LIVE_URL = process.env.LIVE_URL || 'https://dreamlab-ai.github.io/fairfield';
+const ADMIN_MNEMONIC = process.env.ADMIN_MNEMONIC || '';
+const ADMIN_PUBKEY = process.env.ADMIN_PUBKEY || '';
+
+if (!ADMIN_PUBKEY || !ADMIN_MNEMONIC) {
+  console.warn('WARN: ADMIN_PUBKEY and ADMIN_MNEMONIC env vars not set - some tests may be skipped');
+}
 
 async function loginWithMnemonic(page: Page, mnemonic: string) {
   // Navigate to login page

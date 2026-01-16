@@ -235,6 +235,8 @@ Technical documentation for contributors and self-hosters.
 |---------|---------|--------------|
 | [Getting Started](developer/getting-started/index.md) | **Tutorials** | How to set up the development environment |
 | [Architecture](developer/architecture/) | **Explanation** | How the system is designed and why |
+| [ADR (Decision Records)](adr/) | **Reference** | Architectural decisions and rationale |
+| [DDD (Domain Model)](ddd/) | **Reference** | Domain-driven design patterns and entities |
 | [Feature Guides](developer/features/) | **How-to Guides** | How to implement and extend features |
 | [Reference](developer/reference/) | **Reference** | API documentation, protocols, configuration |
 | [Deployment](developer/deployment/) | **How-to Guides** | How to deploy and maintain the platform |
@@ -244,6 +246,8 @@ Technical documentation for contributors and self-hosters.
 
 - [Local Development Setup](developer/getting-started/development-setup.md)
 - [System Architecture](developer/architecture/index.md)
+- [Architecture Decision Records](adr/) — Technical decisions and rationale
+- [Domain Model](ddd/) — Entities, aggregates, and bounded contexts
 - [API Reference](developer/reference/api.md)
 - [Contributing Guidelines](developer/contributing/index.md)
 
@@ -323,13 +327,6 @@ This project builds upon exceptional open-source work from the Nostr ecosystem a
 ## Third-Party Dependencies
 
 This project incorporates the following third-party open-source components:
-
-### JavaScriptSolidServer
-
-- **Repository**: https://github.com/JavaScriptSolidServer/JavaScriptSolidServer
-- **Licence**: AGPL-3.0-only
-- **Usage**: Provides Solid pod storage functionality with Nostr DID authentication integration
-- **Description**: Community Solid Server implementation enabling decentralised data storage
 
 </details>
 
