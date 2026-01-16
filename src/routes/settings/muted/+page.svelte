@@ -3,8 +3,18 @@
   import { nip19 } from 'nostr-tools';
   import { goto } from '$app/navigation';
   import { getAvatarUrl } from '$lib/utils/identicon';
+  import { profileCache } from '$lib/stores/profiles';
 
   $: mutedUsers = $mutedUsersList;
+
+  /**
+   * Get display name for a pubkey (nickname-first design)
+   */
+  function getDisplayName(pubkey: string): string {
+    const cached = profileCache.getCachedSync(pubkey);
+    if (cached?.displayName) return cached.displayName;
+    return formatPubkey(pubkey);
+  }
 
   function formatDate(timestamp: number): string {
     const date = new Date(timestamp);
@@ -112,7 +122,7 @@
                 <div class="w-12 h-12 rounded-full ring ring-base-300 ring-offset-base-100 ring-offset-2">
                   <img
                     src={getAvatarUrl(user.pubkey, 48)}
-                    alt={formatPubkey(user.pubkey)}
+                    alt={getDisplayName(user.pubkey)}
                   />
                 </div>
               </div>
@@ -120,13 +130,14 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span class="font-semibold truncate">
-                    {formatPubkey(user.pubkey)}
+                    {getDisplayName(user.pubkey)}
                   </span>
                   <span class="badge badge-sm badge-error">Muted</span>
                 </div>
 
                 <div class="text-sm text-base-content/60 mb-2">
-                  Muted {formatDate(user.mutedAt)}
+                  <span class="font-mono text-xs">{formatPubkey(user.pubkey)}</span>
+                  · Muted {formatDate(user.mutedAt)}
                 </div>
 
                 {#if user.reason}

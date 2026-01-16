@@ -2,6 +2,7 @@
   /**
    * User Management Component
    * Paginated list of all whitelisted users with multi-zone cohort assignment
+   * Supports batch operations for approving/assigning multiple users at once
    */
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores/auth';
@@ -26,6 +27,12 @@
   let error: string | null = null;
   let successMessage: string | null = null;
 
+  // Batch selection state
+  let selectedUsers = new Set<string>();
+  let batchProcessing = false;
+  let batchZonesModal = false;
+  let batchSelectedZones: string[] = [];
+
   // Pagination
   let currentPage = 1;
   let pageSize = 20;
@@ -35,6 +42,20 @@
   // Search/filter
   let searchQuery = '';
   let filterCohort = '';
+
+  // Computed: check if all visible users are selected
+  $: allSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUsers.has(u.pubkey));
+  $: someSelected = selectedUsers.size > 0;
+
+  // Svelte action for setting indeterminate state on checkbox
+  function setIndeterminate(node: HTMLInputElement, value: boolean) {
+    node.indeterminate = value;
+    return {
+      update(newValue: boolean) {
+        node.indeterminate = newValue;
+      }
+    };
+  }
 
   // Track pending updates
   let pendingUpdates = new Set<string>();
@@ -163,6 +184,154 @@
       })
     : users;
 
+  // ----- Batch Selection Functions -----
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      // Deselect all visible
+      filteredUsers.forEach(u => selectedUsers.delete(u.pubkey));
+    } else {
+      // Select all visible
+      filteredUsers.forEach(u => selectedUsers.add(u.pubkey));
+    }
+    selectedUsers = selectedUsers;
+  }
+
+  function toggleUserSelection(pubkey: string) {
+    if (selectedUsers.has(pubkey)) {
+      selectedUsers.delete(pubkey);
+    } else {
+      selectedUsers.add(pubkey);
+    }
+    selectedUsers = selectedUsers;
+  }
+
+  function clearSelection() {
+    selectedUsers.clear();
+    selectedUsers = selectedUsers;
+  }
+
+  function openBatchZonesModal() {
+    batchSelectedZones = [];
+    batchZonesModal = true;
+  }
+
+  function closeBatchZonesModal() {
+    batchZonesModal = false;
+    batchSelectedZones = [];
+  }
+
+  async function applyBatchZones() {
+    const adminPubkey = $authStore.publicKey;
+    if (!adminPubkey) {
+      error = 'Not authenticated';
+      return;
+    }
+
+    if (selectedUsers.size === 0) {
+      error = 'No users selected';
+      return;
+    }
+
+    batchProcessing = true;
+    error = null;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const pubkey of selectedUsers) {
+      const user = users.find(u => u.pubkey === pubkey);
+      if (!user) continue;
+
+      // Build new cohorts: keep non-zone cohorts + add selected zones + approved
+      const nonZoneCohorts = user.cohorts.filter(
+        c => !ZONE_COHORTS.some(z => z.id === c)
+      );
+
+      const newCohorts = batchSelectedZones.length > 0
+        ? [...new Set([...nonZoneCohorts, ...batchSelectedZones, 'approved'])]
+        : [...new Set([...nonZoneCohorts, 'approved'])];
+
+      try {
+        const result = await updateUserCohorts(pubkey, newCohorts, adminPubkey);
+        if (result.success) {
+          successCount++;
+          // Update local state
+          const idx = users.findIndex(u => u.pubkey === pubkey);
+          if (idx >= 0) {
+            users[idx] = { ...users[idx], cohorts: newCohorts };
+          }
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    users = users; // Trigger reactivity
+    batchProcessing = false;
+    closeBatchZonesModal();
+    clearSelection();
+
+    if (successCount > 0) {
+      const zonesLabel = batchSelectedZones.length > 0
+        ? batchSelectedZones.map(z => ZONE_COHORTS.find(zc => zc.id === z)?.label || z).join(', ')
+        : 'approved status';
+      successMessage = `Updated ${successCount} user${successCount !== 1 ? 's' : ''} with ${zonesLabel}`;
+      setTimeout(() => { successMessage = null; }, 4000);
+    }
+    if (failCount > 0) {
+      error = `Failed to update ${failCount} user${failCount !== 1 ? 's' : ''}`;
+    }
+  }
+
+  async function batchRemoveZone(zoneId: string) {
+    const adminPubkey = $authStore.publicKey;
+    if (!adminPubkey) {
+      error = 'Not authenticated';
+      return;
+    }
+
+    batchProcessing = true;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const pubkey of selectedUsers) {
+      const user = users.find(u => u.pubkey === pubkey);
+      if (!user || !user.cohorts.includes(zoneId)) continue;
+
+      const newCohorts = user.cohorts.filter(c => c !== zoneId);
+
+      try {
+        const result = await updateUserCohorts(pubkey, newCohorts, adminPubkey);
+        if (result.success) {
+          successCount++;
+          const idx = users.findIndex(u => u.pubkey === pubkey);
+          if (idx >= 0) {
+            users[idx] = { ...users[idx], cohorts: newCohorts };
+          }
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    users = users;
+    batchProcessing = false;
+    clearSelection();
+
+    const zoneLabel = ZONE_COHORTS.find(z => z.id === zoneId)?.label || zoneId;
+    if (successCount > 0) {
+      successMessage = `Removed ${zoneLabel} from ${successCount} user${successCount !== 1 ? 's' : ''}`;
+      setTimeout(() => { successMessage = null; }, 4000);
+    }
+    if (failCount > 0) {
+      error = `Failed to update ${failCount} user${failCount !== 1 ? 's' : ''}`;
+    }
+  }
+
   onMount(() => {
     loadUsers();
   });
@@ -234,11 +403,73 @@
       </select>
     </div>
 
+    <!-- Batch Action Bar -->
+    {#if someSelected}
+      <div class="flex flex-wrap items-center gap-2 p-3 bg-primary/10 rounded-lg mb-4 border border-primary/30">
+        <span class="font-medium text-sm">
+          {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''} selected
+        </span>
+
+        <div class="divider divider-horizontal mx-1"></div>
+
+        <button
+          class="btn btn-sm btn-primary"
+          on:click={openBatchZonesModal}
+          disabled={batchProcessing}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Assign Zones
+        </button>
+
+        <div class="dropdown dropdown-bottom">
+          <button tabindex="0" class="btn btn-sm btn-outline btn-error" disabled={batchProcessing}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Remove Zone
+          </button>
+          <ul tabindex="0" class="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box w-52">
+            {#each ZONE_COHORTS as zone}
+              <li>
+                <button on:click={() => batchRemoveZone(zone.id)} class="text-sm">
+                  <span class="w-3 h-3 rounded-full" style="background-color: {zone.color}"></span>
+                  {zone.label}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+
+        <button
+          class="btn btn-sm btn-ghost"
+          on:click={clearSelection}
+        >
+          Clear selection
+        </button>
+
+        {#if batchProcessing}
+          <span class="loading loading-spinner loading-sm ml-2"></span>
+        {/if}
+      </div>
+    {/if}
+
     <!-- Users Table -->
     <div class="overflow-x-auto">
       <table class="table table-zebra w-full">
         <thead>
           <tr>
+            <th class="w-10">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                checked={allSelected}
+                on:change={toggleSelectAll}
+                title="Select all"
+                use:setIndeterminate={someSelected && !allSelected}
+              />
+            </th>
             <th>User</th>
             <th>Added</th>
             <th class="text-center">Zone Access (multi-select)</th>
@@ -247,13 +478,13 @@
         <tbody>
           {#if loading && users.length === 0}
             <tr>
-              <td colspan="3" class="text-center py-8">
+              <td colspan="4" class="text-center py-8">
                 <span class="loading loading-spinner loading-md"></span>
               </td>
             </tr>
           {:else if filteredUsers.length === 0}
             <tr>
-              <td colspan="3" class="text-center py-8 text-base-content/50">
+              <td colspan="4" class="text-center py-8 text-base-content/50">
                 No users found
               </td>
             </tr>
@@ -261,7 +492,16 @@
             {#each filteredUsers as user (user.pubkey)}
               {@const userZones = getUserZones(user)}
               {@const isPending = pendingUpdates.has(user.pubkey)}
-              <tr class:opacity-50={isPending}>
+              {@const isSelected = selectedUsers.has(user.pubkey)}
+              <tr class="{isPending ? 'opacity-50' : ''} {isSelected ? 'bg-primary bg-opacity-5' : ''}">
+                <td>
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-sm"
+                    checked={isSelected}
+                    on:change={() => toggleUserSelection(user.pubkey)}
+                  />
+                </td>
                 <td>
                   <div class="flex flex-col">
                     <span class="font-medium">
@@ -383,3 +623,64 @@
     </div>
   </div>
 </div>
+
+<!-- Batch Zone Assignment Modal -->
+{#if batchZonesModal}
+  <div class="modal modal-open">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-4">
+        Assign Zones to {selectedUsers.size} User{selectedUsers.size !== 1 ? 's' : ''}
+      </h3>
+
+      <p class="text-sm text-base-content/70 mb-4">
+        Select zones to assign. This will add the selected zones while preserving any existing non-zone cohorts.
+      </p>
+
+      <div class="space-y-3">
+        {#each ZONE_COHORTS as zone}
+          {@const isZoneSelected = batchSelectedZones.includes(zone.id)}
+          <label
+            class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-base-200 {isZoneSelected ? 'border-primary bg-primary bg-opacity-10' : ''}"
+          >
+            <input
+              type="checkbox"
+              class="checkbox"
+              style={`--chkbg: ${zone.color}; --bc: ${zone.color};`}
+              checked={isZoneSelected}
+              on:change={(e) => {
+                if (e.currentTarget.checked) {
+                  batchSelectedZones = [...batchSelectedZones, zone.id];
+                } else {
+                  batchSelectedZones = batchSelectedZones.filter(z => z !== zone.id);
+                }
+              }}
+            />
+            <span class="w-4 h-4 rounded-full" style="background-color: {zone.color}"></span>
+            <span class="font-medium">{zone.label}</span>
+          </label>
+        {/each}
+      </div>
+
+      <div class="modal-action">
+        <button
+          class="btn btn-ghost"
+          on:click={closeBatchZonesModal}
+          disabled={batchProcessing}
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary"
+          on:click={applyBatchZones}
+          disabled={batchProcessing}
+        >
+          {#if batchProcessing}
+            <span class="loading loading-spinner loading-sm"></span>
+          {/if}
+          Apply to {selectedUsers.size} User{selectedUsers.size !== 1 ? 's' : ''}
+        </button>
+      </div>
+    </div>
+    <div class="modal-backdrop" on:click={closeBatchZonesModal} on:keydown={(e) => e.key === 'Escape' && closeBatchZonesModal()} role="button" tabindex="0"></div>
+  </div>
+{/if}
