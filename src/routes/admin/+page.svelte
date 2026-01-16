@@ -89,7 +89,8 @@
       }
       relayStatus = 'connected';
 
-      channels = await fetchChannels();
+      // Admin page: fetch ALL channels (admin bypass)
+      channels = await fetchChannels({ isAdmin: true });
       stats.totalChannels = channels.length;
 
       await loadPendingRequests();

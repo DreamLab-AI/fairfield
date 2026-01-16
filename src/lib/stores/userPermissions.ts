@@ -1,31 +1,40 @@
 /**
  * User Permissions Store
- * Derives user permissions from auth state and provides default guest permissions
+ * Derives user permissions from auth state and whitelist status (SOURCE OF TRUTH)
  */
 
 import { derived } from 'svelte/store';
 import { authStore } from './auth';
+import { whitelistStatusStore } from './user';
 import type { UserPermissions } from '$lib/config/types';
 
 /**
- * Derived store that provides user permissions based on auth state
+ * Derived store that provides user permissions based on auth state AND whitelist status
  * Returns null if user is not authenticated
+ *
+ * SECURITY: cohorts are populated from whitelistStatusStore which is relay-verified
  */
-export const userPermissionsStore = derived<typeof authStore, UserPermissions | null>(
-	authStore,
-	($auth) => {
+export const userPermissionsStore = derived<
+	[typeof authStore, typeof whitelistStatusStore],
+	UserPermissions | null
+>(
+	[authStore, whitelistStatusStore],
+	([$auth, $whitelistStatus]) => {
 		// Not authenticated - return null
 		if (!$auth.isAuthenticated || !$auth.pubkey) {
 			return null;
 		}
 
-		// Return basic member permissions for authenticated users
-		// In a real implementation, this would fetch from the server or derive from profile
+		// Get cohorts from relay-verified whitelist status (SOURCE OF TRUTH)
+		// whitelistStatusStore is populated by userStore when auth changes
+		const cohorts = $whitelistStatus?.cohorts ?? [];
+		const isAdmin = $whitelistStatus?.isAdmin ?? false;
+
 		return {
 			pubkey: $auth.pubkey,
-			cohorts: [], // Would be populated from user profile
-			globalRole: 'member' as const,
-			sectionRoles: [] // Would be populated from user profile
+			cohorts: cohorts,
+			globalRole: isAdmin ? 'admin' as const : 'member' as const,
+			sectionRoles: [] // Section-specific roles (populated separately if needed)
 		};
 	}
 );

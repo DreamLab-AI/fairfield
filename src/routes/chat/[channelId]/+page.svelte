@@ -4,6 +4,8 @@
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { authStore } from '$lib/stores/auth';
+  import { whitelistStatusStore } from '$lib/stores/user';
+  import { get } from 'svelte/store';
   import { connectRelay, isConnected } from '$lib/nostr/relay';
   import { RELAY_URL } from '$lib/config';
   import {
@@ -66,8 +68,17 @@
         await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Fetch channels
-      const channels = await fetchChannels();
+      // Get user's cohorts from whitelist for channel filtering
+      const whitelistStatus = get(whitelistStatusStore);
+      const userCohorts = whitelistStatus?.cohorts ?? [];
+      const isAdmin = whitelistStatus?.isAdmin ?? false;
+
+      // Fetch channels with cohort filtering (SECURITY: user can only see channels they have access to)
+      const channels = await fetchChannels({
+        userCohorts,
+        userPubkey: $authStore.publicKey ?? undefined,
+        isAdmin
+      });
       channel = channels.find(c => c.id === channelId) || null;
 
       if (!channel) {
@@ -141,7 +152,15 @@
     messageInput = '';
 
     try {
-      await sendChannelMessage(channelId, content);
+      // SECURITY: Pass authorization context to verify posting permissions
+      const whitelistStatus = get(whitelistStatusStore);
+      const authContext = {
+        userCohorts: whitelistStatus?.cohorts ?? [],
+        userPubkey: $authStore.publicKey ?? '',
+        isAdmin: whitelistStatus?.isAdmin ?? false
+      };
+
+      await sendChannelMessage(channelId, content, undefined, authContext);
       scrollToBottom();
     } catch (e) {
       console.error('Error sending message:', e);

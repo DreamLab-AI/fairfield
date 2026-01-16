@@ -61,8 +61,11 @@
         await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Fetch channels and events in parallel
-      const [channelResults, eventResults] = await Promise.all([fetchChannels(), fetchAllEvents()]);
+      // Fetch channels and events in parallel (admin page: bypass cohort filtering)
+      const [channelResults, eventResults] = await Promise.all([
+        fetchChannels({ isAdmin: true }),
+        fetchAllEvents()
+      ]);
 
       channels = channelResults;
       events = eventResults;

@@ -4,6 +4,8 @@
   import { base } from '$app/paths';
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
+  import { whitelistStatusStore } from '$lib/stores/user';
+  import { get } from 'svelte/store';
   import { ndk, connectRelay, isConnected } from '$lib/nostr/relay';
   import { RELAY_URL } from '$lib/config';
   import { fetchAllEvents, fetchChannelEvents, type CalendarEvent } from '$lib/nostr/calendar';
@@ -51,9 +53,19 @@
         await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
+      // Get user's cohorts from whitelist for channel filtering
+      const whitelistStatus = get(whitelistStatusStore);
+      const userCohorts = whitelistStatus?.cohorts ?? [];
+      const isAdmin = whitelistStatus?.isAdmin ?? false;
+
       // Fetch channels, events, and tribe birthdays in parallel
+      // SECURITY: Filter channels by user's cohorts
       const [channelResults, eventResults, birthdayResults] = await Promise.all([
-        fetchChannels(),
+        fetchChannels({
+          userCohorts,
+          userPubkey: $authStore.publicKey ?? undefined,
+          isAdmin
+        }),
         fetchAllEvents(),
         fetchTribeBirthdayEvents($authStore.publicKey),
       ]);

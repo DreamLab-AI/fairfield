@@ -4,6 +4,9 @@
   import { base } from '$app/paths';
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth';
+  import { userPermissionsStore } from '$lib/stores/userPermissions';
+  import { whitelistStatusStore } from '$lib/stores/user';
+  import { get } from 'svelte/store';
   import { connectRelay, isConnected } from '$lib/nostr/relay';
   import { RELAY_URL } from '$lib/config';
   import { fetchChannels, type CreatedChannel } from '$lib/nostr/channels';
@@ -83,8 +86,17 @@
         await connectRelay(RELAY_URL, $authStore.privateKey);
       }
 
-      // Fetch NIP-28 channels (kind 40)
-      allChannels = await fetchChannels();
+      // Get user's cohorts from whitelist for channel filtering
+      const whitelistStatus = get(whitelistStatusStore);
+      const userCohorts = whitelistStatus?.cohorts ?? [];
+      const isAdmin = whitelistStatus?.isAdmin ?? false;
+
+      // Fetch NIP-28 channels (kind 40) with cohort filtering
+      allChannels = await fetchChannels({
+        userCohorts,
+        userPubkey: $authStore.publicKey ?? undefined,
+        isAdmin
+      });
     } catch (e) {
       console.error('Failed to load channels:', e);
       error = e instanceof Error ? e.message : 'Failed to load channels';

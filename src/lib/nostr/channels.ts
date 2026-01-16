@@ -49,6 +49,20 @@ export interface CreatedChannel {
 }
 
 /**
+ * Options for filtering channels based on user permissions
+ */
+export interface FetchChannelOptions {
+	/** User's cohorts from whitelist (for filtering) */
+	userCohorts?: string[];
+	/** User's public key (for creator access) */
+	userPubkey?: string;
+	/** If true, bypass cohort filtering (for admin views) */
+	isAdmin?: boolean;
+	/** Limit number of channels returned */
+	limit?: number;
+}
+
+/**
  * Create a new channel (NIP-28 kind 40)
  */
 export async function createChannel(options: ChannelCreateOptions): Promise<CreatedChannel> {
@@ -171,15 +185,125 @@ export interface ChannelMessageOptions {
 }
 
 /**
+ * Authorization context for message operations
+ */
+export interface MessageAuthContext {
+	/** User's cohorts from whitelist */
+	userCohorts: string[];
+	/** User's public key */
+	userPubkey: string;
+	/** Whether user is admin (bypass restrictions) */
+	isAdmin?: boolean;
+}
+
+/**
+ * Check if user can post to a channel
+ * @param channel - Channel to check
+ * @param authContext - User's authorization context
+ * @returns true if user can post to this channel
+ */
+function canPostToChannel(
+	channel: CreatedChannel,
+	authContext: MessageAuthContext
+): boolean {
+	const { userCohorts, userPubkey, isAdmin = false } = authContext;
+
+	// Admins can post anywhere
+	if (isAdmin) {
+		return true;
+	}
+
+	// Channel creator can always post
+	if (channel.creatorPubkey === userPubkey) {
+		return true;
+	}
+
+	// First check if user can even see the channel
+	if (!canAccessChannel(channel, userCohorts, userPubkey, isAdmin)) {
+		return false;
+	}
+
+	// For open channels, anyone who can see can post
+	if (channel.accessType === 'open') {
+		return true;
+	}
+
+	// For gated channels (default), user must have matching cohorts
+	// If channel has no cohorts, it's effectively open
+	if (channel.cohorts.length === 0) {
+		return true;
+	}
+
+	// User must have at least one matching cohort to post
+	return channel.cohorts.some(cohort => userCohorts.includes(cohort));
+}
+
+/**
+ * Fetch a single channel by ID (internal helper)
+ */
+async function fetchChannelById(channelId: string): Promise<CreatedChannel | null> {
+	if (!browser) {
+		return null;
+	}
+
+	const ndkInstance = ndk();
+	if (!ndkInstance || !isConnected()) {
+		return null;
+	}
+
+	const filter: NDKFilter = {
+		kinds: [CHANNEL_KINDS.CREATE],
+		ids: [channelId],
+		limit: 1,
+	};
+
+	const events = await ndkInstance.fetchEvents(filter);
+
+	for (const event of events) {
+		try {
+			const metadata = JSON.parse(event.content) as ChannelMetadata;
+			const visibilityTag = event.tags.find(t => t[0] === 'visibility');
+			const accessTypeTag = event.tags.find(t => t[0] === 'access-type');
+			const cohortTag = event.tags.find(t => t[0] === 'cohort');
+			const encryptedTag = event.tags.find(t => t[0] === 'encrypted');
+			const sectionTag = event.tags.find(t => t[0] === 'section');
+
+			return {
+				id: event.id,
+				name: metadata.name || 'Unnamed Channel',
+				description: metadata.about,
+				visibility: (visibilityTag?.[1] as any) || 'public',
+				accessType: (accessTypeTag?.[1] as ChannelAccessType) || 'gated',
+				cohorts: cohortTag?.[1]?.split(',').filter(Boolean) || [],
+				encrypted: encryptedTag?.[1] === 'true',
+				section: (sectionTag?.[1] as ChannelSection) || 'public-lobby',
+				createdAt: event.created_at || 0,
+				creatorPubkey: event.pubkey,
+			};
+		} catch (e) {
+			console.error('Failed to parse channel event:', e);
+		}
+	}
+
+	return null;
+}
+
+/**
  * Send a message to a channel (NIP-28 kind 42)
+ *
+ * SECURITY: This function verifies the user has permission to post to the channel
+ * before sending the message. Authorization is based on cohorts and access type.
+ *
  * @param channelId - Channel ID
  * @param content - Message content
  * @param options - Optional message options (replyTo, additionalTags for encrypted images)
+ * @param authContext - Authorization context (required for security - cohorts, pubkey, isAdmin)
  */
 export async function sendChannelMessage(
 	channelId: string,
 	content: string,
-	options?: ChannelMessageOptions | string // string for backwards compat (replyTo)
+	options?: ChannelMessageOptions | string, // string for backwards compat (replyTo)
+	authContext?: MessageAuthContext
 ): Promise<string> {
 	if (!browser) {
 		throw new Error('Channel operations require browser environment');
@@ -207,6 +331,18 @@ export async function sendChannelMessage(
 
 	if (!isConnected()) {
 		throw new Error('Not connected to relays. Please wait for connection.');
+	}
+
+	// SECURITY: Verify user has permission to post to this channel
+	if (authContext) {
+		const channel = await fetchChannelById(channelId);
+		if (!channel) {
+			throw new Error('Channel not found. Cannot verify posting permissions.');
+		}
+
+		if (!canPostToChannel(channel, authContext)) {
+			throw new Error('You do not have permission to post in this channel.');
+		}
 	}
 
 	// Handle backwards compatibility: string = replyTo
@@ -237,9 +373,58 @@ export async function sendChannelMessage(
 }
 
 /**
- * Fetch channels from relays
+ * Check if user can access a channel based on cohorts
+ * @param channel - Channel to check
+ * @param userCohorts - User's cohorts from whitelist
+ * @param userPubkey - User's public key
+ * @param isAdmin - Whether user is admin (bypass filtering)
+ * @returns true if user can see this channel
  */
-export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
+function canAccessChannel(
+	channel: CreatedChannel,
+	userCohorts: string[],
+	userPubkey: string | undefined,
+	isAdmin: boolean
+): boolean {
+	// Admins can see all channels
+	if (isAdmin) {
+		return true;
+	}
+
+	// Channel creator can always see their own channel
+	if (userPubkey && channel.creatorPubkey === userPubkey) {
+		return true;
+	}
+
+	// Public channels (no cohort restrictions) are visible to all
+	if (channel.visibility === 'public' || channel.cohorts.length === 0) {
+		return true;
+	}
+
+	// Cohort-restricted channels: user must have at least one matching cohort
+	if (channel.cohorts.length > 0 && userCohorts.length > 0) {
+		const hasMatchingCohort = channel.cohorts.some(cohort =>
+			userCohorts.includes(cohort)
+		);
+		return hasMatchingCohort;
+	}
+
+	// No matching cohorts - deny access
+	return false;
+}
+
+/**
+ * Fetch channels from relays with cohort-based access filtering
+ *
+ * SECURITY: Channels are filtered based on user's cohorts from whitelist.
+ * Only channels where user has matching cohorts will be returned.
+ *
+ * @param options - Filtering options (userCohorts, isAdmin, limit)
+ * @returns Promise<CreatedChannel[]> - Filtered channels user can access
+ */
+export async function fetchChannels(options: FetchChannelOptions = {}): Promise<CreatedChannel[]> {
+	const { userCohorts = [], userPubkey, isAdmin = false, limit = 100 } = options;
+
 	if (!browser) {
 		return [];
 	}
@@ -270,7 +455,7 @@ export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
 			const encryptedTag = event.tags.find(t => t[0] === 'encrypted');
 			const sectionTag = event.tags.find(t => t[0] === 'section');
 
-			channels.push({
+			const channel: CreatedChannel = {
 				id: event.id,
 				name: metadata.name || 'Unnamed Channel',
 				description: metadata.about,
@@ -281,7 +466,12 @@ export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
 				section: (sectionTag?.[1] as ChannelSection) || 'public-lobby',
 				createdAt: event.created_at || 0,
 				creatorPubkey: event.pubkey,
-			});
+			};
+
+			// SECURITY: Filter channels based on user cohorts
+			if (canAccessChannel(channel, userCohorts, userPubkey, isAdmin)) {
+				channels.push(channel);
+			}
 		} catch (e) {
 			console.error('Failed to parse channel event:', e);
 		}
