@@ -114,7 +114,7 @@
             <div class="flex items-center gap-3">
               <div class="avatar placeholder">
                 <div class="bg-primary text-primary-content rounded-full w-12">
-                  <span class="text-xl">{conv.pubkey.charAt(0).toUpperCase()}</span>
+                  <span class="text-xl">{conv.name.charAt(0).toUpperCase()}</span>
                 </div>
               </div>
               <div class="flex-1 min-w-0">

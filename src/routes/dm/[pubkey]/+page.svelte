@@ -8,11 +8,21 @@
   import { toast } from '$lib/stores/toast';
   import { hexToBytes } from '@noble/hashes/utils.js';
   import { getAppConfig } from '$lib/config/loader';
+  import { profileCache } from '$lib/stores/profiles';
 
   const appConfig = getAppConfig();
 
   $: recipientPubkey = $page.params.pubkey;
   $: messages = $dmStore.messages;
+
+  // Get display name from profile cache (nickname-first)
+  $: recipientDisplayName = getDisplayName(recipientPubkey);
+
+  function getDisplayName(pubkey: string): string {
+    const cached = profileCache.getCachedSync(pubkey);
+    if (cached?.displayName) return cached.displayName;
+    return formatPubkey(pubkey);
+  }
 
   let messageInput = '';
   let loading = true;
@@ -114,7 +124,7 @@
 </script>
 
 <svelte:head>
-  <title>DM with {formatPubkey(recipientPubkey)} - {appConfig.name}</title>
+  <title>DM with {recipientDisplayName} - {appConfig.name}</title>
 </svelte:head>
 
 {#if loading}
@@ -131,10 +141,13 @@
         <div class="flex items-center gap-3">
           <div class="avatar placeholder">
             <div class="bg-primary text-primary-content rounded-full w-10">
-              <span>{recipientPubkey.charAt(0).toUpperCase()}</span>
+              <span>{recipientDisplayName.charAt(0).toUpperCase()}</span>
             </div>
           </div>
-          <h1 class="text-xl font-bold">{formatPubkey(recipientPubkey)}</h1>
+          <div>
+            <h1 class="text-xl font-bold">{recipientDisplayName}</h1>
+            <p class="text-xs text-base-content/50" title={recipientPubkey}>{formatPubkey(recipientPubkey)}</p>
+          </div>
         </div>
       </div>
     </div>

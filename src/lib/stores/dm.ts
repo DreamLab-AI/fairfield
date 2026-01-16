@@ -4,6 +4,7 @@ import { receiveDM, sendDM, createDMFilter, type DMContent, type Relay } from '$
 import { authStore } from './auth';
 import { getPublicKey } from 'nostr-tools';
 import { muteStore } from './mute';
+import { profileCache } from './profiles';
 
 /**
  * DM Conversation with another user
@@ -142,7 +143,7 @@ function createDMStore() {
           if (!existing || dm.timestamp > existing.lastMessageTimestamp) {
             conversationsMap.set(otherPubkey, {
               pubkey: otherPubkey,
-              name: formatPubkey(otherPubkey),
+              name: getDisplayName(otherPubkey),
               lastMessage: dm.content.substring(0, 50) + (dm.content.length > 50 ? '...' : ''),
               lastMessageTimestamp: dm.timestamp,
               unreadCount: (existing?.unreadCount ?? 0) + 1,
@@ -323,7 +324,7 @@ function createDMStore() {
         // Create new conversation
         const newConversation: DMConversation = {
           pubkey,
-          name: name ?? formatPubkey(pubkey),
+          name: name ?? getDisplayName(pubkey),
           lastMessage: '',
           lastMessageTimestamp: 0,
           unreadCount: 0,
@@ -420,7 +421,7 @@ function createDMStore() {
                 }
               : {
                   pubkey: otherPubkey,
-                  name: formatPubkey(otherPubkey),
+                  name: getDisplayName(otherPubkey),
                   lastMessage: dm.content.substring(0, 50) + (dm.content.length > 50 ? '...' : ''),
                   lastMessageTimestamp: dm.timestamp,
                   unreadCount: 1,
@@ -488,7 +489,7 @@ function createDMStore() {
             }
           : {
               pubkey: otherPubkey,
-              name: formatPubkey(otherPubkey),
+              name: getDisplayName(otherPubkey),
               lastMessage: dm.content.substring(0, 50) + (dm.content.length > 50 ? '...' : ''),
               lastMessageTimestamp: dm.timestamp,
               unreadCount: 1,
@@ -539,6 +540,16 @@ function createDMStore() {
 function formatPubkey(pubkey: string): string {
   if (pubkey.length <= 16) return pubkey;
   return `${pubkey.substring(0, 8)}...${pubkey.substring(pubkey.length - 8)}`;
+}
+
+/**
+ * Get display name for a pubkey (nickname-first design)
+ * Returns nickname/displayName if cached, otherwise truncated pubkey
+ */
+function getDisplayName(pubkey: string): string {
+  const cached = profileCache.getCachedSync(pubkey);
+  if (cached?.displayName) return cached.displayName;
+  return formatPubkey(pubkey);
 }
 
 export const dmStore = createDMStore();
