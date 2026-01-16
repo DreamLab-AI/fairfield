@@ -1,8 +1,13 @@
 <script lang="ts">
+  /**
+   * ZoneNav - Hierarchical zone navigation
+   * Shows all zones with obfuscation for locked ones (ASCII cypherpunk style)
+   */
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
   import { getCategories, getSections } from '$lib/config';
-  import { userStore } from '$lib/stores/user';
+  import { userStore, whitelistStatusStore } from '$lib/stores/user';
   import type { CategoryConfig, SectionConfig } from '$lib/config/types';
 
   export let currentCategoryId: string | null = null;
@@ -10,13 +15,35 @@
   export let collapsed: boolean = false;
   export let onToggle: (() => void) | undefined = undefined;
 
-  $: categories = getCategories();
-  $: userCohorts = $userStore.profile?.cohorts || [];
-  $: isAdmin = $userStore.profile?.isAdmin || false;
+  // Scrambled text state for animation
+  let scrambleFrame = 0;
+  let scrambleInterval: ReturnType<typeof setInterval>;
 
-  // Filter categories based on user cohorts and zone access
-  $: visibleCategories = categories.filter(cat => {
+  // Cypherpunk ASCII character set for scrambling
+  const CYPHER_CHARS = '░▒▓█▀▄▌▐│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌';
+  const GLITCH_CHARS = '¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇ';
+
+  // Generate scrambled text for locked items
+  function scrambleText(length: number, seed: number = 0): string {
+    const chars = CYPHER_CHARS + GLITCH_CHARS;
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      const idx = (scrambleFrame + seed + i * 7) % chars.length;
+      result += chars[idx];
+    }
+    return result;
+  }
+
+  $: categories = getCategories();
+
+  // Use whitelistStatusStore for authoritative admin check
+  $: userCohorts = $whitelistStatusStore?.cohorts ?? $userStore.profile?.cohorts ?? [];
+  $: isAdmin = $whitelistStatusStore?.isAdmin ?? $userStore.profile?.isAdmin ?? false;
+
+  // Check if user has access to a zone
+  function hasZoneAccess(cat: CategoryConfig): boolean {
     if (isAdmin) return true; // Admins see all
+
     const visibleTo = cat.access?.visibleToCohorts || [];
     const hiddenFrom = cat.access?.hiddenFromCohorts || [];
 
@@ -30,7 +57,7 @@
     // Check if user is in visible cohorts (or visibleTo is empty = visible to all)
     if (visibleTo.length === 0) return true;
     return visibleTo.some(c => userCohortStrings.includes(c) || c === 'cross-access');
-  });
+  }
 
   function getCategoryColor(cat: CategoryConfig): string {
     return cat.branding?.primaryColor || cat.ui?.color || '#6366f1';
@@ -43,6 +70,19 @@
   function isCurrentSection(secId: string): boolean {
     return currentSectionId === secId;
   }
+
+  onMount(() => {
+    // Start scramble animation for locked zones
+    scrambleInterval = setInterval(() => {
+      scrambleFrame = (scrambleFrame + 1) % 100;
+    }, 80);
+  });
+
+  onDestroy(() => {
+    if (scrambleInterval) {
+      clearInterval(scrambleInterval);
+    }
+  });
 </script>
 
 <nav class="zone-nav" class:collapsed>
@@ -85,29 +125,48 @@
   </div>
 
   <ul class="menu menu-sm gap-1">
-    {#each visibleCategories as category (category.id)}
+    {#each categories as category, catIndex (category.id)}
       {@const color = getCategoryColor(category)}
       {@const isActive = isCurrentCategory(category.id)}
+      {@const hasAccess = hasZoneAccess(category)}
+      {@const displayName = category.branding?.displayName || category.name}
+      {@const isLocked = !hasAccess}
 
       <li>
-        <details open={isActive}>
+        <details open={isActive && hasAccess} class:pointer-events-none={isLocked}>
           <summary
             class="flex items-center gap-2 rounded-lg transition-colors"
-            class:bg-base-200={isActive}
-            style={isActive ? `border-left: 3px solid ${color};` : ''}
+            class:bg-base-200={isActive && hasAccess}
+            class:locked-zone={isLocked}
+            class:cursor-not-allowed={isLocked}
+            style={isActive && hasAccess ? `border-left: 3px solid ${color};` : ''}
           >
-            <span class="text-lg" style="color: {color};">{category.icon}</span>
+            <!-- Icon: show lock for locked zones -->
+            {#if isLocked}
+              <span class="text-lg locked-icon">🔐</span>
+            {:else}
+              <span class="text-lg" style="color: {color};">{category.icon}</span>
+            {/if}
+
             {#if !collapsed}
-              <span class="flex-1 truncate font-medium">
-                {category.branding?.displayName || category.name}
-              </span>
-              {#if category.access?.strictIsolation}
-                <span class="badge badge-xs badge-ghost">Private</span>
+              {#if isLocked}
+                <!-- Scrambled cypherpunk text for locked zones -->
+                <span class="flex-1 truncate font-mono text-sm scrambled-text">
+                  {scrambleText(displayName.length, catIndex * 13)}
+                </span>
+                <span class="text-xs opacity-40 font-mono">▓▒░</span>
+              {:else}
+                <span class="flex-1 truncate font-medium">
+                  {displayName}
+                </span>
+                {#if category.access?.strictIsolation}
+                  <span class="badge badge-xs badge-ghost">Private</span>
+                {/if}
               {/if}
             {/if}
           </summary>
 
-          {#if !collapsed}
+          {#if !collapsed && hasAccess}
             <ul class="ml-4 border-l-2 border-base-300">
               {#each category.sections as section (section.id)}
                 {@const secActive = isCurrentSection(section.id)}
@@ -132,7 +191,7 @@
     {/each}
   </ul>
 
-  {#if !collapsed && visibleCategories.length === 0}
+  {#if !collapsed && categories.length === 0}
     <div class="px-4 py-8 text-center text-base-content/50">
       <p class="text-sm">No zones available</p>
       <p class="text-xs mt-1">Contact admin for access</p>
@@ -151,5 +210,96 @@
 
   .zone-nav.collapsed summary {
     @apply justify-center;
+  }
+
+  /* Cypherpunk locked zone styles */
+  .locked-zone {
+    opacity: 0.6;
+    background: linear-gradient(90deg,
+      oklch(var(--b2) / 0.3) 0%,
+      oklch(var(--b3) / 0.5) 50%,
+      oklch(var(--b2) / 0.3) 100%
+    );
+    border-left: 2px solid oklch(var(--er) / 0.4);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .locked-zone:hover {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .scrambled-text {
+    color: oklch(var(--er) / 0.7);
+    text-shadow:
+      0 0 2px oklch(var(--er) / 0.3),
+      0 0 4px oklch(var(--er) / 0.2);
+    letter-spacing: 0.05em;
+    animation: scramble-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes scramble-glow {
+    0%, 100% {
+      opacity: 0.5;
+      text-shadow:
+        0 0 2px oklch(var(--er) / 0.3),
+        0 0 4px oklch(var(--er) / 0.2);
+    }
+    50% {
+      opacity: 0.8;
+      text-shadow:
+        0 0 4px oklch(var(--er) / 0.5),
+        0 0 8px oklch(var(--er) / 0.3),
+        0 0 12px oklch(var(--er) / 0.1);
+    }
+  }
+
+  .locked-icon {
+    animation: lock-pulse 1.5s ease-in-out infinite;
+    filter: grayscale(0.3);
+  }
+
+  @keyframes lock-pulse {
+    0%, 100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+  }
+
+  /* Scanline effect for locked zones */
+  .locked-zone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      oklch(var(--b1) / 0.03) 2px,
+      oklch(var(--b1) / 0.03) 4px
+    );
+    pointer-events: none;
+    animation: scanline 8s linear infinite;
+  }
+
+  @keyframes scanline {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 0 100px;
+    }
+  }
+
+  .pointer-events-none {
+    pointer-events: none;
   }
 </style>

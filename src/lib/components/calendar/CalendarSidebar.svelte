@@ -18,6 +18,8 @@
 
   export let isExpanded: boolean = true;
   export let isVisible: boolean = true;
+  export let onToggle: (() => void) | undefined = undefined;
+  export let compact: boolean = false;
 
   let showFilters: boolean = false;
   let selectedVenueTypes: EventVenueType[] = [];
@@ -143,8 +145,12 @@
   }
 
   function toggleSidebar() {
-    isExpanded = !isExpanded;
-    calendarStore.toggleSidebar();
+    if (onToggle) {
+      onToggle();
+    } else {
+      isExpanded = !isExpanded;
+      calendarStore.toggleSidebar();
+    }
   }
 
   function handleRSVP(event: CalendarDisplayEvent) {
@@ -187,7 +193,12 @@
 </script>
 
 <aside
-  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col h-screen bg-base-200 dark:bg-base-300 border-l border-base-300 dark:border-base-content/10"
+  class="calendar-sidebar transition-all duration-300 ease-in-out flex flex-col bg-base-200 dark:bg-base-300"
+  class:h-screen={!compact}
+  class:border-l={!compact}
+  class:border-base-300={!compact}
+  class:dark:border-base-content/10={!compact}
+  class:compact-mode={compact}
   class:expanded={isExpanded}
   class:collapsed={!isExpanded}
   class:hidden={!isVisible}
@@ -604,6 +615,18 @@
   .calendar-sidebar.collapsed {
     width: 48px;
     min-width: 48px;
+  }
+
+  /* Compact mode for left sidebar integration */
+  .calendar-sidebar.compact-mode {
+    width: 100%;
+    max-width: none;
+    min-width: unset;
+  }
+
+  .calendar-sidebar.compact-mode.collapsed {
+    width: 100%;
+    min-width: unset;
   }
 
   .calendar-sidebar.hidden {

@@ -43,6 +43,7 @@
 	let isMobile = false;
 	let calendarSheetOpen = false;
 	let zoneNavCollapsed = true;
+	let calendarCollapsed = true;
 
 	$: showNav = $page.url.pathname !== `${base}/` && $page.url.pathname !== base && $page.url.pathname !== `${base}/signup` && $page.url.pathname !== `${base}/login` && $page.url.pathname !== `${base}/pending`;
 
@@ -207,21 +208,34 @@
 		{/if}
 
 		<div class="flex">
-			<!-- Zone Navigation Sidebar (Desktop) -->
+			<!-- Left Sidebar: Zones + Calendar (Desktop) -->
 			{#if showNav && $isAuthenticated && !isMobile}
 				<aside
-					class="flex-shrink-0 hidden md:block border-r border-base-300 bg-base-100 transition-all duration-300 overflow-y-auto"
-					class:w-64={!zoneNavCollapsed}
-					class:w-16={zoneNavCollapsed}
+					class="flex-shrink-0 hidden md:flex md:flex-col border-r border-base-300 bg-base-100 transition-all duration-300 overflow-y-auto"
+					class:w-72={!zoneNavCollapsed || !calendarCollapsed}
+					class:w-16={zoneNavCollapsed && calendarCollapsed}
 					style="max-height: calc(100vh - 64px);"
-					aria-label="Zone navigation"
+					aria-label="Navigation sidebar"
 				>
+					<!-- Zones Section -->
 					<ZoneNav
 						{currentCategoryId}
 						{currentSectionId}
 						collapsed={zoneNavCollapsed}
 						onToggle={() => zoneNavCollapsed = !zoneNavCollapsed}
 					/>
+
+					<!-- Calendar Section (below zones) -->
+					{#if $sidebarVisible}
+						<div class="border-t border-base-300">
+							<CalendarSidebar
+								isExpanded={!calendarCollapsed}
+								isVisible={$sidebarVisible}
+								onToggle={() => calendarCollapsed = !calendarCollapsed}
+								compact={true}
+							/>
+						</div>
+					{/if}
 				</aside>
 			{/if}
 
@@ -238,16 +252,6 @@
 					<slot />
 				</main>
 			{/key}
-
-			<!-- Calendar Sidebar (Desktop - Right Side) -->
-			{#if showNav && $isAuthenticated && !isMobile && $sidebarVisible}
-				<aside class="flex-shrink-0 hidden md:block" aria-label="Calendar sidebar">
-					<CalendarSidebar
-						isExpanded={$sidebarExpanded}
-						isVisible={$sidebarVisible}
-					/>
-				</aside>
-			{/if}
 		</div>
 
 		<!-- Calendar Sheet (Mobile) -->
