@@ -16,8 +16,10 @@
   import { fetchTribeBirthdayEvents } from '$lib/nostr/birthdays';
   import type { CalendarEvent } from '$lib/nostr/calendar';
   import type { ChannelSection } from '$lib/types/channel';
+  import type { FairfieldEvent } from '$lib/types/calendar';
   import EventCalendar from '$lib/components/events/EventCalendar.svelte';
   import EventCard from '$lib/components/events/EventCard.svelte';
+  import CreateEventModal from '$lib/components/calendar/CreateEventModal.svelte';
 
   let events: (SectionEvent | CalendarEvent)[] = [];
   let loading = true;
@@ -25,6 +27,10 @@
   let currentDate = new Date();
   let viewMode: 'calendar' | 'list' = 'calendar';
   let accessLevel: 'full' | 'availability' | 'none' = 'none';
+
+  // Create event modal state
+  let showCreateModal = false;
+  let selectedDate: Date | undefined = undefined;
 
   $: sectionId = $page.params.section as ChannelSection;
   $: section = getSection(sectionId);
@@ -88,9 +94,29 @@
     }
   }
 
-  function handleDayClick(_event: CustomEvent<Date>) {
-    // Could open create event modal for this day
+  function handleDayClick(event: CustomEvent<Date>) {
+    // Open create event modal for this day if user has permission
+    if (canCreateEvent) {
+      selectedDate = event.detail;
+      showCreateModal = true;
+    }
   }
+
+  function handleCreateClick() {
+    selectedDate = new Date();
+    showCreateModal = true;
+  }
+
+  function handleEventCreated(event: CustomEvent<FairfieldEvent>) {
+    const newEvent = event.detail;
+    // Add the new event to the list and re-sort
+    events = [...events, newEvent].sort((a, b) => a.start - b.start);
+    showCreateModal = false;
+    selectedDate = undefined;
+  }
+
+  // Check if user can create events in this section
+  $: canCreateEvent = section?.calendar?.canCreate && accessLevel === 'full';
 
   function navigateToSection(targetSection: string) {
     goto(`${base}/${targetSection}/calendar`);
@@ -140,6 +166,30 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <!-- Create Event Button -->
+        {#if canCreateEvent}
+          <button
+            class="btn btn-primary btn-sm gap-2"
+            on:click={handleCreateClick}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Create Event
+          </button>
+        {/if}
+
         <!-- View Toggle -->
         <div class="btn-group">
           <button
@@ -241,9 +291,9 @@
               <div class="badge badge-error">No Access</div>
             {/if}
           </div>
-          {#if section?.calendar?.canCreate && accessLevel === 'full'}
+          {#if canCreateEvent}
             <p class="text-xs text-base-content/60 mt-2">
-              You can create events in this section
+              Click a day or use the Create Event button to add events
             </p>
           {/if}
         </div>
@@ -340,3 +390,13 @@
     </div>
   </div>
 </div>
+
+<!-- Create Event Modal -->
+{#if canCreateEvent}
+  <CreateEventModal
+    bind:isOpen={showCreateModal}
+    defaultDate={selectedDate}
+    defaultSection={sectionId}
+    on:eventCreated={handleEventCreated}
+  />
+{/if}
