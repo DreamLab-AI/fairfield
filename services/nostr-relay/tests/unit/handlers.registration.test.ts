@@ -93,17 +93,26 @@ function createMockWhitelist(options?: {
 // Mock RateLimiter
 function createMockRateLimiter(options?: {
   eventLimitExceeded?: boolean;
+  pubkeyLimitExceeded?: boolean;
   connectionLimitExceeded?: boolean;
 }): jest.Mocked<RateLimiter> {
   return {
     checkEventLimit: jest.fn<() => boolean>().mockReturnValue(!(options?.eventLimitExceeded ?? false)),
+    checkPubkeyEventLimit: jest.fn<() => boolean>().mockReturnValue(!(options?.pubkeyLimitExceeded ?? false)),
+    checkEventLimits: jest.fn<() => { allowed: boolean; reason?: string }>().mockReturnValue({
+      allowed: !(options?.eventLimitExceeded ?? false) && !(options?.pubkeyLimitExceeded ?? false),
+      reason: options?.eventLimitExceeded ? 'rate limit exceeded: too many events per second from this IP' :
+              options?.pubkeyLimitExceeded ? 'rate limit exceeded: too many events per second from this pubkey' : undefined,
+    }),
     trackConnection: jest.fn<() => boolean>().mockReturnValue(!(options?.connectionLimitExceeded ?? false)),
     releaseConnection: jest.fn<() => void>(),
     getConnectionCount: jest.fn<() => number>().mockReturnValue(0),
     getEventRate: jest.fn<() => number>().mockReturnValue(0),
-    getStats: jest.fn<() => any>().mockReturnValue({ trackedIPs: 0, activeConnections: 0, config: {} }),
+    getPubkeyEventRate: jest.fn<() => number>().mockReturnValue(0),
+    getStats: jest.fn<() => any>().mockReturnValue({ trackedIPs: 0, trackedPubkeys: 0, activeConnections: 0, config: {} }),
     destroy: jest.fn<() => void>(),
     resetIP: jest.fn<() => void>(),
+    resetPubkey: jest.fn<() => void>(),
     resetAll: jest.fn<() => void>(),
   } as unknown as jest.Mocked<RateLimiter>;
 }
@@ -532,6 +541,103 @@ describe('NostrHandlers Registration Flow', () => {
     });
   });
 
+  describe('Per-Pubkey Rate Limiting', () => {
+    it('should rate limit events when pubkey exceeds limit', async () => {
+      // Ensure whitelist allows this user
+      mockWhitelist.isAllowed.mockReturnValue(true);
+      mockRateLimiter.checkPubkeyEventLimit.mockReturnValue(false);
+
+      const event = createTestEvent(whitelistedUser, 1, 'Test message');
+
+      await handlers.handleMessage(mockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      const okMessages = mockWs.getMessages('OK');
+      expect(okMessages.length).toBe(1);
+      expect(okMessages[0][2]).toBe(false);
+      expect(okMessages[0][3]).toContain('rate-limited');
+      expect(okMessages[0][3]).toContain('pubkey');
+
+      // Event should NOT be saved
+      expect(mockDb.saveEvent).not.toHaveBeenCalled();
+    });
+
+    it('should check pubkey rate limit after signature verification', async () => {
+      // Ensure whitelist allows this user
+      mockWhitelist.isAllowed.mockReturnValue(true);
+
+      // This ensures we don't let someone DoS another user's pubkey
+      const callOrder: string[] = [];
+      mockRateLimiter.checkEventLimit.mockImplementation(() => {
+        callOrder.push('checkEventLimit');
+        return true;
+      });
+      mockRateLimiter.checkPubkeyEventLimit.mockImplementation(() => {
+        callOrder.push('checkPubkeyEventLimit');
+        return true;
+      });
+
+      const event = createTestEvent(whitelistedUser, 1, 'Test');
+
+      await handlers.handleMessage(mockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      // IP rate limit checked first, pubkey limit checked after signature verification
+      expect(callOrder).toContain('checkEventLimit');
+      expect(callOrder).toContain('checkPubkeyEventLimit');
+      expect(callOrder.indexOf('checkEventLimit')).toBeLessThan(callOrder.indexOf('checkPubkeyEventLimit'));
+    });
+
+    it('should allow events when pubkey is within rate limit', async () => {
+      // Ensure whitelist allows this user
+      mockWhitelist.isAllowed.mockReturnValue(true);
+      mockRateLimiter.checkPubkeyEventLimit.mockReturnValue(true);
+
+      const event = createTestEvent(whitelistedUser, 1, 'Test message');
+
+      await handlers.handleMessage(mockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      const okMessages = mockWs.getMessages('OK');
+      expect(okMessages.length).toBe(1);
+      expect(okMessages[0][2]).toBe(true);
+      expect(mockDb.saveEvent).toHaveBeenCalled();
+    });
+
+    it('should rate limit Kind 0 (profile) events per pubkey', async () => {
+      mockRateLimiter.checkPubkeyEventLimit.mockReturnValue(false);
+
+      const event = createTestEvent(nonWhitelistedUser, 0, '{}');
+
+      await handlers.handleMessage(mockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      const okMessages = mockWs.getMessages('OK');
+      expect(okMessages[0][2]).toBe(false);
+      expect(okMessages[0][3]).toContain('rate-limited');
+    });
+
+    it('should rate limit Kind 9024 (registration) events per pubkey', async () => {
+      mockRateLimiter.checkPubkeyEventLimit.mockReturnValue(false);
+
+      const event = createTestEvent(nonWhitelistedUser, 9024, 'registration');
+
+      await handlers.handleMessage(mockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      const okMessages = mockWs.getMessages('OK');
+      expect(okMessages[0][2]).toBe(false);
+      expect(okMessages[0][3]).toContain('rate-limited');
+    });
+
+    it('should call checkPubkeyEventLimit with correct pubkey', async () => {
+      // Ensure whitelist allows this user
+      mockWhitelist.isAllowed.mockReturnValue(true);
+
+      const event = createTestEvent(whitelistedUser, 1, 'Test');
+
+      await handlers.handleMessage(mockWs as unknown as WebSocket, JSON.stringify(['EVENT', event]));
+
+      // The pubkey comes from finalizeEvent which derives it from the private key
+      expect(mockRateLimiter.checkPubkeyEventLimit).toHaveBeenCalledWith(event.pubkey);
+    });
+  });
+
   describe('Database Save Failure Handling', () => {
     it('should return error when Kind 0 save fails', async () => {
       mockDb.saveEvent.mockResolvedValue(false);
@@ -765,9 +871,11 @@ describe('NostrHandlers Connection Management', () => {
     it('should return rate limiter stats', () => {
       const mockStats = {
         trackedIPs: 5,
+        trackedPubkeys: 3,
         activeConnections: 10,
         config: {
           eventsPerSecond: 10,
+          eventsPerSecondPerPubkey: 5,
           maxConcurrentConnections: 20,
           cleanupIntervalMs: 30000
         }

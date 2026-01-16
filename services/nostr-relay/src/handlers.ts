@@ -98,6 +98,12 @@ export class NostrHandlers {
       return;
     }
 
+    // Per-pubkey rate limiting (checked after signature verification to prevent DoS)
+    if (!this.rateLimiter.checkPubkeyEventLimit(event.pubkey)) {
+      this.sendOK(ws, event.id, false, 'rate-limited: too many events from this pubkey');
+      return;
+    }
+
     // NIP-16: Handle event based on its treatment type
     const treatment = getEventTreatment(event.kind);
 

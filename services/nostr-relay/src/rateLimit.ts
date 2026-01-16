@@ -10,6 +10,7 @@
 
 interface RateLimitConfig {
   eventsPerSecond: number;
+  eventsPerSecondPerPubkey: number;
   maxConcurrentConnections: number;
   cleanupIntervalMs: number;
 }
@@ -25,7 +26,8 @@ interface ConnectionTracker {
 }
 
 export class RateLimiter {
-  private eventWindows: Map<string, EventWindow>;
+  private eventWindows: Map<string, EventWindow>;      // Per-IP event tracking
+  private pubkeyWindows: Map<string, EventWindow>;     // Per-pubkey event tracking
   private connectionCounts: Map<string, ConnectionTracker>;
   private config: RateLimitConfig;
   private cleanupTimer: NodeJS.Timeout | null;
@@ -35,12 +37,14 @@ export class RateLimiter {
   constructor(config?: Partial<RateLimitConfig>) {
     this.config = {
       eventsPerSecond: parseInt(process.env.RATE_LIMIT_EVENTS_PER_SECOND || '10', 10),
+      eventsPerSecondPerPubkey: parseInt(process.env.RATE_LIMIT_EVENTS_PER_SECOND_PUBKEY || '5', 10),
       maxConcurrentConnections: parseInt(process.env.RATE_LIMIT_MAX_CONNECTIONS || '20', 10),
       cleanupIntervalMs: parseInt(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MS || '30000', 10),
       ...config,
     };
 
     this.eventWindows = new Map();
+    this.pubkeyWindows = new Map();
     this.connectionCounts = new Map();
     this.cleanupTimer = null;
 
@@ -74,6 +78,54 @@ export class RateLimiter {
     // Add current timestamp
     window.timestamps.push(now);
     return true;
+  }
+
+  /**
+   * Check if an event from the given pubkey is allowed
+   * Uses sliding window algorithm for precise rate limiting
+   * Per-pubkey limits prevent a single user from flooding the relay
+   */
+  checkPubkeyEventLimit(pubkey: string): boolean {
+    const now = Date.now();
+
+    // Get or create event window for this pubkey
+    let window = this.pubkeyWindows.get(pubkey);
+    if (!window) {
+      window = { timestamps: [], lastCleanup: now };
+      this.pubkeyWindows.set(pubkey, window);
+    }
+
+    // Remove timestamps outside the sliding window
+    const windowStart = now - this.WINDOW_SIZE_MS;
+    window.timestamps = window.timestamps.filter(ts => ts > windowStart);
+    window.lastCleanup = now;
+
+    // Check if rate limit is exceeded
+    if (window.timestamps.length >= this.config.eventsPerSecondPerPubkey) {
+      return false;
+    }
+
+    // Add current timestamp
+    window.timestamps.push(now);
+    return true;
+  }
+
+  /**
+   * Check both IP and pubkey rate limits
+   * Returns true only if both limits are not exceeded
+   */
+  checkEventLimits(ip: string, pubkey: string): { allowed: boolean; reason?: string } {
+    // Check IP limit first (broader limit)
+    if (!this.checkEventLimit(ip)) {
+      return { allowed: false, reason: 'rate limit exceeded: too many events per second from this IP' };
+    }
+
+    // Then check pubkey limit (user-specific limit)
+    if (!this.checkPubkeyEventLimit(pubkey)) {
+      return { allowed: false, reason: 'rate limit exceeded: too many events per second from this pubkey' };
+    }
+
+    return { allowed: true };
   }
 
   /**
@@ -137,6 +189,18 @@ export class RateLimiter {
   }
 
   /**
+   * Get current event rate for a pubkey (events in last second)
+   */
+  getPubkeyEventRate(pubkey: string): number {
+    const window = this.pubkeyWindows.get(pubkey);
+    if (!window) return 0;
+
+    const now = Date.now();
+    const windowStart = now - this.WINDOW_SIZE_MS;
+    return window.timestamps.filter(ts => ts > windowStart).length;
+  }
+
+  /**
    * Start automatic cleanup timer
    */
   private startCleanupTimer(): void {
@@ -170,6 +234,19 @@ export class RateLimiter {
       }
     }
 
+    // Clean up pubkey event windows
+    const pubkeyEntries = Array.from(this.pubkeyWindows.entries());
+    for (const [pubkey, window] of pubkeyEntries) {
+      // Remove old timestamps
+      const windowStart = now - this.WINDOW_SIZE_MS;
+      window.timestamps = window.timestamps.filter(ts => ts > windowStart);
+
+      // Remove entry if no recent activity
+      if (window.lastCleanup < expiryTime && window.timestamps.length === 0) {
+        this.pubkeyWindows.delete(pubkey);
+      }
+    }
+
     // Clean up connection trackers
     const connectionEntries = Array.from(this.connectionCounts.entries());
     for (const [ip, tracker] of connectionEntries) {
@@ -185,6 +262,7 @@ export class RateLimiter {
    */
   getStats(): {
     trackedIPs: number;
+    trackedPubkeys: number;
     activeConnections: number;
     config: RateLimitConfig;
   } {
@@ -196,6 +274,7 @@ export class RateLimiter {
 
     return {
       trackedIPs: this.eventWindows.size + this.connectionCounts.size,
+      trackedPubkeys: this.pubkeyWindows.size,
       activeConnections: totalConnections,
       config: this.config,
     };
@@ -210,6 +289,7 @@ export class RateLimiter {
       this.cleanupTimer = null;
     }
     this.eventWindows.clear();
+    this.pubkeyWindows.clear();
     this.connectionCounts.clear();
   }
 
@@ -222,10 +302,18 @@ export class RateLimiter {
   }
 
   /**
+   * Reset rate limits for a specific pubkey (for testing/admin purposes)
+   */
+  resetPubkey(pubkey: string): void {
+    this.pubkeyWindows.delete(pubkey);
+  }
+
+  /**
    * Reset all rate limits (for testing purposes)
    */
   resetAll(): void {
     this.eventWindows.clear();
+    this.pubkeyWindows.clear();
     this.connectionCounts.clear();
   }
 }
