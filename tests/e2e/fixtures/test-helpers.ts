@@ -9,12 +9,21 @@ import { Page, expect } from '@playwright/test';
 /**
  * Test user credentials from .env
  * Now uses nsec format instead of mnemonic
+ * Falls back to test keys when env vars not set (for non-admin tests)
  */
 export const ADMIN_CREDENTIALS = {
-  pubkey: process.env.VITE_ADMIN_PUBKEY || (() => { throw new Error('VITE_ADMIN_PUBKEY environment variable required for admin tests'); })(),
+  pubkey: process.env.VITE_ADMIN_PUBKEY || 'TEST_ADMIN_PUBKEY_NOT_SET',
   // Admin key should now be in nsec or hex format
-  nsec: process.env.ADMIN_KEY || (() => { throw new Error('ADMIN_KEY environment variable required for admin tests'); })()
+  nsec: process.env.ADMIN_KEY || 'TEST_ADMIN_KEY_NOT_SET'
 };
+
+/**
+ * Check if admin credentials are properly configured
+ */
+export function hasAdminCredentials(): boolean {
+  return process.env.VITE_ADMIN_PUBKEY !== undefined &&
+         process.env.ADMIN_KEY !== undefined;
+}
 
 /**
  * Valid test nsec keys for regular users
@@ -43,28 +52,35 @@ export const TEST_HEX_PRIVKEY = 'e8f32b5a7c5e8f32b5a7c5e8f32b5a7c5e8f32b5a7c5e8f
 
 /**
  * Login as admin user
+ * Requires VITE_ADMIN_PUBKEY and ADMIN_KEY env vars
  */
 export async function loginAsAdmin(page: Page): Promise<void> {
+  if (!hasAdminCredentials()) {
+    throw new Error('Admin credentials not configured. Set VITE_ADMIN_PUBKEY and ADMIN_KEY env vars.');
+  }
+
   await page.goto('/');
 
   // Navigate to login page
   const loginButton = page.getByRole('link', { name: /login|setup/i });
   await loginButton.click();
 
-  // Enter admin nsec/hex key
-  const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+  // Enter admin nsec/hex key - use first() to handle duplicate elements
+  const keyInput = page.locator('#private-key-input').first();
   await keyInput.fill(ADMIN_CREDENTIALS.nsec);
 
-  // Submit
-  const loginSubmit = page.getByRole('button', { name: /log in|restore|import|continue/i });
+  // Submit - use first() for duplicate button handling
+  const loginSubmit = page.getByRole('button', { name: /log in/i }).first();
   await loginSubmit.click();
 
-  // Wait for authentication to complete
-  await page.waitForTimeout(2000);
+  // Wait for authentication to complete and redirect
+  await page.waitForTimeout(3000);
 
-  // Verify admin is logged in
-  const pubkey = await page.evaluate(() => localStorage.getItem('nostr_bbs_nostr_pubkey'));
-  expect(pubkey).toBeTruthy();
+  // Verify admin is logged in - check for stored keys (contains publicKey)
+  const stored = await page.evaluate(() => localStorage.getItem('nostr_bbs_keys'));
+  expect(stored).toBeTruthy();
+  const parsed = JSON.parse(stored!);
+  expect(parsed.publicKey).toBeTruthy();
 }
 
 /**
@@ -79,16 +95,16 @@ export async function loginAsUser(page: Page, nsecOrHex?: string): Promise<strin
   const loginButton = page.getByRole('link', { name: /login|setup/i });
   await loginButton.click();
 
-  // Enter nsec/hex key
-  const keyInput = page.getByPlaceholder(/nsec|hex|private key/i);
+  // Enter nsec/hex key - use first() to handle duplicate elements
+  const keyInput = page.locator('#private-key-input').first();
   await keyInput.fill(userKey);
 
-  // Submit
-  const loginSubmit = page.getByRole('button', { name: /log in|restore|import|continue/i });
+  // Submit - use first() for duplicate button handling
+  const loginSubmit = page.getByRole('button', { name: /log in/i }).first();
   await loginSubmit.click();
 
-  // Wait for authentication
-  await page.waitForTimeout(2000);
+  // Wait for authentication and redirect
+  await page.waitForTimeout(3000);
 
   return userKey;
 }
@@ -314,7 +330,7 @@ export async function logout(page: Page): Promise<void> {
  * Get current user's pubkey from localStorage
  */
 export async function getCurrentUserPubkey(page: Page): Promise<string | null> {
-  return await page.evaluate(() => localStorage.getItem('nostr_bbs_nostr_pubkey'));
+  return await page.evaluate(() => localStorage.getItem('nostr_bbs_keys'));
 }
 
 /**
@@ -324,7 +340,7 @@ export async function waitForNostrConnection(page: Page, timeout = 5000): Promis
   await page.waitForFunction(
     () => {
       // Check if NDK is connected (this may vary based on implementation)
-      return window.localStorage.getItem('nostr_bbs_nostr_pubkey') !== null;
+      return window.localStorage.getItem('nostr_bbs_keys') !== null;
     },
     { timeout }
   );

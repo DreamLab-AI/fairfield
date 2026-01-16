@@ -8,7 +8,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import { TEST_NSEC_KEYS, TEST_HEX_PRIVKEY, ADMIN_CREDENTIALS } from './fixtures/test-helpers';
+import { TEST_NSEC_KEYS, TEST_HEX_PRIVKEY } from './fixtures/test-helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 60000;

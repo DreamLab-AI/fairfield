@@ -17,8 +17,12 @@ import {
   requestSectionAccess,
   approvePendingRequest,
   getCurrentUserPubkey,
-  logout
+  logout,
+  hasAdminCredentials
 } from './fixtures/test-helpers';
+
+// Skip all admin tests if credentials not configured
+test.skip(!hasAdminCredentials(), 'Admin credentials not configured (VITE_ADMIN_PUBKEY and ADMIN_KEY required)');
 
 test.describe('Admin Dashboard Access', () => {
   test.beforeEach(async ({ page }) => {

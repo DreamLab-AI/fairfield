@@ -11,7 +11,7 @@
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { SignupPage, PendingPage, AdminPage } from './pages';
-import { loginAsAdmin, getCurrentUserPubkey } from './fixtures/test-helpers';
+import { loginAsAdmin, getCurrentUserPubkey, hasAdminCredentials } from './fixtures/test-helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 60000;

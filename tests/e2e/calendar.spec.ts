@@ -17,7 +17,8 @@ import {
   approvePendingRequest,
   getCurrentUserPubkey,
   canSeeEventDetails,
-  showsOnlyAvailability
+  showsOnlyAvailability,
+  hasAdminCredentials
 } from './fixtures/test-helpers';
 
 test.describe('Calendar Access - Nostr-BBS Guests', () => {
@@ -479,8 +480,8 @@ test.describe('Calendar Access - Edge Cases', () => {
     await page.goto('/chat');
 
     // Nostr-BBS Guests should show "View Calendar" button
-    const Nostr-BBSCard = page.locator('text=/Nostr-BBS guests/i').locator('..');
-    const calendarButton = Nostr-BBSCard.getByRole('button', { name: /calendar|view calendar/i });
+    const nostrBbsCard = page.locator('text=/Nostr-BBS guests/i').locator('..');
+    const calendarButton = nostrBbsCard.getByRole('button', { name: /calendar|view calendar/i });
 
     await expect(calendarButton).toBeVisible({ timeout: 3000 });
   });

@@ -18,10 +18,14 @@ import {
   logout,
   getCurrentUserPubkey,
   TEST_NSEC_KEYS,
-  TEST_HEX_PRIVKEY
+  TEST_HEX_PRIVKEY,
+  hasAdminCredentials
 } from './fixtures/test-helpers';
 
 test.describe('Admin Authentication', () => {
+  // Skip all admin tests if credentials not configured
+  test.skip(!hasAdminCredentials(), 'Admin credentials not configured (VITE_ADMIN_PUBKEY and ADMIN_KEY required)');
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());

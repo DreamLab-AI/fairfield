@@ -18,7 +18,8 @@ import {
   requestSectionAccess,
   approvePendingRequest,
   getCurrentUserPubkey,
-  logout
+  logout,
+  hasAdminCredentials
 } from './fixtures/test-helpers';
 
 test.describe('Section Preview and Stats', () => {
@@ -58,14 +59,14 @@ test.describe('Section Preview and Stats', () => {
     await page.goto('/chat');
 
     // Nostr-BBS Guests should show as accessible (no approval needed)
-    const Nostr-BBSCard = page.locator('text=/Nostr-BBS guests/i').locator('..');
+    const nostrBbsGuestsCard = page.locator('text=/Nostr-BBS guests/i').locator('..');
 
     // Nostr-BBS and DreamLab should show request access or pending
-    const minimooCard = page.locator('text=/Nostr-BBS/i').locator('..');
+    const nostrBbsCard = page.locator('text=/Nostr-BBS/i').locator('..');
     const dreamlabCard = page.locator('text=/dreamlab/i').locator('..');
 
     // Check for status indicators
-    const hasRequestButton = await minimooCard.getByRole('button', { name: /request access/i }).isVisible({ timeout: 2000 }).catch(() => false);
+    const hasRequestButton = await nostrBbsCard.getByRole('button', { name: /request access/i }).isVisible({ timeout: 2000 }).catch(() => false);
     expect(hasRequestButton).toBe(true);
   });
 });
@@ -82,8 +83,8 @@ test.describe('Nostr-BBS Guests Section (Auto-Approved)', () => {
     await page.goto('/chat');
 
     // Should see "Enter Section" button for Nostr-BBS Guests
-    const Nostr-BBSCard = page.locator('text=/Nostr-BBS guests/i').locator('..');
-    const enterButton = Nostr-BBSCard.getByRole('button', { name: /enter|view/i });
+    const nostrBbsGuestsCard = page.locator('text=/Nostr-BBS guests/i').locator('..');
+    const enterButton = nostrBbsGuestsCard.getByRole('button', { name: /enter|view/i });
 
     await expect(enterButton).toBeVisible({ timeout: 3000 });
   });
