@@ -1,6 +1,6 @@
 # Fairfield Nostr BBS - Product Requirements Document
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Last Updated:** 2026-01-16
 **Status:** Living Document
 
@@ -680,13 +680,14 @@ Accessibility is a core requirement, not an afterthought. The platform must work
 
 ### 11.1 Service Matrix
 
-| Service | Platform | Resources | Cost |
-|---------|----------|-----------|------|
-| Frontend | GitHub Pages | Static CDN | Free |
-| nostr-relay | Cloud Run | 512Mi/1CPU | Free tier |
-| embedding-api | Cloud Run | 2Gi/1CPU | Free tier |
-| image-api | Cloud Run | 512Mi/1CPU | Free tier |
-| Database | Cloud SQL | PostgreSQL 14 | Free tier |
+| Service | Platform | Resources | Cost | Code Location |
+|---------|----------|-----------|------|---------------|
+| Frontend | GitHub Pages | Static CDN | Free | `src/` |
+| nostr-relay | Cloud Run | 512Mi/1CPU | Free tier | `services/nostr-relay/` |
+| embedding-api | Cloud Run | 2Gi/1CPU | Free tier | `services/embedding-api/` |
+| image-api | Cloud Run | 512Mi/1CPU | Free tier | `services/image-api/` |
+| link-preview-api | Cloud Run | 256Mi/1CPU | Free tier | `services/link-preview-api/` |
+| Database | Cloud SQL | PostgreSQL 14 | Free tier | - |
 
 ### 11.2 CI/CD Workflows
 
@@ -737,6 +738,214 @@ Accessibility is a core requirement, not an afterthought. The platform must work
 - [ ] Encrypted cloud backup
 - [ ] Mobile native apps (iOS/Android)
 - [ ] Hardware wallet integration
+
+---
+
+## 13. Implemented Features (Code Exists)
+
+The following features have complete implementations ready for integration. This section documents what exists and where to find it.
+
+### 13.1 Link Previews
+
+**Purpose**: When users share web URLs in chat, the system displays rich previews with title, description, image, and favicon—enabling informed discussion without leaving the platform.
+
+**Implementation Status**: Complete
+
+**Code Locations**:
+| Component | Path | Description |
+|-----------|------|-------------|
+| Client Store | `src/lib/stores/linkPreviews.ts` | Svelte store with caching, URL detection, Twitter handling |
+| Cloud Run Service | `services/link-preview-api/index.js` | Fastify CORS proxy for OpenGraph fetching |
+| UI Component | `src/lib/components/chat/LinkPreview.svelte` | Render component for previews |
+
+**Technical Details**:
+- **Model**: OpenGraph metadata parsing + Twitter oEmbed API
+- **Cache Duration**: 10 days (localStorage), max 100 entries
+- **Twitter Support**: Detects twitter.com/x.com URLs, uses `publish.twitter.com/oembed`
+- **Fallback**: Google favicon API (`https://www.google.com/s2/favicons?domain=`)
+- **CORS Solution**: Cloud Run service fetches on behalf of client
+
+**Data Structure**:
+```typescript
+interface LinkPreviewData {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  domain: string;
+  favicon?: string;
+  type?: 'opengraph' | 'twitter';
+  html?: string; // Twitter embed HTML
+}
+```
+
+**Environment Variables**:
+- `VITE_LINK_PREVIEW_API_URL`: Cloud Run service URL
+
+---
+
+### 13.2 Image Upload with Compression
+
+**Purpose**: Users can upload images (avatars, message attachments, channel images) which are automatically compressed to WebP format for efficient storage and fast loading.
+
+**Implementation Status**: Complete
+
+**Code Locations**:
+| Component | Path | Description |
+|-----------|------|-------------|
+| Client Utility | `src/lib/utils/imageUpload.ts` | Client-side pre-compression, upload orchestration |
+| Cloud Run Service | `services/image-api/src/server.ts` | Express server with Sharp compression, GCS storage |
+
+**Technical Details**:
+- **Compression Library**: Sharp (server-side), Canvas API (client-side pre-compression)
+- **Output Format**: WebP (with JPEG/PNG fallback)
+- **Storage**: Google Cloud Storage bucket `minimoonoir-images` (project: `cumbriadreamlab`)
+- **File Naming**: Keybase-style IDs: `{UUID}-{SIZE}-{TIMESTAMP_HEX}`
+- **Cache Control**: `public, max-age=31536000` (1 year)
+- **Thumbnail Generation**: 200x200 center crop
+
+**Compression Settings by Category**:
+| Category | Max Size | Quality | Use Case |
+|----------|----------|---------|----------|
+| `avatar` | 400x400 | 90% | Profile pictures |
+| `message` | 1920x1920 | 85% | Chat attachments |
+| `channel` | 1200x630 | 85% | Channel banners |
+
+**Upload Flow**:
+```
+Client                              Server (Cloud Run)
+  │                                       │
+  │ 1. Select image                       │
+  │ 2. Client pre-compress (Canvas)       │
+  │ 3. POST /upload ──────────────────────▶│
+  │                                       │ 4. Sharp compress
+  │                                       │ 5. Generate Keybase ID
+  │                                       │ 6. Upload to GCS
+  │◀────────────────────────────────────── │ 7. Return public URL
+  │ 8. Store URL in event                 │
+```
+
+**API Endpoint**:
+```
+POST /upload
+Content-Type: multipart/form-data
+
+Fields:
+  - file: Image file
+  - category: avatar | message | channel
+  - pubkey: User's public key
+
+Response:
+{
+  "url": "https://storage.googleapis.com/minimoonoir-images/...",
+  "id": "UUID-SIZE-TIMESTAMP",
+  "size": 12345,
+  "dimensions": { "width": 800, "height": 600 }
+}
+```
+
+**Environment Variables**:
+- `VITE_IMAGE_API_URL`: Cloud Run service URL
+- `GCS_BUCKET_NAME`: Storage bucket (default: `minimoonoir-images`)
+- `GOOGLE_CLOUD_PROJECT`: GCP project ID
+
+---
+
+### 13.3 Semantic Search (Embedding-Based)
+
+**Purpose**: Enable natural language search across all forum content. Users can search "discussions about training schedules" and find relevant posts regardless of exact keyword matches.
+
+**Implementation Status**: Complete
+
+**Code Locations**:
+| Component | Path | Description |
+|-----------|------|-------------|
+| Client Search | `src/lib/semantic/hnsw-search.ts` | HNSW index loading, query embedding, KNN search |
+| Sync Service | `src/lib/semantic/embeddings-sync.ts` | Download and cache index from GCS |
+| Embedding API | `services/embedding-api/main.py` | Cloud Run ML service for query embedding |
+| Index Builder | `scripts/embeddings/generate_embeddings.py` | Python script for batch embedding |
+| GitHub Workflow | `.github/workflows/generate-embeddings.yml` | Nightly index rebuild |
+
+**Technical Details**:
+- **Embedding Model**: `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
+- **Index Type**: HNSW (Hierarchical Navigable Small World) via `hnswlib-wasm`
+- **Index Parameters**: M=16, ef_construction=200, ef_search=50
+- **Quantization**: int8 (reduces storage by ~4x)
+- **Storage**: GCS bucket `Nostr-BBS-vectors`
+- **Update Schedule**: Nightly at 3 AM UTC via GitHub Actions
+
+**Search Flow**:
+```
+User Query                     Client                      Cloud Run
+    │                            │                            │
+    │ "training schedules" ─────▶│                            │
+    │                            │ POST /embed ───────────────▶│
+    │                            │◀─────────────────────────── │ [384-dim vector]
+    │                            │                            │
+    │                            │ HNSW searchKnn(k=10)       │
+    │                            │ Filter by minScore=0.5     │
+    │◀───────────────────────────│                            │
+    │ [SearchResult[]]           │                            │
+```
+
+**Nightly Pipeline** (GitHub Actions):
+```
+1. Download previous manifest from GCS
+2. Fetch new notes from relay (since last_event_id)
+3. Generate embeddings (all-MiniLM-L6-v2)
+4. Build/update HNSW index
+5. Upload index.bin, embeddings.npz, manifest.json to GCS
+6. Client auto-syncs on next load
+```
+
+**Client API**:
+```typescript
+import { searchSimilar, isSearchAvailable, getSearchStats } from '$lib/semantic/hnsw-search';
+
+// Check availability
+if (isSearchAvailable()) {
+  const results = await searchSimilar("training schedules", 10, 0.5);
+  // results: { noteId: string, score: number, distance: number }[]
+}
+
+// Get stats
+const stats = getSearchStats();
+// stats: { vectorCount: number, dimensions: 384 }
+```
+
+**Environment Variables**:
+- `VITE_EMBEDDING_API_URL`: Cloud Run embedding service URL
+- `RELAY_URL`: (GitHub Variable) Nostr relay for fetching notes
+- `GCP_PROJECT_ID`: (GitHub Secret) GCP project
+- `GCP_SA_KEY`: (GitHub Secret) Service account for GCS access
+
+**GitHub Secrets Required**:
+| Secret | Purpose |
+|--------|---------|
+| `GCP_PROJECT_ID` | Google Cloud project ID |
+| `GCP_SA_KEY` | Service account JSON with Storage Object Admin |
+| `GCP_REGION` | GCP region (default: us-central1) |
+
+**GitHub Variables Required**:
+| Variable | Purpose |
+|----------|---------|
+| `RELAY_URL` | WebSocket URL of Nostr relay |
+
+---
+
+### 13.4 Feature Integration Status
+
+| Feature | Client Code | Server Code | Deployment | Docs |
+|---------|-------------|-------------|------------|------|
+| Link Previews | Complete | Complete | Ready | This section |
+| Image Upload | Complete | Complete | Ready | This section |
+| Semantic Search | Complete | Complete | Workflow ready | This section |
+
+**Next Steps for Activation**:
+1. **Link Previews**: Deploy `services/link-preview-api`, set `VITE_LINK_PREVIEW_API_URL`
+2. **Image Upload**: Deploy `services/image-api`, set `VITE_IMAGE_API_URL`, create GCS bucket
+3. **Semantic Search**: Set GitHub secrets/variables, enable workflow, deploy `services/embedding-api`
 
 ---
 
