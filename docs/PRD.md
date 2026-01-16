@@ -1,62 +1,375 @@
 # Fairfield Nostr BBS - Product Requirements Document
 
-**Version:** 1.0.0
-**Generated:** 2026-01-16
-**Status:** Retrospective Engineering Analysis
+**Version:** 2.0.0
+**Last Updated:** 2026-01-16
+**Status:** Living Document
 
 ---
 
 ## Executive Summary
 
-**Fairfield Nostr BBS** is a private, whitelist-gated community platform built on the Nostr protocol. The application combines traditional BBS-style hierarchical navigation (Zone > Section > Category > Channel) with modern real-time messaging, encrypted DMs, calendar functionality, and decentralized identity.
+**Fairfield Nostr BBS** is a private community platform designed for the unique reality of households where family life and business operations overlap. It serves people who share physical spaces, family bonds, professional relationships, and social circles that don't fit neatly into separate boxes.
 
-| Attribute | Value |
-|-----------|-------|
-| **Application Version** | 0.1.0 |
-| **Relay Version** | 2.3.0 |
-| **Frontend Framework** | SvelteKit 2.49.2 + Svelte 4.2.20 |
-| **Backend** | Node.js 20 WebSocket Relay + PostgreSQL |
-| **Deployment** | GitHub Pages (frontend) + GCP Cloud Run (services) |
-| **Authentication** | Nostr keypairs (secp256k1) with NIP-98 HTTP auth |
-| **Identity Standard** | W3C DID:nostr |
+The platform uses the Nostr protocol to give users true ownership of their identity and communications, while providing the familiar structure of a BBS (Bulletin Board System) for organized discussions across family, business, and social contexts.
 
----
+### The Core Challenge We Solve
 
-## 1. Product Vision
+In a large household with an embedded business, the same person might be:
+- A parent coordinating family dinner
+- A business trainer scheduling client sessions
+- A host welcoming guests to a shared retreat space
+- A family member discussing private matters
 
-### 1.1 Problem Statement
+Traditional platforms force these contexts into separate silos, fragmenting communication and requiring people to maintain multiple identities. Fairfield BBS allows natural overlap while maintaining appropriate boundaries.
 
-Traditional community platforms (Discord, Slack, forums) suffer from:
-- **Centralized control**: Users don't own their identity or data
-- **Platform lock-in**: Migration requires rebuilding social graphs
-- **Privacy concerns**: Server operators have full access to messages
-- **Single points of failure**: Platform outages affect all users
+### Key Design Principles
 
-### 1.2 Solution
-
-A **decentralized, censorship-resistant community platform** where:
-- Users own their cryptographic identity (Nostr keypairs)
-- Messages are signed and verifiable
-- E2E encryption protects private conversations
-- The whitelist model enables private communities while preserving user sovereignty
-- W3C DID:nostr provides interoperable identity across systems
-
-### 1.3 Target Users
-
-1. **Private Communities**: Family groups, organizations, clubs requiring controlled membership
-2. **Privacy-Conscious Users**: People wanting cryptographic proof of message authenticity
-3. **Nostr Ecosystem Participants**: Users with existing Nostr identities seeking private spaces
+| Principle | Implementation |
+|-----------|----------------|
+| **You own your identity** | Nostr keypairs mean no platform can lock you out of your own account |
+| **Natural boundaries** | Zones separate contexts; cohorts allow appropriate overlap |
+| **Small-group trust** | Whitelist model keeps out strangers while enabling self-governance |
+| **Appropriate privacy** | E2E encryption for sensitive channels; signed messages for accountability |
+| **Simple for everyone** | From tech-savvy to tech-cautious, the flows accommodate different comfort levels |
 
 ---
 
-## 2. System Architecture
+## 1. Philosophy and Values
 
-### 2.1 High-Level Architecture
+### 1.1 Why Decentralization Matters Here
+
+This isn't decentralization for ideology's sake. For a household with overlapping personal and business contexts, centralized platforms create real problems:
+
+**Platform Risk**: When your family coordination, business scheduling, and guest communications all depend on Discord or Slack, a platform ban or outage disrupts everything. With Nostr, your identity travels with you.
+
+**Data Ownership**: Family conversations shouldn't live on corporate servers. Business client information shouldn't be training someone else's AI. Your keys, your data.
+
+**Longevity**: Family systems need to last decades. Platforms come and go. A protocol-based system can outlive any single service provider.
+
+### 1.2 Trust Model
+
+Fairfield BBS operates on a **small-group trust model**, distinct from both internet-scale platforms and private family-only spaces:
+
+| Model | Scale | Trust | Example |
+|-------|-------|-------|---------|
+| Public Platform | Millions | Zero (moderation-based) | Twitter, Reddit |
+| Private Family | 5-20 | Complete | Family group chat |
+| **Fairfield BBS** | 20-200 | Earned (whitelist) | Extended household + business |
+
+Members are added by invitation and admin approval. This isn't about exclusion—it's about creating a space where you know everyone or know someone who vouches for them.
+
+### 1.3 Accessibility as a Value
+
+A household spans generations and tech comfort levels. The platform must work for:
+- Teenagers who expect modern UX
+- Adults comfortable with technology
+- Older family members who may struggle with complex interfaces
+- Business clients who just need things to work
+
+This drives design decisions like the Quick Start flow (2 taps to join) alongside the Secure flow (4 steps for those who want full key custody).
+
+---
+
+## 2. User Personas and Scenarios
+
+### 2.1 Core Personas
+
+#### Maya - The Family Coordinator
+**Context**: Parent managing household logistics while running a wellness retreat business.
+
+**Needs**:
+- See family calendar events alongside business blocks
+- Post in family-only spaces without clients seeing
+- Schedule business sessions without family members interrupting
+- Switch contexts naturally without logging into different apps
+
+**Typical Day**:
+1. Check family zone for kids' school updates
+2. Review business zone for today's training schedule
+3. Post in MiniMoonoir (social zone) about upcoming gathering
+4. DM a family member about private matter
+5. Respond to business client question in trainee channel
+
+**Cohorts**: `family`, `business`, `minimoonoir`, `cross-access`
+
+#### Jordan - The Business Trainee
+**Context**: Client taking training sessions, may become more involved over time.
+
+**Needs**:
+- Access training materials and schedule sessions
+- Communicate with trainers without accessing family content
+- Join social events if invited to MiniMoonoir gatherings
+- Simple onboarding—not everyone understands cryptographic keys
+
+**Journey**:
+1. Receives invite link from trainer
+2. Quick Start signup (hex password saved in password manager)
+3. Waits for admin approval
+4. Accesses DreamLab (business) zone only
+5. Later, if relationship deepens, may get MiniMoonoir access
+
+**Cohorts**: `trainees` → potentially `minimoonoir` later
+
+#### Sam - The Family Member
+**Context**: Adult child who helps with business training occasionally.
+
+**Needs**:
+- Full family zone access for family matters
+- Business zone access for training work
+- Clear separation so family discussions stay family-only
+- Ability to see when parents are blocked for business vs family time
+
+**Overlapping Access**:
+- Fairfield Family zone: Full access
+- DreamLab zone: Access as occasional trainer
+- Calendar: Sees family events + business availability blocks
+
+**Cohorts**: `family`, `trainers`, `cross-access`
+
+#### Alex - The Occasional Guest
+**Context**: Friend of family who attends MiniMoonoir social gatherings.
+
+**Needs**:
+- Access social zone (MiniMoonoir) for event planning
+- Cannot see family-private discussions
+- Cannot see business operations
+- May attend gatherings without becoming a business client
+
+**Boundary**:
+- MiniMoonoir zone: Full access
+- Fairfield Family zone: Hidden (doesn't appear in navigation)
+- DreamLab zone: Hidden
+
+**Cohorts**: `minimoonoir-only`
+
+### 2.2 Cross-Zone Scenarios
+
+#### Scenario: Scheduling Around Family and Business
+
+Maya needs to schedule a family dinner that works around:
+- Business training sessions (hers and Sam's)
+- Kids' activities
+- Guest availability for MiniMoonoir social event
+
+**How the system helps**:
+1. Calendar shows Maya's own events from all zones
+2. `showBlocksFrom` configuration reveals availability blocks from other zones
+3. Maya sees Sam is blocked for "training" (not the client details)
+4. Maya can propose times that work for everyone
+
+#### Scenario: Guest Becomes Trainee
+
+Alex has been attending MiniMoonoir gatherings and wants to take training sessions.
+
+**Journey**:
+1. Alex already has an account (cohort: `minimoonoir-only`)
+2. Maya adds `trainees` cohort via admin panel
+3. DreamLab zone appears in Alex's navigation
+4. Alex can now access training materials
+5. Family zone remains hidden
+
+**No new account needed. Same identity, expanded access.**
+
+#### Scenario: Private Family Discussion
+
+Sam wants to discuss a sensitive family matter that shouldn't involve business trainees or social guests.
+
+**How boundaries work**:
+1. Sam posts in "Family Private" section (requires `family` cohort)
+2. Jordan (trainee) and Alex (guest) cannot see this section
+3. Maya (cross-access) sees it in her feed
+4. The conversation stays within family
+
+---
+
+## 3. Zone Architecture
+
+### 3.1 Three-Zone Model
+
+The system organizes content into three zones reflecting real-world boundaries:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FAIRFIELD FAMILY (Zone 1)                         │
+│                                                                      │
+│   Cohorts: family, fairfield-only, cross-access                     │
+│   Isolation: STRICT (invisible to non-members)                      │
+│                                                                      │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │
+│   │ Family Hub   │ │ Household    │ │ Family       │               │
+│   │ (General)    │ │ (Logistics)  │ │ Calendar     │               │
+│   └──────────────┘ └──────────────┘ └──────────────┘               │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     MINIMOONOIR (Zone 2)                             │
+│                                                                      │
+│   Cohorts: minimoonoir, minimoonoir-only, cross-access              │
+│   Isolation: SOFT (visible to invited guests)                       │
+│                                                                      │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │
+│   │ Moon Lounge  │ │ Events &     │ │ Guest        │               │
+│   │ (Social)     │ │ Gatherings   │ │ Welcome      │               │
+│   └──────────────┘ └──────────────┘ └──────────────┘               │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                      DREAMLAB (Zone 3)                               │
+│                                                                      │
+│   Cohorts: business, trainers, trainees, dreamlab-only              │
+│   Isolation: STRICT (invisible to non-business)                     │
+│                                                                      │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │
+│   │ Training     │ │ Resources &  │ │ Session      │               │
+│   │ Discussions  │ │ Materials    │ │ Calendar     │               │
+│   └──────────────┘ └──────────────┘ └──────────────┘               │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Cohort System Design
+
+Cohorts enable overlapping membership without forcing artificial separation:
+
+#### Core Cohorts
+
+| Cohort | Purpose | Zone Access |
+|--------|---------|-------------|
+| `family` | Core family members | Fairfield Family |
+| `minimoonoir` | Social community members | MiniMoonoir |
+| `business` | Business operations access | DreamLab |
+| `trainers` | Can lead training sessions | DreamLab (elevated) |
+| `trainees` | Training program participants | DreamLab (limited) |
+| `cross-access` | Can see all zones | All zones |
+
+#### Exclusion Cohorts (*-only Pattern)
+
+Some members should have access to ONE zone only:
+
+| Cohort | Purpose | Grants | Excludes |
+|--------|---------|--------|----------|
+| `fairfield-only` | Family members not in business | Fairfield | DreamLab |
+| `minimoonoir-only` | Social guests not in family/business | MiniMoonoir | Fairfield, DreamLab |
+| `dreamlab-only` | Business clients not in social | DreamLab | Fairfield, MiniMoonoir |
+
+**Why this matters**: Alex (guest) has `minimoonoir-only`. Even if someone accidentally tries to add them to a family-visible cohort, the exclusion cohort prevents access leakage.
+
+### 3.3 Calendar Cross-Visibility
+
+The `showBlocksFrom` configuration solves a real coordination problem: knowing when family members are available without exposing private details.
+
+```yaml
+# Fairfield Family calendar configuration
+calendar:
+  access: cohort
+  accessCohorts: [family, cross-access]
+  showBlocksFrom:
+    - zone: dreamlab
+      visibility: hard  # Shows "Blocked" - no details
+    - zone: minimoonoir
+      visibility: soft  # Shows "Tentative" - might be flexible
+```
+
+**Example**: Maya checks the family calendar to plan dinner:
+- Sees "Family Dinner Planning" event (full details - same zone)
+- Sees "Blocked" on Sam's calendar 2-4pm (business training, details hidden)
+- Sees "Tentative" on guest Alex's availability (MiniMoonoir event, might move)
+
+---
+
+## 4. User Flows
+
+### 4.1 Dual-Path Signup
+
+The signup flow accommodates different user comfort levels:
+
+#### Path A: Quick Start (2 Steps)
+For users who want simplicity and trust the platform:
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│  Tap "Quick     │────▶│   Set Nickname  │────▶ Pending Approval
+│  Start"         │     │   (Optional)    │
+│                 │     │                 │
+│ System generates│     │ Hex password    │
+│ keypair + saves │     │ auto-saved to   │
+│ as hex password │     │ password mgr    │
+└─────────────────┘     └─────────────────┘
+```
+
+**Trade-off**: Less friction, but relies on browser/device password manager for key backup.
+
+#### Path B: Secure (4 Steps)
+For users who want full key custody:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Generate       │────▶│  Backup nsec    │────▶│  Set Nickname   │
+│  Keypair        │     │  (MANDATORY)    │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+                                                ┌─────────────────┐
+                                                │ Pending Approval│
+                                                │ (Poll every 10s)│
+                                                └─────────────────┘
+```
+
+**Trade-off**: More friction, but user has independent backup of private key.
+
+### 4.2 Approval Flow
+
+All new users require admin approval (whitelist model):
+
+1. User completes signup → Kind 9024 (registration request) published
+2. Admin sees pending registration in admin panel
+3. Admin reviews and assigns cohorts
+4. User's status changes to approved
+5. User's client polls whitelist status every 10 seconds
+6. On approval, redirect to appropriate zone based on cohorts
+
+### 4.3 Login Flow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Enter nsec or  │────▶│  Validate       │────▶│  Check          │
+│  hex password   │     │  Format         │     │  Whitelist      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                        │
+                              ┌──────────────────────────┴────────┐
+                              ▼                                   ▼
+                       ┌─────────────┐                    ┌─────────────┐
+                       │  Approved   │                    │   Pending   │
+                       │  → /chat    │                    │ → /pending  │
+                       └─────────────┘                    └─────────────┘
+```
+
+### 4.4 Navigation Model
+
+The interface follows a 3-tier hierarchy:
+
+```
+Zone (Category) ──▶ Section ──▶ Forum (NIP-28 Channel)
+     │                │              │
+     │                │              └── Individual discussion thread
+     │                └── Topical grouping within zone
+     └── Top-level context boundary (Family/Social/Business)
+```
+
+**Example navigation path**:
+```
+DreamLab (Zone) → Training Programs (Section) → Q1 Cohort Discussion (Forum)
+```
+
+---
+
+## 5. Technical Architecture
+
+### 5.1 System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (SvelteKit)                      │
-│                         GitHub Pages                             │
+│                    Frontend (SvelteKit)                          │
+│                     GitHub Pages (Free)                          │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐   │
 │  │   Auth   │ │   Chat   │ │  Admin   │ │     Calendar     │   │
 │  │ 7 comps  │ │ 18 comps │ │ 9 comps  │ │     7 comps      │   │
@@ -65,8 +378,8 @@ A **decentralized, censorship-resistant community platform** where:
 └─────────────────────────────┬───────────────────────────────────┘
                               │ WebSocket (NIP-01)
 ┌─────────────────────────────▼───────────────────────────────────┐
-│                     Nostr Relay (Node.js)                        │
-│                       Cloud Run                                  │
+│                   Nostr Relay (Node.js)                          │
+│                    Cloud Run (Free Tier)                         │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  NIP-01   NIP-11   NIP-16   NIP-29   NIP-98   DID:nostr  │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -76,61 +389,31 @@ A **decentralized, censorship-resistant community platform** where:
 │  │         events (JSONB) + whitelist (cohorts)             │   │
 │  └───────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────▼───────────────────────────────────┐
-│                    Supporting Services                           │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐                  │
-│  │ Embedding  │ │   Image    │ │    Link    │                  │
-│  │    API     │ │    API     │ │  Preview   │                  │
-│  │ (ML/HNSW)  │ │  (Sharp)   │ │  (OpenGraph)│                  │
-│  └────────────┘ └────────────┘ └────────────┘                  │
-└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Frontend Architecture
+### 5.2 Technology Choices
 
-**Framework Stack:**
-- **SvelteKit 2.49.2** with adapter-static for GitHub Pages
-- **Vite 5.4.21** build tool with PWA plugin
-- **TypeScript 5.6.2** (strict mode)
-- **TailwindCSS 3.4.19** + **DaisyUI 4.12.10**
+| Layer | Technology | Why This Choice |
+|-------|------------|-----------------|
+| Frontend | SvelteKit + Svelte 4 | Fast, accessible, good mobile support |
+| Styling | TailwindCSS + DaisyUI | Consistent design system, accessibility built-in |
+| Relay | Node.js WebSocket | Simple, well-understood, easy to deploy |
+| Database | PostgreSQL + JSONB | Flexible schema for Nostr events, reliable |
+| Hosting | GitHub Pages + Cloud Run | Free tier covers expected usage |
+| Identity | Nostr keypairs | User-owned, portable, standard |
 
-**Component Inventory (86 total):**
+### 5.3 Free Infrastructure Stack
 
-| Category | Count | Key Components |
-|----------|-------|----------------|
-| Auth | 7 | Signup, Login, NsecBackup, NicknameSetup, PendingApproval |
-| UI | 20 | Modal, Button, Toast, ScreenReaderAnnouncer, ErrorBoundary |
-| Chat | 18 | MessageList, MessageItem, PinnedMessages, ReactionPicker |
-| Admin | 9 | AdminStats, UserManagement, UserRegistrations |
-| Calendar | 7 | EventCalendar, CreateEventModal, MiniCalendar |
-| Navigation | 8 | Sidebar, CategoryNav, SectionNav, BreadcrumbNav |
-| Profile | 5 | ProfileCard, ProfileEditor, AvatarUpload |
-| DM | 6 | DMList, DMConversation, NewDMModal |
-| Shared | 6 | Loading, Avatar, Timestamp, RelativeTime |
+A key project goal is **sustainable free-tier operation**:
 
-**State Management (30 Stores):**
+| Service | Provider | Free Tier Limit | Expected Usage |
+|---------|----------|-----------------|----------------|
+| Frontend | GitHub Pages | 100GB bandwidth/mo | ~1GB |
+| Relay | Cloud Run | 2M requests/mo | ~500K |
+| Database | Cloud SQL | Postgres 14, shared | Sufficient |
+| Image Processing | Cloud Run | Separate instance | Minimal |
 
-| Category | Stores |
-|----------|--------|
-| Auth | authStore, signerStore, userProfileStore |
-| Content | messagesStore, channelsStore, pinnedStore |
-| Navigation | currentChannel, currentSection, breadcrumbs |
-| UI | theme, sidebarOpen, modalStack, toasts |
-| System | ndkStore, relayStatus, isOnline |
-
-### 2.3 Backend Architecture
-
-**Nostr Relay (v2.3.0):**
-
-| Component | Implementation |
-|-----------|----------------|
-| WebSocket Server | `ws` v8.14.2 |
-| Database | PostgreSQL with JSONB |
-| Rate Limiter | Sliding window (10 events/sec/IP) |
-| Connection Pool | Max 20, 30s idle timeout |
-
-**Database Schema:**
+### 5.4 Database Schema
 
 ```sql
 -- Events table (NIP-01 compliant)
@@ -145,135 +428,71 @@ CREATE TABLE events (
   received_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
 );
 
--- Optimized indexes
-CREATE INDEX idx_events_pubkey ON events(pubkey);
-CREATE INDEX idx_events_kind ON events(kind);
-CREATE INDEX idx_events_created_at ON events(created_at DESC);
-CREATE INDEX idx_events_tags ON events USING GIN(tags);
-
--- Whitelist table (access control)
+-- Whitelist table (cohort-based access control)
 CREATE TABLE whitelist (
   pubkey TEXT PRIMARY KEY,
-  cohorts JSONB NOT NULL DEFAULT '[]'::jsonb,
+  cohorts JSONB NOT NULL DEFAULT '[]'::jsonb,  -- Array of cohort strings
   added_at BIGINT,
   added_by TEXT,
   expires_at BIGINT,
   notes TEXT
 );
 
+-- Indexes for performance
+CREATE INDEX idx_events_pubkey ON events(pubkey);
+CREATE INDEX idx_events_kind ON events(kind);
+CREATE INDEX idx_events_created_at ON events(created_at DESC);
+CREATE INDEX idx_events_tags ON events USING GIN(tags);
 CREATE INDEX idx_whitelist_cohorts ON whitelist USING GIN(cohorts);
 ```
 
 ---
 
-## 3. Nostr Protocol Implementation
+## 6. Nostr Protocol Implementation
 
-### 3.1 NIP Compliance Matrix
+### 6.1 NIP Compliance Matrix
 
-| NIP | Name | Status | Implementation |
-|-----|------|--------|----------------|
-| **NIP-01** | Basic Protocol | Full | EVENT, REQ, CLOSE, OK, NOTICE, EOSE |
-| **NIP-09** | Event Deletion | Full | Kind 5 deletion requests |
-| **NIP-11** | Relay Information | Full | `/.well-known/nostr.json` |
+| NIP | Name | Status | Purpose in Fairfield BBS |
+|-----|------|--------|--------------------------|
+| **NIP-01** | Basic Protocol | Full | Core event pub/sub |
+| **NIP-04** | Encrypted DMs (Legacy) | Full | Backward compatibility |
+| **NIP-06** | Key Derivation | Full | Mnemonic support |
+| **NIP-09** | Event Deletion | Full | User-controlled deletion |
+| **NIP-10** | Threading | Full | Reply structure in forums |
+| **NIP-11** | Relay Information | Partial | Relay metadata (needs completion) |
 | **NIP-16** | Event Treatment | Full | Regular, replaceable, ephemeral |
-| **NIP-17** | Private DMs | Full | Sealed rumors with gift wrap |
-| **NIP-19** | Bech32 Encoding | Full | npub, nsec, note, nevent |
-| **NIP-25** | Reactions | Full | Kind 7 with emoji content |
-| **NIP-28** | Channels (Legacy) | Partial | Kind 40/41/42 (deprecated) |
-| **NIP-29** | Groups | Full | Kind 9 + h-tag, admin kinds 9000-9005 |
-| **NIP-33** | Parameterized Replaceable | Full | d-tag deduplication |
-| **NIP-42** | Authentication | Full | Kind 22242 AUTH challenges |
-| **NIP-44** | Encryption | Full | ChaCha20-Poly1305 for channels |
-| **NIP-51** | Lists | Full | Kind 30001 pin lists |
-| **NIP-52** | Calendar | Full | Kind 31923/31925 events + RSVP |
-| **NIP-59** | Gift Wrap | Full | Kind 1059 privacy wrapper |
-| **NIP-98** | HTTP Auth | Full | Kind 27235 signed requests |
+| **NIP-17** | Private DMs | Full | Modern encrypted messaging |
+| **NIP-19** | Bech32 Encoding | Full | npub/nsec display |
+| **NIP-25** | Reactions | Full | Emoji reactions on messages |
+| **NIP-28** | Channels | Full | Forum structure |
+| **NIP-29** | Groups | Full | Admin operations |
+| **NIP-33** | Parameterized Replaceable | Full | Editable content |
+| **NIP-42** | Authentication | Full | Relay auth challenges |
+| **NIP-44** | Encryption v2 | Full | Channel E2E encryption |
+| **NIP-51** | Lists | Planned | Curated content lists |
+| **NIP-52** | Calendar | Full | Event scheduling |
+| **NIP-59** | Gift Wrap | Full | DM privacy wrapper |
+| **NIP-98** | HTTP Auth | Full | API authentication |
 
-### 3.2 Event Kinds Used
+### 6.2 Custom Event Kinds
 
-**Standard Kinds:**
-
-| Kind | Name | Replaceability | Purpose |
-|------|------|----------------|---------|
-| 0 | User Metadata | Replaceable | Profile (name, picture, about, NIP-05) |
-| 1 | Text Note | Regular | Short-form posts |
-| 5 | Deletion | Regular | Request event deletion |
-| 7 | Reaction | Regular | Emoji reactions |
-| 9 | Group Chat | Regular | NIP-29 channel messages |
-| 13 | Seal | Regular | Encrypted DM container |
-| 14 | Sealed Rumor | Regular | Inner DM content |
-| 1059 | Gift Wrap | Regular | Privacy wrapper |
-| 22242 | AUTH | Ephemeral | Relay authentication |
-| 30001 | Pin List | Parameterized | Admin pinned messages |
-| 31923 | Calendar Event | Parameterized | Time-based events |
-| 31925 | RSVP | Parameterized | Event attendance |
-
-**NIP-29 Admin Kinds:**
+Beyond standard NIPs, Fairfield BBS uses custom kinds for specific features:
 
 | Kind | Name | Purpose |
 |------|------|---------|
-| 9000 | Add User | Approve join request |
-| 9001 | Remove User | Kick/ban from channel |
-| 9005 | Delete Event | Admin message deletion |
-| 39000 | Group Metadata | Channel settings |
-| 39002 | Group Members | Member list |
+| 9021 | Join Request | User requests to join a channel |
+| 9022 | Section Access Request | User requests section access |
+| 9023 | Section Access Response | Admin approves/denies section access |
+| 9024 | User Registration | New user registration request |
+| 30079 | Section Statistics | Section metadata and stats |
 
-**Custom Application Kinds:**
+### 6.3 W3C DID:nostr Implementation
 
-| Kind | Name | Purpose |
-|------|------|---------|
-| 9021 | Join Request | User requests channel membership |
-| 9024 | User Registration | New user requests system access |
+Fairfield BBS implements full W3C DID (Decentralized Identifier) compliance:
 
-### 3.3 Tag Conventions
+**DID Format**: `did:nostr:<64-character-hex-pubkey>`
 
-| Tag | Format | Purpose |
-|-----|--------|---------|
-| `e` | `['e', eventId, relay?, marker?]` | Event reference (root, reply, mention) |
-| `p` | `['p', pubkey, relay?, petname?]` | User reference |
-| `h` | `['h', channelId]` | NIP-29 group identifier |
-| `d` | `['d', uniqueId]` | Replaceable event identifier |
-| `t` | `['t', topic]` | Hashtags/topics |
-| `cohort` | `['cohort', name]` | Access control group |
-| `visibility` | `['visibility', level]` | listed, unlisted, preview |
-| `encrypted` | `['encrypted', 'nip44']` | E2E encrypted marker |
-| `event_start` | `['event_start', timestamp]` | Calendar event start |
-| `event_end` | `['event_end', timestamp]` | Calendar event end |
-
----
-
-## 4. Authentication & Identity
-
-### 4.1 Keypair Management
-
-**Generation:**
-- Method: `crypto.getRandomValues()` (32 bytes)
-- Library: `@noble/curves/secp256k1`
-- Output: 64-character hex strings
-
-**Storage Security (OWASP 2023 Compliant):**
-
-| Parameter | Value |
-|-----------|-------|
-| Encryption | AES-256-GCM |
-| Key Derivation | PBKDF2-SHA256 |
-| Iterations | 600,000 |
-| Salt | 16 bytes random |
-| IV | 12 bytes random |
-
-**Session Types:**
-
-| Type | Storage | Lifecycle |
-|------|---------|-----------|
-| Browser | sessionStorage | Tab close |
-| Persistent | localStorage + cookie | 30 days |
-| PWA | localStorage | No expiry |
-
-### 4.2 DID:nostr Integration
-
-**Format:** `did:nostr:<64-character-hex-pubkey>`
-
-**DID Document Structure:**
+**DID Document Structure**:
 ```json
 {
   "@context": [
@@ -285,14 +504,47 @@ CREATE INDEX idx_whitelist_cohorts ON whitelist USING GIN(cohorts);
     "id": "did:nostr:<pubkey>#key-0",
     "type": "Multikey",
     "controller": "did:nostr:<pubkey>",
-    "publicKeyMultibase": "z..."
+    "publicKeyMultibase": "z6Mk..."
   }],
   "authentication": ["did:nostr:<pubkey>#key-0"],
   "assertionMethod": ["did:nostr:<pubkey>#key-0"]
 }
 ```
 
-### 4.3 NIP-98 HTTP Authentication
+**Multikey Encoding**: Uses `0xe7, 0x01` prefix with base58btc for secp256k1 keys.
+
+---
+
+## 7. Authentication and Security
+
+### 7.1 Keypair Management
+
+**Generation**:
+- Method: `crypto.getRandomValues()` (32 bytes)
+- Library: `@noble/curves/secp256k1`
+- Output: 64-character hex strings
+
+**Storage Security (OWASP 2023 Compliant)**:
+
+| Parameter | Value |
+|-----------|-------|
+| Encryption | AES-256-GCM |
+| Key Derivation | PBKDF2-SHA256 |
+| Iterations | 600,000 |
+| Salt | 16 bytes random |
+| IV | 12 bytes random |
+
+### 7.2 Session Types
+
+| Type | Storage | Lifecycle | Use Case |
+|------|---------|-----------|----------|
+| Browser | sessionStorage | Tab close | Quick sessions |
+| Persistent | localStorage + cookie | 30 days | Regular users |
+| PWA | localStorage | No expiry | Mobile app users |
+
+### 7.3 NIP-98 HTTP Authentication
+
+API endpoints requiring authentication use NIP-98:
 
 | Property | Value |
 |----------|-------|
@@ -300,114 +552,8 @@ CREATE INDEX idx_whitelist_cohorts ON whitelist USING GIN(cohorts);
 | Header Format | `Authorization: Nostr <base64-event>` |
 | Required Tags | `u` (URL), `method` (HTTP method) |
 | Timestamp Tolerance | 60 seconds |
-| Signature | Schnorr (secp256k1) |
 
----
-
-## 5. User Flows
-
-### 5.1 Registration Flow
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Generate   │────▶│   Backup    │────▶│    Set      │
-│   Keypair   │     │    nsec     │     │  Nickname   │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                               │
-                                               ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Access    │◀────│    Admin    │◀────│   Publish   │
-│   Granted   │     │  Approval   │     │  Kind 9024  │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
-
-**Steps:**
-1. **Generate Keypair**: Random 32-byte private key via Web Crypto
-2. **Backup nsec** (Mandatory): User must acknowledge backup
-3. **Set Nickname**: Publish Kind 0 profile event
-4. **Publish Registration**: Kind 9024 with registration tag
-5. **Await Approval**: Poll whitelist status every 10 seconds
-6. **Access Granted**: Redirect to chat interface
-
-### 5.2 Login Flow
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Enter     │────▶│  Validate   │────▶│   Check     │
-│    nsec     │     │   Format    │     │  Whitelist  │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                               │
-                          ┌────────────────────┴────────────────────┐
-                          ▼                                         ▼
-                   ┌─────────────┐                           ┌─────────────┐
-                   │  Approved   │                           │   Pending   │
-                   │   → /chat   │                           │ → /pending  │
-                   └─────────────┘                           └─────────────┘
-```
-
-### 5.3 Messaging Flow
-
-**Channel Messages (NIP-29):**
-- Kind 9 with `["h", "channelId"]` tag
-- Optional E2E: `["encrypted", "nip44"]` tag
-- Threading: `["e", "eventId", "", "reply"]` marker
-
-**Direct Messages (NIP-17/59):**
-```
-Kind 14 (Rumor)  ──encrypt──▶  Kind 13 (Seal)  ──wrap──▶  Kind 1059 (Gift Wrap)
-   │                              │                            │
-   │ unsigned content             │ encrypted to recipient     │ random pubkey
-   │                              │                            │ fuzzed timestamp
-```
-
----
-
-## 6. Admin System
-
-### 6.1 Admin Panel Features
-
-| Feature | Description |
-|---------|-------------|
-| Dashboard | Metrics, pending count, activity graph |
-| User Management | Whitelist CRUD, cohort assignment |
-| Registration Queue | Approve/reject pending users |
-| Channel Management | Create, configure, member control |
-| Section Requests | Approve section access |
-
-### 6.2 Authorization Model
-
-**Whitelist Sources:**
-1. Environment: `WHITELIST_PUBKEYS` (comma-separated)
-2. Database: `whitelist` table with cohorts
-
-**Cohort System:**
-
-| Cohort | Purpose |
-|--------|---------|
-| `admin` | Full system access |
-| `approved` | Standard member access |
-| `business` | Business zone access |
-| `moomaa-tribe` | Tribe zone access |
-| `cross-access` | Cross-zone permissions |
-
-**Special Bypass (Registration Flow):**
-- Kind 0 (profile): Allowed from any pubkey
-- Kind 9024 (registration): Allowed from any pubkey
-
-### 6.3 Rate Limiting
-
-| Action | Capacity | Window | Backoff |
-|--------|----------|--------|---------|
-| Login | 5 | 15 min | Linear |
-| Signup | 3 | 1 hour | Exponential |
-| Admin Action | 10 | 1 min | 1.5x |
-| Section Request | 5 | 1 min | 2x |
-
----
-
-## 7. Security
-
-### 7.1 Event Validation Pipeline
+### 7.4 Event Validation Pipeline
 
 ```
 1. JSON Parse ──▶ 2. Type Check ──▶ 3. Size Limits ──▶ 4. Whitelist
@@ -423,69 +569,126 @@ Kind 14 (Rumor)  ──encrypt──▶  Kind 13 (Seal)  ──wrap──▶  Ki
   SHA-256 match  Schnorr valid    Under limit      PostgreSQL
 ```
 
-### 7.2 Security Limits
+### 7.5 Security Limits
 
-| Limit | Value |
-|-------|-------|
-| Max content size | 64KB (8KB for registration) |
-| Max tag count | 2000 |
-| Max tag value | 1KB |
-| Timestamp drift | ±7 days |
-| Events/second/IP | 10 |
-| Connections/IP | 20 |
-
-### 7.3 Cryptographic Standards
-
-| Purpose | Algorithm |
-|---------|-----------|
-| Key Storage | AES-256-GCM |
-| Key Derivation | PBKDF2-SHA256 (600k iterations) |
-| Event Signatures | Schnorr (secp256k1) |
-| Channel Encryption | NIP-44 (ChaCha20-Poly1305) |
-| DM Encryption | NIP-44 + Gift Wrap |
+| Limit | Value | Rationale |
+|-------|-------|-----------|
+| Max content size | 64KB (8KB for registration) | Prevent abuse |
+| Max tag count | 2000 | Query performance |
+| Max tag value | 1KB | Storage efficiency |
+| Timestamp drift | ±7 days | Clock skew tolerance |
+| Events/second/IP | 10 | Rate limiting |
+| Connections/IP | 20 | Resource protection |
 
 ---
 
-## 8. Multi-Tenant Architecture
+## 8. Admin System
 
-### 8.1 Zone Configuration
+### 8.1 Admin Panel Features
 
-| Zone | Isolation | Default Cohorts |
-|------|-----------|-----------------|
-| fairfield-family | Strict | family, cross-access |
-| minimoonoir | Partial | minimoonoir, minimoonoir-business |
-| dreamlab | Strict | business, trainers, trainees |
+| Feature | Description | Used For |
+|---------|-------------|----------|
+| Dashboard | Metrics, pending count, activity graph | System health |
+| User Management | Whitelist CRUD, cohort assignment | Access control |
+| Registration Queue | Approve/reject pending users | New member onboarding |
+| Channel Management | Create, configure, member control | Forum structure |
+| Section Requests | Approve section access | Cross-zone access |
 
-### 8.2 Role Hierarchy
+### 8.2 Authorization Model
 
+**Whitelist Sources**:
+1. Environment: `WHITELIST_PUBKEYS` (comma-separated)
+2. Database: `whitelist` table with cohorts
+
+**Role Hierarchy**:
 ```
 guest (0) → member (1) → moderator (2) → section-admin (3) → admin (4)
 ```
 
-### 8.3 Calendar Access Levels
+**Special Registration Bypass**:
+- Kind 0 (profile): Allowed from any pubkey (needed for registration)
+- Kind 9024 (registration): Allowed from any pubkey (registration request)
 
-| Level | Capabilities |
-|-------|--------------|
-| full | See all event details |
-| availability | See only time blocks |
-| cohort | Cohort-filtered access |
-| none | No calendar access |
+### 8.3 Rate Limiting
+
+| Action | Capacity | Window | Backoff |
+|--------|----------|--------|---------|
+| Login | 5 | 15 min | Linear |
+| Signup | 3 | 1 hour | Exponential |
+| Admin Action | 10 | 1 min | 1.5x |
+| Section Request | 5 | 1 min | 2x |
 
 ---
 
-## 9. Deployment
+## 9. Accessibility
 
-### 9.1 Service Matrix
+### 9.1 Design Principles
 
-| Service | Platform | Resources | Scaling |
-|---------|----------|-----------|---------|
-| Frontend | GitHub Pages | Static | CDN |
-| nostr-relay | Cloud Run | 512Mi/1CPU | 1-3 instances |
-| embedding-api | Cloud Run | 2Gi/1CPU | 0-3 instances |
-| image-api | Cloud Run | 512Mi/1CPU | 1-10 instances |
-| Database | Cloud SQL | PostgreSQL 14 | Auto |
+Accessibility is a core requirement, not an afterthought. The platform must work for:
+- Users with visual impairments (screen readers)
+- Users with motor impairments (keyboard navigation)
+- Users with cognitive differences (clear hierarchy, consistent patterns)
+- Users with varying tech comfort (multiple paths to same goal)
 
-### 9.2 CI/CD Workflows
+### 9.2 WCAG 2.1 AA Implementation
+
+| Feature | Implementation |
+|---------|----------------|
+| Skip Links | "Skip to main content" link |
+| Screen Reader | aria-live announcements for state changes |
+| Focus Visible | 2px custom outline (visible in all themes) |
+| Focus Trap | Modal tab containment |
+| Keyboard Navigation | Cmd+K search, Escape to close |
+| Reduced Motion | Respects `prefers-reduced-motion` |
+
+### 9.3 ARIA Landmarks
+
+- `main` - Primary content area
+- `nav` - Navigation regions
+- `aside` - Sidebar content
+- `dialog` - Modal windows
+- `alert` - Important notifications
+- `status` - Non-critical updates
+
+---
+
+## 10. Testing
+
+### 10.1 Test Infrastructure
+
+| Type | Framework | Coverage |
+|------|-----------|----------|
+| Unit | Vitest 2.1.9 | Components, utilities |
+| E2E | Playwright 1.57.0 | User flows |
+| Integration | Jest 29.7.0 | Relay protocol |
+
+### 10.2 Test Coverage
+
+| Suite | Tests | Focus Area |
+|-------|-------|------------|
+| handlers.registration.test.ts | 46 | Registration flow |
+| nip01-protocol.test.ts | 15 | Core Nostr protocol |
+| websocket-connection.test.ts | 7 | Connection handling |
+| did-nostr.test.ts | 19 | DID implementation |
+| nip98.test.ts | 13 | HTTP authentication |
+| nip16.test.ts | 16 | Event treatment |
+| **Total** | **116** | All passing |
+
+---
+
+## 11. Deployment
+
+### 11.1 Service Matrix
+
+| Service | Platform | Resources | Cost |
+|---------|----------|-----------|------|
+| Frontend | GitHub Pages | Static CDN | Free |
+| nostr-relay | Cloud Run | 512Mi/1CPU | Free tier |
+| embedding-api | Cloud Run | 2Gi/1CPU | Free tier |
+| image-api | Cloud Run | 512Mi/1CPU | Free tier |
+| Database | Cloud SQL | PostgreSQL 14 | Free tier |
+
+### 11.2 CI/CD Workflows
 
 | Workflow | Trigger | Action |
 |----------|---------|--------|
@@ -494,85 +697,46 @@ guest (0) → member (1) → moderator (2) → section-admin (3) → admin (4)
 | deploy-image-api | services/image-api/** | Build + deploy |
 | generate-embeddings | Nightly 3 AM UTC | Update HNSW index |
 
-### 9.3 Environment Variables
+### 11.3 Environment Variables
 
-**Frontend (VITE_):**
-- `RELAY_URL`, `EMBEDDING_API_URL`, `IMAGE_API_URL`
-- `ADMIN_PUBKEY`, `APP_NAME`
+**Frontend (VITE_)**:
+- `RELAY_URL` - WebSocket relay endpoint
+- `EMBEDDING_API_URL` - ML service endpoint
+- `IMAGE_API_URL` - Image processing endpoint
+- `ADMIN_PUBKEY` - Admin public key
+- `APP_NAME` - Application display name
 
-**Backend:**
-- `DATABASE_URL`, `WHITELIST_PUBKEYS`
-- `RATE_LIMIT_EVENTS_PER_SECOND` (default: 10)
-
----
-
-## 10. Accessibility (WCAG 2.1 AA)
-
-### 10.1 Implemented Features
-
-| Feature | Implementation |
-|---------|----------------|
-| Skip Links | "Skip to main content" |
-| Screen Reader | aria-live announcements |
-| Focus Visible | 2px custom outline |
-| Focus Trap | Modal tab containment |
-| Keyboard | Cmd+K search, Escape close |
-| Reduced Motion | prefers-reduced-motion |
-
-### 10.2 ARIA Implementation
-
-- Landmarks: main, nav, aside
-- Roles: dialog, alert, status, menubar
-- Live Regions: Polite announcements for state changes
+**Backend**:
+- `DATABASE_URL` - PostgreSQL connection string
+- `WHITELIST_PUBKEYS` - Initial admin pubkeys
+- `RATE_LIMIT_EVENTS_PER_SECOND` - Default: 10
 
 ---
 
-## 11. Testing
-
-### 11.1 Test Infrastructure
-
-| Type | Framework | Coverage |
-|------|-----------|----------|
-| Unit | Vitest 2.1.9 | Components, utils |
-| E2E | Playwright 1.57.0 | User flows |
-| Integration | Jest 29.7.0 | Relay protocol |
-
-### 11.2 Test Counts
-
-| Suite | Tests | Status |
-|-------|-------|--------|
-| handlers.registration.test.ts | 46 | Pass |
-| nip01-protocol.test.ts | 15 | Pass |
-| websocket-connection.test.ts | 7 | Pass |
-| did-nostr.test.ts | 19 | Pass |
-| nip98.test.ts | 13 | Pass |
-| nip16.test.ts | 16 | Pass |
-| **Total** | **116** | **All Pass** |
-
----
-
-## 12. Future Roadmap
+## 12. Roadmap
 
 ### 12.1 Immediate (P0)
 
 - [ ] NIP-07 browser extension support
 - [ ] Per-pubkey rate limiting
-- [ ] Admin NIP-98 authentication
-- [ ] WebSocket message size limits
+- [ ] Admin NIP-98 authentication for all endpoints
+- [ ] NIP-11 relay information completion
 
 ### 12.2 Short-term (P1)
 
 - [ ] NIP-46 Nostr Connect (remote signing)
-- [ ] Hardware wallet integration
-- [ ] Batch user approval
+- [ ] NIP-51 curated lists
+- [ ] Batch user approval in admin panel
 - [ ] Admin audit log viewer
+- [ ] WebID verification for DID documents
 
 ### 12.3 Future (P2)
 
-- [ ] Federation (multi-relay)
+- [ ] Federation (multi-relay support)
 - [ ] Social recovery for keys
 - [ ] Encrypted cloud backup
-- [ ] Mobile native apps
+- [ ] Mobile native apps (iOS/Android)
+- [ ] Hardware wallet integration
 
 ---
 
@@ -610,16 +774,51 @@ Relay → Client:
 
 | Term | Definition |
 |------|------------|
-| **Cohort** | Named group for access control (e.g., admin, business) |
+| **Cohort** | Named group for access control enabling overlapping membership |
+| **Cross-Access** | Cohort that grants visibility across all zones |
 | **DID** | Decentralized Identifier (W3C standard) |
+| **Exclusion Cohort** | *-only cohort that restricts access to single zone |
 | **Gift Wrap** | NIP-59 privacy wrapper hiding sender identity |
 | **Kind** | Nostr event type number |
 | **NIP** | Nostr Implementation Possibility (protocol spec) |
 | **npub/nsec** | Bech32-encoded public/private keys |
 | **Relay** | Nostr message broker/storage server |
 | **Schnorr** | Digital signature scheme used by Nostr |
-| **Zone** | Top-level multi-tenant partition |
+| **Zone** | Top-level context boundary (Family/Social/Business) |
 
 ---
 
-*Document generated via mesh topology swarm analysis with AgentDB storage.*
+## Appendix C: Configuration Reference
+
+### Zone Configuration (sections.yaml)
+
+```yaml
+zones:
+  - id: fairfield-family
+    name: Fairfield Family
+    strictIsolation: true
+    visibleToCohorts: [family, cross-access]
+    hiddenFromCohorts: [minimoonoir-only, dreamlab-only]
+    calendar:
+      showBlocksFrom:
+        - zone: dreamlab
+          visibility: hard  # Shows "Blocked"
+        - zone: minimoonoir
+          visibility: soft  # Shows "Tentative"
+
+  - id: minimoonoir
+    name: MiniMoonoir
+    strictIsolation: false
+    visibleToCohorts: [minimoonoir, cross-access]
+    hiddenFromCohorts: [fairfield-only, dreamlab-only]
+
+  - id: dreamlab
+    name: DreamLab
+    strictIsolation: true
+    visibleToCohorts: [business, trainers, trainees, cross-access]
+    hiddenFromCohorts: [fairfield-only, minimoonoir-only]
+```
+
+---
+
+*This document represents the living specification for Fairfield Nostr BBS, capturing both the technical implementation and the human context it serves. It should evolve as the community's needs evolve.*
