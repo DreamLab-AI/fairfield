@@ -77,6 +77,10 @@ export const handle: Handle = async ({ event, resolve }) => {
   const headers = new Headers(response.headers);
 
   // Ensure security headers are set (backup to static _headers)
+  // HSTS: Enforce HTTPS for 1 year, include subdomains, allow preload
+  if (!headers.has('Strict-Transport-Security')) {
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
   if (!headers.has('X-Frame-Options')) {
     headers.set('X-Frame-Options', 'DENY');
   }
@@ -85,6 +89,30 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
   if (!headers.has('Referrer-Policy')) {
     headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  }
+  // XSS Protection - set to 0 as CSP supersedes it (modern recommendation)
+  if (!headers.has('X-XSS-Protection')) {
+    headers.set('X-XSS-Protection', '0');
+  }
+  // Permissions Policy (formerly Feature-Policy)
+  if (!headers.has('Permissions-Policy')) {
+    headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+  }
+  // Content Security Policy - allows Nostr relay connections
+  if (!headers.has('Content-Security-Policy')) {
+    headers.set('Content-Security-Policy', [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'strict-dynamic'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' https://fonts.gstatic.com",
+      "connect-src 'self' wss: ws: https:",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "upgrade-insecure-requests"
+    ].join('; '));
   }
 
   return new Response(response.body, {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, afterUpdate } from 'svelte';
+	import DOMPurify from 'dompurify';
 	import { fetchPreview, getCachedPreview, type LinkPreviewData } from '$lib/stores/linkPreviews';
 	import { getDomain, getFaviconUrl } from '$lib/utils/linkPreview';
 
@@ -23,10 +24,18 @@
 		}
 	}
 
-	// Render Twitter embed HTML
+	// Render Twitter embed HTML with sanitization
 	function renderTwitterEmbed() {
 		if (preview?.type === 'twitter' && preview.html && twitterContainer) {
-			twitterContainer.innerHTML = preview.html;
+			// Sanitize the Twitter embed HTML to prevent XSS attacks
+			// Twitter oEmbed HTML is generally trusted, but defense-in-depth requires sanitization
+			const sanitizedHtml = DOMPurify.sanitize(preview.html, {
+				ALLOWED_TAGS: ['blockquote', 'a', 'p', 'br', 'script'],
+				ALLOWED_ATTR: ['class', 'href', 'data-*'],
+				FORCE_BODY: false,
+				KEEP_CONTENT: true,
+			});
+			twitterContainer.innerHTML = sanitizedHtml;
 			// Tell Twitter to process the new embed
 			if (typeof window !== 'undefined') {
 				const twttr = (window as Window & { twttr?: { widgets?: { load?: (el?: HTMLElement) => void } } }).twttr;

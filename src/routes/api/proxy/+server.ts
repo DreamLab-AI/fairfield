@@ -8,6 +8,12 @@
  * - Server-side caching to reduce load on external services
  * - Twitter/X oEmbed support for rich tweet previews
  * - Shared cache across all users on the node
+ *
+ * Security:
+ * - URL allowlist for trusted domains only
+ * - HTTPS-only scheme validation
+ * - Private/internal IP blocking
+ * - Rate limiting structure (TODO: implement with Redis)
  */
 
 import type { RequestHandler } from './$types';
@@ -16,8 +22,156 @@ import { dev } from '$app/environment';
 const TWITTER_OEMBED_URL = 'https://publish.twitter.com/oembed';
 const TIMEOUT_MS = 10000;
 
-// Server-side cache for link previews (shared across all users)
-// In production, this could be replaced with Redis or stored in the Nostr relay
+// =============================================================================
+// SECURITY: URL Allowlist Configuration
+// =============================================================================
+
+/**
+ * Allowlist of trusted domains for link previews.
+ * Only URLs from these domains (and their subdomains) will be fetched.
+ */
+const ALLOWED_DOMAINS = new Set([
+	// Social media
+	'twitter.com',
+	'x.com',
+	'youtube.com',
+	'youtu.be',
+	'github.com',
+	'reddit.com',
+	'instagram.com',
+	'facebook.com',
+	'linkedin.com',
+	'tiktok.com',
+	'threads.net',
+	'mastodon.social',
+	'bsky.app',
+
+	// Media & News
+	'medium.com',
+	'substack.com',
+	'nytimes.com',
+	'washingtonpost.com',
+	'bbc.com',
+	'bbc.co.uk',
+	'theguardian.com',
+	'reuters.com',
+	'apnews.com',
+	'cnn.com',
+	'npr.org',
+
+	// Tech & Developer
+	'stackoverflow.com',
+	'stackexchange.com',
+	'dev.to',
+	'hashnode.com',
+	'hackernews.com',
+	'news.ycombinator.com',
+	'gitlab.com',
+	'bitbucket.org',
+	'codepen.io',
+	'codesandbox.io',
+	'replit.com',
+	'npmjs.com',
+	'pypi.org',
+	'crates.io',
+
+	// Documentation & Reference
+	'wikipedia.org',
+	'wikimedia.org',
+	'docs.google.com',
+	'notion.so',
+	'notion.site',
+
+	// Images & Media Hosting
+	'imgur.com',
+	'giphy.com',
+	'tenor.com',
+	'vimeo.com',
+	'twitch.tv',
+	'soundcloud.com',
+	'spotify.com',
+
+	// Nostr-related
+	'nostr.build',
+	'nostr.band',
+	'snort.social',
+	'primal.net',
+	'iris.to',
+	'nostrudel.ninja',
+]);
+
+/**
+ * Private/internal IP ranges that must be blocked to prevent SSRF attacks.
+ * Includes IPv4 and IPv6 private ranges.
+ */
+const BLOCKED_IP_PATTERNS = [
+	// IPv4 loopback
+	/^127\./,
+	// IPv4 private ranges (RFC 1918)
+	/^10\./,
+	/^192\.168\./,
+	/^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+	// IPv4 link-local
+	/^169\.254\./,
+	// IPv4 localhost alternatives
+	/^0\./,
+	// IPv6 loopback
+	/^::1$/,
+	/^0:0:0:0:0:0:0:1$/,
+	// IPv6 private ranges
+	/^fc[0-9a-f]{2}:/i,
+	/^fd[0-9a-f]{2}:/i,
+	// IPv6 link-local
+	/^fe80:/i,
+	// AWS metadata endpoint
+	/^169\.254\.169\.254$/,
+	// Cloud metadata endpoints (GCP, Azure)
+	/^metadata\./i,
+];
+
+const BLOCKED_HOSTNAMES = new Set([
+	'localhost',
+	'localhost.localdomain',
+	'local',
+	'internal',
+	'intranet',
+	'metadata',
+	'metadata.google.internal',
+	'169.254.169.254',
+]);
+
+// =============================================================================
+// RATE LIMITING STRUCTURE (Future Implementation)
+// =============================================================================
+
+/**
+ * Rate limiting configuration - to be implemented with Redis or similar.
+ *
+ * TODO: Implement rate limiting with the following structure:
+ *
+ * interface RateLimitConfig {
+ *   windowMs: number;        // Time window in milliseconds
+ *   maxRequests: number;     // Max requests per window
+ *   keyGenerator: (ip: string, url: string) => string;
+ * }
+ *
+ * const RATE_LIMITS = {
+ *   perIP: { windowMs: 60000, maxRequests: 30 },      // 30 req/min per IP
+ *   perDomain: { windowMs: 60000, maxRequests: 100 }, // 100 req/min per domain
+ *   global: { windowMs: 60000, maxRequests: 1000 },   // 1000 req/min global
+ * };
+ *
+ * Implementation notes:
+ * - Use Redis INCR with EXPIRE for atomic rate limiting
+ * - Return 429 Too Many Requests when limit exceeded
+ * - Include Retry-After header with remaining window time
+ * - Consider using sliding window algorithm for smoother limiting
+ */
+
+// =============================================================================
+// Cache Implementation
+// =============================================================================
+
 interface CacheEntry {
 	data: Record<string, unknown>;
 	timestamp: number;
@@ -80,6 +234,97 @@ function getCacheStats(): { size: number; totalHits: number } {
 	return { size: previewCache.size, totalHits };
 }
 
+// =============================================================================
+// Security Validation Functions
+// =============================================================================
+
+/**
+ * Check if a domain is in the allowlist (including subdomains)
+ */
+function isDomainAllowed(hostname: string): boolean {
+	const normalizedHost = hostname.toLowerCase();
+
+	// Check exact match
+	if (ALLOWED_DOMAINS.has(normalizedHost)) {
+		return true;
+	}
+
+	// Check if it's a subdomain of an allowed domain
+	for (const allowedDomain of ALLOWED_DOMAINS) {
+		if (normalizedHost.endsWith(`.${allowedDomain}`)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Check if a hostname or IP is blocked (internal/private)
+ */
+function isBlockedHost(hostname: string): boolean {
+	const normalizedHost = hostname.toLowerCase();
+
+	// Check blocked hostnames
+	if (BLOCKED_HOSTNAMES.has(normalizedHost)) {
+		return true;
+	}
+
+	// Check blocked IP patterns
+	for (const pattern of BLOCKED_IP_PATTERNS) {
+		if (pattern.test(normalizedHost)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Validate URL for SSRF protection
+ * Returns an error message if validation fails, null if valid
+ */
+function validateUrlSecurity(urlString: string): string | null {
+	let parsed: URL;
+
+	try {
+		parsed = new URL(urlString);
+	} catch {
+		return 'Invalid URL format';
+	}
+
+	// 1. Validate scheme - HTTPS only
+	if (parsed.protocol !== 'https:') {
+		return 'Only HTTPS URLs are allowed';
+	}
+
+	// 2. Check for blocked internal/private hosts
+	if (isBlockedHost(parsed.hostname)) {
+		return 'Access to internal/private addresses is not allowed';
+	}
+
+	// 3. Check domain allowlist
+	if (!isDomainAllowed(parsed.hostname)) {
+		return `Domain "${parsed.hostname}" is not in the allowlist`;
+	}
+
+	// 4. Block URLs with credentials
+	if (parsed.username || parsed.password) {
+		return 'URLs with credentials are not allowed';
+	}
+
+	// 5. Block non-standard ports (only allow 443 for HTTPS)
+	if (parsed.port && parsed.port !== '443') {
+		return 'Non-standard ports are not allowed';
+	}
+
+	return null;
+}
+
+// =============================================================================
+// URL Type Detection
+// =============================================================================
+
 /**
  * Detect if URL is Twitter/X
  */
@@ -91,6 +336,10 @@ function isTwitterUrl(url: string): boolean {
 		return false;
 	}
 }
+
+// =============================================================================
+// Data Fetching Functions
+// =============================================================================
 
 /**
  * Fetch Twitter oEmbed data
@@ -266,7 +515,11 @@ function resolveUrl(relativeUrl: string, baseUrl: string): string {
 	}
 }
 
-export const GET: RequestHandler = async ({ url }) => {
+// =============================================================================
+// Request Handler
+// =============================================================================
+
+export const GET: RequestHandler = async ({ url, getClientAddress }) => {
 	const targetUrl = url.searchParams.get('url');
 	const statsOnly = url.searchParams.get('stats') === 'true';
 
@@ -284,15 +537,34 @@ export const GET: RequestHandler = async ({ url }) => {
 		});
 	}
 
-	// Validate URL
-	try {
-		new URL(targetUrl);
-	} catch {
-		return new Response(JSON.stringify({ error: 'Invalid URL' }), {
-			status: 400,
+	// ==========================================================================
+	// SECURITY VALIDATION
+	// ==========================================================================
+
+	const securityError = validateUrlSecurity(targetUrl);
+	if (securityError) {
+		return new Response(JSON.stringify({ error: securityError }), {
+			status: 403,
 			headers: { 'Content-Type': 'application/json' },
 		});
 	}
+
+	// ==========================================================================
+	// RATE LIMITING (TODO: Implement with Redis)
+	// ==========================================================================
+
+	// TODO: Add rate limiting check here
+	// const clientIP = getClientAddress();
+	// const rateLimitResult = await checkRateLimit(clientIP, targetUrl);
+	// if (rateLimitResult.exceeded) {
+	//   return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+	//     status: 429,
+	//     headers: {
+	//       'Content-Type': 'application/json',
+	//       'Retry-After': String(rateLimitResult.retryAfter),
+	//     },
+	//   });
+	// }
 
 	const isTwitter = isTwitterUrl(targetUrl);
 
