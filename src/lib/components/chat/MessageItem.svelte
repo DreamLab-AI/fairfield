@@ -19,6 +19,7 @@
   import ReactionBar from './ReactionBar.svelte';
   import ReactionPicker from './ReactionPicker.svelte';
   import UserDisplay from '$lib/components/user/UserDisplay.svelte';
+  import MentionText from './MentionText.svelte';
 
   export let message: Message;
   export let channelName: string | undefined = undefined;
@@ -254,7 +255,7 @@
           <span class="italic">Encrypted message</span>
         </div>
       {:else}
-        <p class="whitespace-pre-wrap">{displayContent}</p>
+        <p class="whitespace-pre-wrap"><MentionText content={displayContent} /></p>
       {/if}
 
       {#if message.isEncrypted && isDecrypted}

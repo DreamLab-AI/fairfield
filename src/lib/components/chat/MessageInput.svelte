@@ -5,7 +5,7 @@
   import { authStore } from '$lib/stores/auth';
   import { draftStore } from '$lib/stores/drafts';
   import { notificationStore } from '$lib/stores/notifications';
-  import { createMentionTags, extractMentionedPubkeys, formatPubkey } from '$lib/utils/mentions';
+  import { createMentionTags, extractMentionedPubkeys, formatPubkey, getMentionDisplayName, createNicknameResolver } from '$lib/utils/mentions';
   import { toast } from '$lib/stores/toast';
   import { ndk, publishEvent, isConnected } from '$lib/nostr/relay';
   import { KIND_GROUP_CHAT_MESSAGE } from '$lib/nostr/groups';
@@ -223,8 +223,10 @@
       }
 
       // Extract mentioned users and create mention tags
-      const mentionedPubkeys = extractMentionedPubkeys(content);
-      const mentionTags = createMentionTags(content);
+      // Create resolver to convert @nicknames to pubkeys
+      const nicknameResolver = createNicknameResolver(availableUsers);
+      const mentionedPubkeys = extractMentionedPubkeys(content, nicknameResolver);
+      const mentionTags = createMentionTags(content, nicknameResolver);
 
       // Create and publish message event (kind 9 - NIP-29 group message)
       const messageEvent = new NDKEvent(ndkInstance);
@@ -383,10 +385,11 @@
   function handleMentionSelect(event: CustomEvent<{ user: UserProfile }>) {
     const user = event.detail.user;
 
-    // Replace @query with @pubkey
+    // Replace @query with @nickname (nickname-first design)
     const before = messageText.slice(0, mentionStartIndex);
     const after = messageText.slice(textareaElement.selectionStart);
-    messageText = before + `@${user.pubkey} ` + after;
+    const displayName = getMentionDisplayName(user);
+    messageText = before + `@${displayName} ` + after;
 
     // Close autocomplete
     showMentionAutocomplete = false;
@@ -396,7 +399,7 @@
     // Focus back on textarea
     tick().then(() => {
       if (textareaElement) {
-        const newCursorPos = before.length + user.pubkey.length + 2; // +2 for @ and space
+        const newCursorPos = before.length + displayName.length + 2; // +2 for @ and space
         textareaElement.focus();
         textareaElement.setSelectionRange(newCursorPos, newCursorPos);
       }

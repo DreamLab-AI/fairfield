@@ -7,6 +7,7 @@ import { indexNewMessage, removeDeletedMessage } from '$lib/utils/searchIndex';
 import { ndk, publishEvent, subscribe as ndkSubscribe } from '$lib/nostr/relay';
 import { NDKEvent, type NDKFilter, type NDKSubscription } from '@nostr-dev-kit/ndk';
 import { getPublicKey, getEventHash, signEvent, nip04Encrypt, nip04Decrypt } from '$lib/utils/nostr-crypto';
+import { isNip04EncryptionAllowed, isNip04DecryptionAllowed, NIP04_MIGRATION, daysUntil } from '$lib/config/migrations';
 
 /**
  * Message author information
@@ -95,15 +96,30 @@ function createMessageStore() {
   }
 
   /**
-   * Decrypt message content
+   * Decrypt message content (NIP-04 legacy)
+   * Note: NIP-04 decryption will be removed after 2025-12-01
    */
   async function decryptMessage(
     encryptedContent: string,
     senderPubkey: string,
     recipientPrivkey: string
   ): Promise<string> {
+    // Check migration status
+    if (!isNip04DecryptionAllowed()) {
+      console.warn('[MIGRATION] NIP-04 decryption disabled after', NIP04_MIGRATION.REMOVE_DATE);
+      return '[Legacy encrypted message - please export before migration deadline]';
+    }
+
     try {
-      return await nip04Decrypt(recipientPrivkey, senderPubkey, encryptedContent);
+      const result = await nip04Decrypt(recipientPrivkey, senderPubkey, encryptedContent);
+
+      // Show deprecation warning in warning phase
+      const daysLeft = daysUntil(NIP04_MIGRATION.DISABLE_DATE);
+      if (daysLeft > 0 && daysLeft < 180) {
+        console.warn(`[MIGRATION] NIP-04 encryption will be disabled in ${daysLeft} days`);
+      }
+
+      return result;
     } catch (error) {
       console.error('Failed to decrypt message:', error);
       toast.warning('Some messages could not be decrypted', 5000);
@@ -112,13 +128,29 @@ function createMessageStore() {
   }
 
   /**
-   * Encrypt message content
+   * Encrypt message content (NIP-04 legacy)
+   * Note: NIP-04 encryption disabled after 2025-06-01
+   * @deprecated Use NIP-44 via gift wrap for new messages
    */
   async function encryptMessage(
     content: string,
     recipientPubkey: string,
     senderPrivkey: string
   ): Promise<string> {
+    // Check migration status - block encryption after disable date
+    if (!isNip04EncryptionAllowed()) {
+      throw new Error(
+        `NIP-04 encryption is disabled as of ${NIP04_MIGRATION.DISABLE_DATE}. ` +
+        'Please use NIP-44 encryption (kind 1059 gift wrap) for new messages.'
+      );
+    }
+
+    // Warn about upcoming deprecation
+    const daysLeft = daysUntil(NIP04_MIGRATION.DISABLE_DATE);
+    if (daysLeft > 0 && daysLeft < 90) {
+      console.warn(`[DEPRECATION] NIP-04 encryption will be disabled in ${daysLeft} days`);
+    }
+
     return await nip04Encrypt(senderPrivkey, recipientPubkey, content);
   }
 

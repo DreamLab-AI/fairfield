@@ -1,6 +1,9 @@
 /**
  * Utilities for handling @mentions in messages
  * Supports parsing, formatting, and tag generation for Nostr events
+ *
+ * Mention Format: @nickname (human-readable, resolved to pubkey)
+ * Storage: Nostr p-tags contain hex pubkeys for compatibility
  */
 
 import { nip19 } from 'nostr-tools';
@@ -10,6 +13,7 @@ export interface Mention {
   startIndex: number;
   endIndex: number;
   displayName?: string;
+  originalText?: string; // The @nickname or @pubkey that was matched
 }
 
 export interface UserMap {
@@ -20,17 +24,32 @@ export interface UserMap {
 }
 
 /**
- * Regular expression to match @mentions
- * Matches @npub... or @pubkey format
+ * Nickname to pubkey resolver type
+ * Used to look up pubkeys from nicknames
  */
-const MENTION_REGEX = /@(npub1[a-z0-9]{58}|[a-f0-9]{64})/gi;
+export type NicknameResolver = (nickname: string) => string | null;
+
+/**
+ * Regular expression to match @mentions
+ * Matches @nickname (alphanumeric + underscore), @npub..., or @hex pubkey
+ * Nickname format: 1-30 alphanumeric chars, underscores, or hyphens
+ */
+const MENTION_REGEX = /@(npub1[a-z0-9]{58}|[a-f0-9]{64}|[\w-]{1,30})/gi;
+
+/**
+ * Check if a mention looks like a pubkey (hex or npub)
+ */
+export function isPubkeyFormat(text: string): boolean {
+  return /^(npub1[a-z0-9]{58}|[a-f0-9]{64})$/i.test(text);
+}
 
 /**
  * Parse mentions from message content
  * @param content - The message content to parse
- * @returns Array of detected mentions
+ * @param resolver - Optional function to resolve nicknames to pubkeys
+ * @returns Array of detected mentions with resolved pubkeys
  */
-export function parseMentions(content: string): Mention[] {
+export function parseMentions(content: string, resolver?: NicknameResolver): Mention[] {
   const mentions: Mention[] = [];
   let match: RegExpExecArray | null;
 
@@ -38,11 +57,27 @@ export function parseMentions(content: string): Mention[] {
   MENTION_REGEX.lastIndex = 0;
 
   while ((match = MENTION_REGEX.exec(content)) !== null) {
-    const pubkey = match[1];
+    const mentionText = match[1];
+    let pubkey: string;
+
+    if (isPubkeyFormat(mentionText)) {
+      // Direct pubkey format (@npub or @hex)
+      pubkey = mentionText.startsWith('npub1') ? npubToHex(mentionText) : mentionText;
+    } else if (resolver) {
+      // Nickname format - resolve to pubkey
+      const resolved = resolver(mentionText);
+      if (!resolved) continue; // Skip unresolved nicknames
+      pubkey = resolved;
+    } else {
+      // No resolver and not a pubkey - skip
+      continue;
+    }
+
     mentions.push({
       pubkey,
       startIndex: match.index,
-      endIndex: match.index + match[0].length
+      endIndex: match.index + match[0].length,
+      originalText: mentionText
     });
   }
 
@@ -84,10 +119,11 @@ export function formatMentions(content: string, userMap: UserMap): string {
  * Create Nostr 'p' tags for mentioned users
  * These tags are included in the event to notify mentioned users
  * @param content - The message content
+ * @param resolver - Optional function to resolve nicknames to pubkeys
  * @returns Array of p-tags for Nostr events
  */
-export function createMentionTags(content: string): string[][] {
-  const mentions = parseMentions(content);
+export function createMentionTags(content: string, resolver?: NicknameResolver): string[][] {
+  const mentions = parseMentions(content, resolver);
   const uniquePubkeys = new Set(mentions.map(m => m.pubkey));
 
   // Return array of ['p', pubkey] tags
@@ -168,12 +204,48 @@ export function npubToHex(npub: string): string {
 /**
  * Extract all unique mentioned pubkeys from content
  * @param content - The message content
+ * @param resolver - Optional function to resolve nicknames to pubkeys
  * @returns Array of unique pubkeys
  */
-export function extractMentionedPubkeys(content: string): string[] {
-  const mentions = parseMentions(content);
+export function extractMentionedPubkeys(content: string, resolver?: NicknameResolver): string[] {
+  const mentions = parseMentions(content, resolver);
   const uniquePubkeys = new Set(mentions.map(m => m.pubkey));
   return Array.from(uniquePubkeys);
+}
+
+/**
+ * Create a nickname resolver from a user map
+ * @param users - Array of users with pubkey and displayName
+ * @returns Resolver function
+ */
+export function createNicknameResolver(users: Array<{ pubkey: string; displayName?: string | null; name?: string | null }>): NicknameResolver {
+  // Build lookup maps (case-insensitive)
+  const nicknameMap = new Map<string, string>();
+
+  for (const user of users) {
+    const nickname = user.displayName || user.name;
+    if (nickname) {
+      nicknameMap.set(nickname.toLowerCase(), user.pubkey);
+    }
+  }
+
+  return (nickname: string): string | null => {
+    return nicknameMap.get(nickname.toLowerCase()) || null;
+  };
+}
+
+/**
+ * Get the display name for a mention insertion
+ * Returns nickname if available, otherwise shortened pubkey
+ */
+export function getMentionDisplayName(user: { pubkey: string; displayName?: string | null; name?: string | null }): string {
+  const nickname = user.displayName || user.name;
+  if (nickname) {
+    // Sanitize nickname: remove @ and spaces for mention format
+    return nickname.replace(/[@\s]/g, '_');
+  }
+  // Fallback to short pubkey
+  return formatPubkey(user.pubkey).replace('...', '');
 }
 
 /**
