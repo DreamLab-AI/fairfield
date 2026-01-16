@@ -12,6 +12,7 @@
   import { KIND_DELETE_EVENT } from '$lib/nostr/groups';
   import type { Message } from '$lib/types/channel';
   import { extractUrls, getMediaType } from '$lib/utils/linkPreview';
+  import { extractAllMedia } from '$lib/utils/encryptedImageTags';
   import LinkPreview from './LinkPreview.svelte';
   import MediaEmbed from './MediaEmbed.svelte';
   import { preferencesStore } from '$lib/stores/preferences';
@@ -47,9 +48,16 @@
   $: isDecrypted = !message.isEncrypted || !!message.decryptedContent;
   $: bookmarked = isBookmarked(message.id);
 
-  // Extract URLs and determine media types
-  $: urls = $preferencesStore.linkPreviewsEnabled && isDecrypted ? extractUrls(displayContent) : [];
-  $: mediaUrls = urls.slice(0, 3).map(url => getMediaType(url));
+  // Extract URLs and determine media types (including encrypted images from tags)
+  $: mediaUrls = $preferencesStore.linkPreviewsEnabled && isDecrypted
+    ? extractAllMedia(
+        displayContent,
+        message.tags || [],
+        $authStore.publicKey ?? undefined, // Convert null to undefined
+        extractUrls,
+        getMediaType
+      ).slice(0, 3)
+    : [];
   $: hasMedia = mediaUrls.length > 0;
 
   function formatTime(timestamp: number): string {

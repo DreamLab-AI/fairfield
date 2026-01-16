@@ -161,12 +161,25 @@ export async function updateChannelMetadata(
 }
 
 /**
+ * Options for sending channel messages
+ */
+export interface ChannelMessageOptions {
+	/** Reply to a specific message ID */
+	replyTo?: string;
+	/** Additional tags (e.g., encrypted image tags) */
+	additionalTags?: string[][];
+}
+
+/**
  * Send a message to a channel (NIP-28 kind 42)
+ * @param channelId - Channel ID
+ * @param content - Message content
+ * @param options - Optional message options (replyTo, additionalTags for encrypted images)
  */
 export async function sendChannelMessage(
 	channelId: string,
 	content: string,
-	replyTo?: string
+	options?: ChannelMessageOptions | string // string for backwards compat (replyTo)
 ): Promise<string> {
 	if (!browser) {
 		throw new Error('Channel operations require browser environment');
@@ -196,13 +209,25 @@ export async function sendChannelMessage(
 		throw new Error('Not connected to relays. Please wait for connection.');
 	}
 
+	// Handle backwards compatibility: string = replyTo
+	const opts: ChannelMessageOptions = typeof options === 'string'
+		? { replyTo: options }
+		: options || {};
+
 	const event = new NDKEvent(ndk()!);
 	event.kind = CHANNEL_KINDS.MESSAGE;
 	event.content = content;
 	event.tags.push(['e', channelId, '', 'root']);
 
-	if (replyTo) {
-		event.tags.push(['e', replyTo, '', 'reply']);
+	if (opts.replyTo) {
+		event.tags.push(['e', opts.replyTo, '', 'reply']);
+	}
+
+	// Add additional tags (encrypted image tags, etc.)
+	if (opts.additionalTags) {
+		for (const tag of opts.additionalTags) {
+			event.tags.push(tag);
+		}
 	}
 
 	await event.sign();
@@ -269,18 +294,25 @@ export async function fetchChannels(limit = 100): Promise<CreatedChannel[]> {
 }
 
 /**
- * Fetch messages for a channel
+ * Channel message with full metadata including tags for encrypted images
  */
-export async function fetchChannelMessages(
-	channelId: string,
-	limit = 50
-): Promise<Array<{
+export interface ChannelMessage {
 	id: string;
 	content: string;
 	pubkey: string;
 	createdAt: number;
 	replyTo?: string;
-}>> {
+	/** All event tags (for encrypted images, etc.) */
+	tags: string[][];
+}
+
+/**
+ * Fetch messages for a channel
+ */
+export async function fetchChannelMessages(
+	channelId: string,
+	limit = 50
+): Promise<ChannelMessage[]> {
 	if (!browser) {
 		return [];
 	}
@@ -301,13 +333,7 @@ export async function fetchChannelMessages(
 	};
 
 	const events = await ndkInstance.fetchEvents(filter);
-	const messages: Array<{
-		id: string;
-		content: string;
-		pubkey: string;
-		createdAt: number;
-		replyTo?: string;
-	}> = [];
+	const messages: ChannelMessage[] = [];
 
 	for (const event of events) {
 		const replyTag = event.tags.find(t => t[0] === 'e' && t[3] === 'reply');
@@ -318,6 +344,7 @@ export async function fetchChannelMessages(
 			pubkey: event.pubkey,
 			createdAt: event.created_at || 0,
 			replyTo: replyTag?.[1],
+			tags: event.tags.map(t => [...t]), // Clone tags array
 		});
 	}
 
@@ -332,13 +359,7 @@ export async function fetchChannelMessages(
  */
 export function subscribeToChannel(
 	channelId: string,
-	onMessage: (message: {
-		id: string;
-		content: string;
-		pubkey: string;
-		createdAt: number;
-		replyTo?: string;
-	}) => void
+	onMessage: (message: ChannelMessage) => void
 ): { unsubscribe: () => void } {
 	if (!browser) {
 		return { unsubscribe: () => {} };
@@ -366,6 +387,7 @@ export function subscribeToChannel(
 			pubkey: event.pubkey,
 			createdAt: event.created_at || 0,
 			replyTo: replyTag?.[1],
+			tags: event.tags.map(t => [...t]), // Clone tags array
 		});
 	});
 

@@ -50,12 +50,21 @@ export interface Relay {
 }
 
 /**
+ * Options for sending DMs
+ */
+export interface DMOptions {
+  /** Additional tags (e.g., encrypted image tags) */
+  additionalTags?: string[][];
+}
+
+/**
  * Send a gift-wrapped direct message
  *
  * @param content - The message content to send
  * @param recipientPubkey - Recipient's public key (hex)
  * @param senderPrivkey - Sender's private key (hex)
  * @param relay - Relay instance to publish to
+ * @param options - Optional DM options (additionalTags for encrypted images)
  *
  * @example
  * ```typescript
@@ -68,13 +77,23 @@ export interface Relay {
  *   privkey,
  *   relay
  * );
+ *
+ * // With encrypted image:
+ * await sendDM(
+ *   "Check out this photo!",
+ *   recipientPubkey,
+ *   privkey,
+ *   relay,
+ *   { additionalTags: imageTags }
+ * );
  * ```
  */
 export async function sendDM(
   content: string,
   recipientPubkey: string,
   senderPrivkey: Uint8Array,
-  relay: Relay
+  relay: Relay,
+  options?: DMOptions
 ): Promise<void> {
   // Validate recipient pubkey
   if (!isValidPubkey(recipientPubkey)) {
@@ -99,12 +118,20 @@ export async function sendDM(
   const senderPubkey = getPublicKey(senderPrivkey);
   const currentTimestamp = Math.floor(Date.now() / 1000);
 
+  // Build rumor tags: recipient + any additional tags (encrypted images, etc.)
+  const rumorTags: string[][] = [['p', recipientPubkey]];
+  if (options?.additionalTags) {
+    for (const tag of options.additionalTags) {
+      rumorTags.push(tag);
+    }
+  }
+
   // Step 1: Create the rumor (unsigned inner event - kind 14)
   const rumor: UnsignedEvent = {
     kind: KIND_SEALED_RUMOR,
     pubkey: senderPubkey,
     created_at: currentTimestamp,
-    tags: [['p', recipientPubkey]],
+    tags: rumorTags,
     content: content,
   };
 

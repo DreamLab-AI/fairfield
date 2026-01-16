@@ -1,21 +1,55 @@
 /**
  * Image Upload Utility
  * Client-side image compression and upload to GCS via Cloud Run API
+ * Supports optional client-side encryption for private channels/DMs
  */
+
+import {
+  encryptImageForRecipients,
+  arrayBufferToBase64,
+  type RecipientKey,
+} from './imageEncryption';
+
+// Re-export RecipientKey for use by encryptedImageTags.ts
+export type { RecipientKey } from './imageEncryption';
 
 // Configuration from environment
 const IMAGE_API_URL = import.meta.env.VITE_IMAGE_API_URL || '';
 const IMAGE_BUCKET = import.meta.env.VITE_IMAGE_BUCKET || '';
+const IMAGE_ENCRYPTION_ENABLED = import.meta.env.VITE_IMAGE_ENCRYPTION_ENABLED === 'true';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB original limit
 const MAX_DIMENSION = 1920; // Max width/height
 const JPEG_QUALITY = 0.85;
 const THUMBNAIL_SIZE = 200;
+
+/**
+ * Check if image encryption feature is enabled
+ */
+export function isImageEncryptionEnabled(): boolean {
+  return IMAGE_ENCRYPTION_ENABLED;
+}
+
+/**
+ * Encryption metadata for encrypted images
+ */
+export interface EncryptedImageMetadata {
+  /** Base64 IV for AES-GCM */
+  iv: string;
+  /** Base64 salt */
+  salt: string;
+  /** Per-recipient encrypted AES keys */
+  recipientKeys: RecipientKey[];
+}
 
 export interface ImageUploadResult {
   success: boolean;
   url?: string;
   thumbnailUrl?: string;
   error?: string;
+  /** Present when image is encrypted */
+  encrypted?: boolean;
+  /** Present when image is encrypted */
+  encryptionData?: EncryptedImageMetadata;
   metadata?: {
     originalSize: number;
     compressedSize: number;
@@ -143,12 +177,26 @@ export async function compressImage(
 }
 
 /**
+ * Encryption options for private image uploads
+ */
+export interface EncryptionOptions {
+  /** Enable client-side encryption */
+  encrypt: boolean;
+  /** Recipient public keys (required if encrypt is true) */
+  recipientPubkeys?: string[];
+  /** Sender's private key for key distribution (required if encrypt is true) */
+  senderPrivkey?: string;
+}
+
+/**
  * Upload compressed image to GCS via Cloud Run API
+ * Optionally encrypts before upload for private channels/DMs
  */
 export async function uploadImage(
   file: File,
   userPubkey: string,
-  category: 'avatar' | 'message' | 'channel' = 'message'
+  category: 'avatar' | 'message' | 'channel' = 'message',
+  encryptionOptions?: EncryptionOptions
 ): Promise<ImageUploadResult> {
   // Check if image API URL is configured
   if (!IMAGE_API_URL) {
@@ -174,6 +222,23 @@ export async function uploadImage(
     };
   }
 
+  // Validate encryption options if provided
+  const shouldEncrypt = encryptionOptions?.encrypt === true;
+  if (shouldEncrypt) {
+    if (!encryptionOptions.recipientPubkeys || encryptionOptions.recipientPubkeys.length === 0) {
+      return {
+        success: false,
+        error: 'Encryption requires at least one recipient public key'
+      };
+    }
+    if (!encryptionOptions.senderPrivkey) {
+      return {
+        success: false,
+        error: 'Encryption requires sender private key'
+      };
+    }
+  }
+
   try {
     // Compress image
     const { blob, thumbnail, width, height } = await compressImage(file, {
@@ -181,16 +246,42 @@ export async function uploadImage(
       maxHeight: category === 'avatar' ? 400 : MAX_DIMENSION,
       quality: category === 'avatar' ? 0.9 : JPEG_QUALITY,
       format: 'jpeg',
-      generateThumbnail: category !== 'avatar'
+      generateThumbnail: category !== 'avatar' && !shouldEncrypt // No thumbnails for encrypted images
     });
+
+    let uploadBlob: Blob = blob;
+    let encryptionData: EncryptedImageMetadata | undefined;
+
+    // Encrypt if requested
+    if (shouldEncrypt && encryptionOptions?.recipientPubkeys && encryptionOptions?.senderPrivkey) {
+      const encrypted = await encryptImageForRecipients(
+        blob,
+        encryptionOptions.recipientPubkeys,
+        encryptionOptions.senderPrivkey
+      );
+
+      // Convert encrypted ArrayBuffer to Blob for upload
+      uploadBlob = new Blob([encrypted.encryptedBlob], { type: 'application/octet-stream' });
+
+      encryptionData = {
+        iv: encrypted.iv,
+        salt: encrypted.salt,
+        recipientKeys: encrypted.recipientKeys,
+      };
+    }
 
     // Create form data
     const formData = new FormData();
-    formData.append('image', blob, `image.jpg`);
+    const fileName = shouldEncrypt ? 'image.enc' : 'image.jpg';
+    const contentType = shouldEncrypt ? 'application/octet-stream' : 'image/jpeg';
+    formData.append('image', uploadBlob, fileName);
     formData.append('pubkey', userPubkey);
     formData.append('category', category);
+    if (shouldEncrypt) {
+      formData.append('encrypted', 'true');
+    }
 
-    if (thumbnail) {
+    if (thumbnail && !shouldEncrypt) {
       formData.append('thumbnail', thumbnail, 'thumbnail.jpg');
     }
 
@@ -213,13 +304,15 @@ export async function uploadImage(
     return {
       success: true,
       url: result.url,
-      thumbnailUrl: result.thumbnailUrl,
+      thumbnailUrl: shouldEncrypt ? undefined : result.thumbnailUrl,
+      encrypted: shouldEncrypt,
+      encryptionData,
       metadata: {
         originalSize: file.size,
-        compressedSize: blob.size,
+        compressedSize: uploadBlob.size,
         width,
         height,
-        format: 'jpeg'
+        format: shouldEncrypt ? 'encrypted' : 'jpeg'
       }
     };
   } catch (error) {

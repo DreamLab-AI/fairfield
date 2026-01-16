@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { MediaType } from '$lib/utils/linkPreview';
+	import { authStore } from '$lib/stores/auth';
+	import { decryptImageFromSender, base64ToArrayBuffer } from '$lib/utils/imageEncryption';
 
 	export let media: MediaType;
 
@@ -10,6 +12,64 @@
 	let lightboxOpen = false;
 	let videoPlaying = false;
 	let youtubeIframeLoaded = false;
+
+	// Encryption state
+	let decryptedBlobUrl: string | null = null;
+	let decryptionError: string | null = null;
+	let isDecrypting = false;
+
+	// Check if this is an encrypted image
+	$: isEncrypted = media.type === 'image' && media.encryption?.encrypted === true;
+	$: displayUrl = isEncrypted ? decryptedBlobUrl : media.url;
+
+	// Decrypt encrypted images when visible
+	async function decryptImage() {
+		if (!isEncrypted || decryptedBlobUrl || isDecrypting || !media.encryption) return;
+		if (!$authStore.privateKey) {
+			decryptionError = 'Private key required for decryption';
+			return;
+		}
+
+		isDecrypting = true;
+		decryptionError = null;
+
+		try {
+			// Fetch the encrypted blob
+			const response = await fetch(media.url);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch encrypted image: ${response.status}`);
+			}
+			const encryptedBlob = await response.arrayBuffer();
+
+			// Decrypt using sender's pubkey and our private key
+			const decryptedBlob = await decryptImageFromSender(
+				encryptedBlob,
+				media.encryption.encryptedKey,
+				media.encryption.senderPubkey,
+				$authStore.privateKey
+			);
+
+			// Create blob URL for display
+			decryptedBlobUrl = URL.createObjectURL(decryptedBlob);
+		} catch (error) {
+			console.error('Failed to decrypt image:', error);
+			decryptionError = error instanceof Error ? error.message : 'Decryption failed';
+		} finally {
+			isDecrypting = false;
+		}
+	}
+
+	// Trigger decryption when visible
+	$: if (isVisible && isEncrypted && !decryptedBlobUrl && !isDecrypting) {
+		decryptImage();
+	}
+
+	// Cleanup blob URL on destroy
+	onDestroy(() => {
+		if (decryptedBlobUrl) {
+			URL.revokeObjectURL(decryptedBlobUrl);
+		}
+	});
 
 	// Lazy load media using intersection observer
 	onMount(() => {
@@ -76,17 +136,70 @@
 		<!-- Image embed with lightbox -->
 		<div class="image-container" class:expanded>
 			{#if isVisible}
-				<img
-					src={media.url}
-					alt="Embedded image"
-					class="embedded-image"
-					loading="lazy"
-					on:click={openLightbox}
-					on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openLightbox())}
-					role="button"
-					tabindex="0"
-					aria-label="View image in lightbox"
-				/>
+				{#if isEncrypted && isDecrypting}
+					<!-- Decrypting state -->
+					<div class="media-placeholder decrypting">
+						<svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="10" opacity="0.25" />
+							<path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" />
+						</svg>
+						<span>Decrypting...</span>
+					</div>
+				{:else if isEncrypted && decryptionError}
+					<!-- Decryption error state -->
+					<div class="media-placeholder error">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+							<line x1="12" y1="15" x2="12" y2="17" />
+						</svg>
+						<span>Cannot decrypt</span>
+						<span class="error-detail">{decryptionError}</span>
+					</div>
+				{:else if isEncrypted && !displayUrl}
+					<!-- Waiting to decrypt -->
+					<div class="media-placeholder encrypted">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+						</svg>
+						<span>Encrypted image</span>
+					</div>
+				{:else if displayUrl}
+					<!-- Show image (decrypted or regular) -->
+					<img
+						src={displayUrl}
+						alt="Embedded image"
+						class="embedded-image"
+						loading="lazy"
+						on:click={openLightbox}
+						on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openLightbox())}
+						role="button"
+						tabindex="0"
+						aria-label="View image in lightbox"
+					/>
+					{#if isEncrypted}
+						<div class="encrypted-badge" title="End-to-end encrypted">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+								<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+							</svg>
+						</div>
+					{/if}
+				{:else}
+					<!-- Regular image -->
+					<img
+						src={media.url}
+						alt="Embedded image"
+						class="embedded-image"
+						loading="lazy"
+						on:click={openLightbox}
+						on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openLightbox())}
+						role="button"
+						tabindex="0"
+						aria-label="View image in lightbox"
+					/>
+				{/if}
 			{:else}
 				<div class="media-placeholder">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -94,7 +207,7 @@
 						<circle cx="8.5" cy="8.5" r="1.5" />
 						<polyline points="21 15 16 10 5 21" />
 					</svg>
-					<span>Image</span>
+					<span>{isEncrypted ? 'Encrypted image' : 'Image'}</span>
 				</div>
 			{/if}
 			<button class="expand-button" on:click={toggleExpand} title={expanded ? 'Collapse' : 'Expand'}>
@@ -116,7 +229,7 @@
 			</button>
 		</div>
 
-		{#if lightboxOpen}
+		{#if lightboxOpen && displayUrl}
 			<div class="lightbox" on:click={closeLightbox} role="button" tabindex="0" aria-label="Close lightbox" on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), closeLightbox())}>
 				<button class="lightbox-close" on:click={closeLightbox}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -124,7 +237,16 @@
 						<line x1="6" y1="6" x2="18" y2="18" />
 					</svg>
 				</button>
-				<img src={media.url} alt="Full size image" class="lightbox-image" on:click|stopPropagation />
+				<img src={displayUrl} alt="Full size image" class="lightbox-image" on:click|stopPropagation />
+				{#if isEncrypted}
+					<div class="lightbox-encrypted-badge">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+						</svg>
+						<span>End-to-end encrypted</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	{:else if media.type === 'video'}
@@ -401,6 +523,82 @@
 		border-radius: 0.5rem;
 	}
 
+	/* Encrypted image states */
+	.media-placeholder.decrypting {
+		background: var(--bg-tertiary);
+	}
+
+	.media-placeholder.encrypted {
+		background: var(--bg-tertiary);
+		color: var(--text-secondary);
+	}
+
+	.media-placeholder.error {
+		background: oklch(0.3 0.05 25);
+		color: oklch(0.8 0.15 25);
+	}
+
+	.media-placeholder .error-detail {
+		font-size: 0.75rem;
+		opacity: 0.7;
+		max-width: 200px;
+		text-align: center;
+		word-break: break-word;
+	}
+
+	.spinner {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.encrypted-badge {
+		position: absolute;
+		bottom: 0.5rem;
+		left: 0.5rem;
+		width: 24px;
+		height: 24px;
+		padding: 0.25rem;
+		background: rgba(0, 0, 0, 0.6);
+		border-radius: 0.25rem;
+		color: #22c55e;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.encrypted-badge svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.lightbox-encrypted-badge {
+		position: absolute;
+		bottom: 1.5rem;
+		left: 50%;
+		transform: translateX(-50%);
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background: rgba(0, 0, 0, 0.7);
+		border-radius: 2rem;
+		color: #22c55e;
+		font-size: 0.875rem;
+	}
+
+	.lightbox-encrypted-badge svg {
+		width: 16px;
+		height: 16px;
+	}
+
 	@media (max-width: 768px) {
 		.image-container,
 		.video-container,
@@ -415,6 +613,11 @@
 		.lightbox-image {
 			max-width: 95%;
 			max-height: 95%;
+		}
+
+		.lightbox-encrypted-badge {
+			bottom: 1rem;
+			font-size: 0.75rem;
 		}
 	}
 </style>
