@@ -3,6 +3,9 @@
  *
  * Tests for NIP-04 migration date logic, phase detection,
  * and migration status utilities.
+ *
+ * NOTE: As of 2026-01-16, NIP-04 and plaintext key migrations have been
+ * completed and the helper functions now return fixed values.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -30,10 +33,18 @@ describe('Migration Configuration', () => {
       expect(NIP04_MIGRATION.REMOVE_DATE).toBe('2025-12-01');
     });
 
+    it('should have NIP04_MIGRATION marked as REMOVED', () => {
+      expect(NIP04_MIGRATION.STATUS).toBe('REMOVED');
+    });
+
     it('should have valid PLAINTEXT_KEY_MIGRATION dates', () => {
       expect(PLAINTEXT_KEY_MIGRATION.WARN_DATE).toBe('2025-01-15');
       expect(PLAINTEXT_KEY_MIGRATION.DISABLE_DATE).toBe('2025-03-01');
       expect(PLAINTEXT_KEY_MIGRATION.REMOVE_DATE).toBe('2025-06-01');
+    });
+
+    it('should have PLAINTEXT_KEY_MIGRATION marked as REMOVED', () => {
+      expect(PLAINTEXT_KEY_MIGRATION.STATUS).toBe('REMOVED');
     });
 
     it('should have valid CHANNEL_FORMAT_MIGRATION dates', () => {
@@ -206,143 +217,95 @@ describe('Migration Configuration', () => {
     });
   });
 
-  describe('isNip04EncryptionAllowed', () => {
-    it('should return true in active phase', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2024-12-01'));
-
-      expect(isNip04EncryptionAllowed()).toBe(true);
-
-      vi.useRealTimers();
+  describe('isNip04EncryptionAllowed - REMOVED', () => {
+    it('should always return false (NIP-04 removed as of 2025-12-01)', () => {
+      // NIP-04 is permanently removed - no date-based logic
+      expect(isNip04EncryptionAllowed()).toBe(false);
     });
 
-    it('should return true in warning phase', () => {
+    it('should return false regardless of system time', () => {
       vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-03-01'));
 
-      expect(isNip04EncryptionAllowed()).toBe(true);
-
-      vi.useRealTimers();
-    });
-
-    it('should return false in disabled phase', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-08-01'));
-
+      // Even if we pretend it's before the removal date, function returns false
+      vi.setSystemTime(new Date('2024-01-01'));
       expect(isNip04EncryptionAllowed()).toBe(false);
 
-      vi.useRealTimers();
-    });
+      vi.setSystemTime(new Date('2025-03-01'));
+      expect(isNip04EncryptionAllowed()).toBe(false);
 
-    it('should return false in removed phase', () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01'));
-
       expect(isNip04EncryptionAllowed()).toBe(false);
 
       vi.useRealTimers();
     });
   });
 
-  describe('isNip04DecryptionAllowed', () => {
-    it('should return true in active phase', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2024-12-01'));
-
-      expect(isNip04DecryptionAllowed()).toBe(true);
-
-      vi.useRealTimers();
+  describe('isNip04DecryptionAllowed - REMOVED', () => {
+    it('should always return false (NIP-04 removed as of 2025-12-01)', () => {
+      // NIP-04 is permanently removed - no date-based logic
+      expect(isNip04DecryptionAllowed()).toBe(false);
     });
 
-    it('should return true in warning phase', () => {
+    it('should return false regardless of system time', () => {
       vi.useFakeTimers();
+
+      // Even if we pretend it's before the removal date, function returns false
+      vi.setSystemTime(new Date('2024-01-01'));
+      expect(isNip04DecryptionAllowed()).toBe(false);
+
       vi.setSystemTime(new Date('2025-03-01'));
+      expect(isNip04DecryptionAllowed()).toBe(false);
 
-      expect(isNip04DecryptionAllowed()).toBe(true);
-
-      vi.useRealTimers();
-    });
-
-    it('should return true in disabled phase (read-only)', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-08-01'));
-
-      expect(isNip04DecryptionAllowed()).toBe(true);
-
-      vi.useRealTimers();
-    });
-
-    it('should return false in removed phase', () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01'));
-
       expect(isNip04DecryptionAllowed()).toBe(false);
 
       vi.useRealTimers();
     });
   });
 
-  describe('isPlaintextKeyMigrationRequired', () => {
-    it('should return false before warning phase', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-01-10'));
+  describe('isPlaintextKeyMigrationRequired - REMOVED', () => {
+    it('should always return false (plaintext keys removed as of 2025-06-01)', () => {
+      // Plaintext key migration is no longer applicable
+      expect(isPlaintextKeyMigrationRequired()).toBe(false);
+    });
 
+    it('should return false regardless of system time', () => {
+      vi.useFakeTimers();
+
+      // Even if we pretend it's during the migration period, function returns false
+      vi.setSystemTime(new Date('2025-01-10'));
       expect(isPlaintextKeyMigrationRequired()).toBe(false);
 
-      vi.useRealTimers();
-    });
-
-    it('should return true in warning phase', () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-02-01'));
+      expect(isPlaintextKeyMigrationRequired()).toBe(false);
 
-      expect(isPlaintextKeyMigrationRequired()).toBe(true);
-
-      vi.useRealTimers();
-    });
-
-    it('should return true in disabled phase', () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-04-01'));
+      expect(isPlaintextKeyMigrationRequired()).toBe(false);
 
-      expect(isPlaintextKeyMigrationRequired()).toBe(true);
-
-      vi.useRealTimers();
-    });
-
-    it('should return false in removed phase (too late)', () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-08-01'));
-
       expect(isPlaintextKeyMigrationRequired()).toBe(false);
 
       vi.useRealTimers();
     });
   });
 
-  describe('shouldRejectPlaintextKeys', () => {
-    it('should return false before disable phase', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-02-15'));
-
-      expect(shouldRejectPlaintextKeys()).toBe(false);
-
-      vi.useRealTimers();
+  describe('shouldRejectPlaintextKeys - REMOVED', () => {
+    it('should always return true (plaintext keys removed as of 2025-06-01)', () => {
+      // Plaintext keys are always rejected
+      expect(shouldRejectPlaintextKeys()).toBe(true);
     });
 
-    it('should return true in disabled phase', () => {
+    it('should return true regardless of system time', () => {
       vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-04-01'));
 
+      // Even if we pretend it's before the disable date, function returns true
+      vi.setSystemTime(new Date('2025-02-15'));
       expect(shouldRejectPlaintextKeys()).toBe(true);
 
-      vi.useRealTimers();
-    });
+      vi.setSystemTime(new Date('2025-04-01'));
+      expect(shouldRejectPlaintextKeys()).toBe(true);
 
-    it('should return true in removed phase', () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-08-01'));
-
       expect(shouldRejectPlaintextKeys()).toBe(true);
 
       vi.useRealTimers();
@@ -514,6 +477,29 @@ describe('Migration Configuration', () => {
       expect(getMigrationStatus(customMigration)).toBe('warning');
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('Removed Feature Documentation', () => {
+    it('NIP-04 helper functions should document removal reason', () => {
+      // These tests verify that the functions exist and behave as documented
+      // The implementation no longer checks dates because the feature is permanently removed
+
+      // Encryption is never allowed (security: malleable ciphertext, IV reuse, metadata leakage)
+      expect(isNip04EncryptionAllowed()).toBe(false);
+
+      // Decryption is never allowed (migration period ended 2025-12-01)
+      expect(isNip04DecryptionAllowed()).toBe(false);
+    });
+
+    it('Plaintext key helper functions should document removal reason', () => {
+      // Plaintext key storage was removed 2025-06-01 for security reasons
+
+      // Migration is no longer required (too late, feature removed)
+      expect(isPlaintextKeyMigrationRequired()).toBe(false);
+
+      // Plaintext keys are always rejected
+      expect(shouldRejectPlaintextKeys()).toBe(true);
     });
   });
 });

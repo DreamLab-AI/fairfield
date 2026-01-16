@@ -259,9 +259,19 @@ gcloud run deploy nostr-bbs \
 |----------|-------------|---------|
 | `NODE_ENV` | Environment mode | `production` |
 | `PORT` | Server port (auto-set) | `8080` |
-| `PUBLIC_RELAY_URL` | Default relay | `wss://relay.example.com` |
-| `PUBLIC_APP_NAME` | Application name | `Nostr BBS` |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID | `cumbriadreamlab` |
+| `VITE_RELAY_URL` | Nostr relay (WSS) | `wss://nostr-relay-617806532906.us-central1.run.app` |
+| `VITE_EMBEDDING_API_URL` | Embedding API | `https://embedding-api-617806532906.us-central1.run.app` |
+| `VITE_IMAGE_API_URL` | Image upload API | `https://image-api-617806532906.us-central1.run.app` |
+| `VITE_ADMIN_PUBKEY` | Admin hex pubkey | `64-character-hex-string` |
 | `ORIGIN` | App origin for CSRF | `https://app.example.com` |
+
+### List Deployed Services
+
+```bash
+# Get all Cloud Run service URLs
+gcloud run services list --format="table(SERVICE,REGION,URL)"
+```
 
 ---
 

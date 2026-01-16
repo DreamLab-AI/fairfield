@@ -97,59 +97,111 @@ Even if someone intercepts the message, they only see encrypted data with no way
 ---
 
 <details>
-<summary><strong>Developer Setup</strong></summary>
+<summary><strong>Developer Setup (Core Team)</strong></summary>
 
-### Prerequisites
+### Quick Start (Live System)
 
-- Node.js 18+ and npm
-- Google Cloud Platform account (free tier)
-- GitHub account (for deployment)
-
-### Local Development
+For core team members with access to the `.env` file:
 
 ```bash
-# Clone the repository
+# 1. Clone and install
 git clone https://github.com/jjohare/Nostr-BBS.git
 cd Nostr-BBS
-
-# Install dependencies
 npm install
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your relay URL and admin pubkey
+# 2. Get .env from team (contains live credentials)
+# Place it in the project root - DO NOT commit this file
 
-# Start development server
+# 3. Verify connectivity to live services
 npm run dev
 
-# Access: http://localhost:5173
+# 4. Access: http://localhost:5173
 ```
+
+### Live Services (cumbriadreamlab project)
+
+| Service | URL |
+|---------|-----|
+| **Nostr Relay** | `wss://nostr-relay-617806532906.us-central1.run.app` |
+| **Embedding API** | `https://embedding-api-617806532906.us-central1.run.app` |
+| **Image API** | `https://image-api-617806532906.us-central1.run.app` |
+
+### Testing Against Live
+
+```bash
+# Verify relay is responding
+curl -s https://nostr-relay-617806532906.us-central1.run.app/health | jq
+
+# Check embedding API
+curl -s https://embedding-api-617806532906.us-central1.run.app/health | jq
+
+# Run dev server with live backend
+npm run dev
+```
+
+### Creating Test Accounts
+
+1. Open `http://localhost:5173` in browser
+2. Click **Create Account**
+3. Enter a test nickname (e.g., `dev-yourname`)
+4. Save the recovery phrase (for test accounts, store in password manager)
+5. Request zone access from an admin
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (hot reload) |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build locally |
+| `npm run test` | Run all tests (927 tests) |
+| `npm run test:unit` | Run unit tests only |
+| `npm run check` | TypeScript type checking |
+| `npm run lint` | ESLint code linting |
 
 ### Environment Variables
 
 ```bash
-VITE_RELAY_URL=wss://your-nostr-relay.com
-VITE_ADMIN_PUBKEY=<hex-pubkey>
-VITE_NDK_DEBUG=false
-VITE_GCS_EMBEDDINGS_URL=https://storage.googleapis.com/Nostr-BBS-nostr-embeddings
+# Required
+GOOGLE_CLOUD_PROJECT=cumbriadreamlab
+VITE_RELAY_URL=wss://nostr-relay-617806532906.us-central1.run.app
+VITE_ADMIN_PUBKEY=<64-char-hex-pubkey>
+
+# Cloud Run APIs
 VITE_EMBEDDING_API_URL=https://embedding-api-617806532906.us-central1.run.app
+VITE_IMAGE_API_URL=https://image-api-617806532906.us-central1.run.app
+
+# Optional
+VITE_APP_NAME=Minimoonoir
+VITE_NDK_DEBUG=false
 ```
 
-### Commands
+### Discovering Cloud Run Services
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run test     # Run tests
-npm run deploy   # Deploy to GitHub Pages
+# Authenticate with Google Cloud
+gcloud auth login
+gcloud config set project cumbriadreamlab
+
+# List all deployed services
+gcloud run services list --format="table(SERVICE,REGION,URL)"
 ```
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| WebSocket fails | Check `VITE_RELAY_URL` uses `wss://` not `https://` |
+| 401 on relay | Your pubkey may not be whitelisted - ask admin |
+| Embedding search empty | Verify `VITE_EMBEDDING_API_URL` is set |
+| Images don't upload | Check `VITE_IMAGE_API_URL` is set |
 
 ### Documentation
 
 - [Development Setup](docs/developer/getting-started/development-setup.md)
 - [Project Structure](docs/developer/getting-started/project-structure.md)
-- [API Reference](docs/developer/reference/api.md)
-- [Configuration](docs/developer/reference/configuration.md)
+- [Deployment Guide](docs/developer/deployment/index.md)
+- [Admin Guide](docs/admin-guide.md)
 
 </details>
 

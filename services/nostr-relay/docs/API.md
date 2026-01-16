@@ -111,7 +111,7 @@ Health check and relay statistics.
 {
   "status": "healthy",
   "version": "2.2.0",
-  "database": "better-sqlite3",
+  "database": "postgresql",
   "events": 1234,
   "whitelisted": 56,
   "dbSizeBytes": 10485760,

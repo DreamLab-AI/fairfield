@@ -276,15 +276,36 @@ sudo certbot --nginx -d your-domain.example.com
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `PUBLIC_RELAY_URL` | WebSocket relay URL | `wss://relay.example.com` |
-| `PUBLIC_APP_URL` | Public app URL | `https://app.example.com` |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID | `cumbriadreamlab` |
+| `VITE_RELAY_URL` | WebSocket relay URL | `wss://nostr-relay-<PROJECT_NUMBER>.us-central1.run.app` |
+| `VITE_ADMIN_PUBKEY` | Admin hex pubkey | 64-character hex string |
 | `DATABASE_URL` | PostgreSQL connection | `postgres://user:pass@host/db` |
+
+### Cloud Run Services
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_EMBEDDING_API_URL` | Semantic search API | `https://embedding-api-<PROJECT_NUMBER>.us-central1.run.app` |
+| `VITE_IMAGE_API_URL` | Image upload API | `https://image-api-<PROJECT_NUMBER>.us-central1.run.app` |
+
+### Discovering Deployed Services
+
+```bash
+# List all Cloud Run services with URLs
+gcloud run services list --format="table(SERVICE,REGION,URL)"
+
+# Example output for cumbriadreamlab project:
+# SERVICE        REGION       URL
+# embedding-api  us-central1  https://embedding-api-617806532906.us-central1.run.app
+# image-api      us-central1  https://image-api-617806532906.us-central1.run.app
+# nostr-relay    us-central1  https://nostr-relay-617806532906.us-central1.run.app
+```
 
 ### Optional
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PUBLIC_APP_NAME` | Application name | "Nostr BBS" |
+| `VITE_APP_NAME` | Application name | "Nostr BBS" |
 | `LOG_LEVEL` | Logging verbosity | "info" |
 | `RATE_LIMIT_WINDOW` | Rate limit window (ms) | 60000 |
 | `RATE_LIMIT_MAX` | Max requests per window | 100 |

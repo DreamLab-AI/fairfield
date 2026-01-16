@@ -474,14 +474,40 @@ const result = validateCohortAssignment({
 ### Required Environment Variables
 
 ```bash
+# Google Cloud Project
+GOOGLE_CLOUD_PROJECT=your-project-id
+
 # Admin public key (hex format)
 VITE_ADMIN_PUBKEY=64-character-hex-pubkey
 
-# Relay URL
-VITE_RELAY_URL=wss://relay.example.com
+# Relay URL (Cloud Run)
+VITE_RELAY_URL=wss://nostr-relay-<PROJECT_NUMBER>.us-central1.run.app
 
 # Optional: Multiple admin pubkeys (comma-separated)
 VITE_ADMIN_PUBKEYS=pubkey1,pubkey2,pubkey3
+```
+
+### Cloud Run API Services
+
+```bash
+# Embedding API for semantic search
+VITE_EMBEDDING_API_URL=https://embedding-api-<PROJECT_NUMBER>.us-central1.run.app
+
+# Image upload API
+VITE_IMAGE_API_URL=https://image-api-<PROJECT_NUMBER>.us-central1.run.app
+```
+
+### Getting Cloud Run URLs
+
+```bash
+# List all Cloud Run services with URLs
+gcloud run services list --format="table(SERVICE,REGION,URL)"
+
+# Example output:
+# SERVICE        REGION       URL
+# embedding-api  us-central1  https://embedding-api-617806532906.us-central1.run.app
+# image-api      us-central1  https://image-api-617806532906.us-central1.run.app
+# nostr-relay    us-central1  https://nostr-relay-617806532906.us-central1.run.app
 ```
 
 ### GitHub Actions Secrets
@@ -490,9 +516,8 @@ For CI/CD deployments:
 
 | Secret | Description |
 |--------|-------------|
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account for R2 storage |
-| `CLOUDFLARE_R2_ACCESS_KEY` | R2 access credentials |
-| `CLOUDFLARE_R2_SECRET_KEY` | R2 secret key |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID |
+| `GCP_SERVICE_ACCOUNT_KEY` | Service account JSON for deployments |
 
 ---
 
@@ -501,7 +526,6 @@ For CI/CD deployments:
 - [Authentication System](./features/authentication.md)
 - [Admin Security Hardening](./security/admin-security.md)
 - [Security Audit Report](./security-audit-report.md)
-- [Whitelist Service](./features/whitelist.md)
 
 ---
 

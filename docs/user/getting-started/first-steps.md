@@ -294,9 +294,9 @@ For efficient navigation:
 
 Now that you know the basics:
 
-1. **[Explore your zone](../zones/)** — Dive into your community
-2. **[Learn about features](../features/)** — Discover what's possible
-3. **[Understand privacy](../safety/privacy.md)** — Know how you're protected
+1. **[Explore your zone](../zones/index.md)** - Dive into your community
+2. **[Learn about features](../features/index.md)** - Discover what's possible
+3. **[Understand privacy](../safety/privacy.md)** - Know how you're protected
 
 ---
 

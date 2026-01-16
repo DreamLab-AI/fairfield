@@ -107,9 +107,9 @@ Your account may already have access to zones, or you may need to request access
 
 Your account is now set up. Here's what to do next:
 
-1. **[Take your first steps](first-steps.md)** — Learn to navigate the platform
-2. **[Explore your zone](../zones/)** — See what your community offers
-3. **[Install the mobile app](../features/mobile-app.md)** — Take the platform with you
+1. **[Take your first steps](first-steps.md)** - Learn to navigate the platform
+2. **[Explore your zone](../zones/index.md)** - See what your community offers
+3. **[Install the mobile app](../features/mobile-app.md)** - Take the platform with you
 
 ---
 

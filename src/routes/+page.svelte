@@ -130,7 +130,7 @@
 					<div class="text-4xl mb-2">🔒</div>
 					<h3 class="card-title text-lg">Encrypted & Ephemeral</h3>
 					<p class="text-sm text-base-content/70">
-						NIP-04 encrypted DMs with NIP-16 ephemeral event support.
+						NIP-44 encrypted DMs with NIP-59 gift wrap and NIP-16 ephemeral event support.
 					</p>
 				</div>
 			</div>

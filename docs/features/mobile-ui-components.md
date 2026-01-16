@@ -279,9 +279,9 @@ All mobile components follow WCAG 2.1 Level AA guidelines:
 
 ## Related Documentation
 
-- [Accessibility Improvements](./accessibility-improvements.md)
-- [PWA Implementation](./pwa-implementation.md)
-- [Threading Implementation](./threading-implementation.md)
+- [Authentication](./authentication.md)
+- [Direct Messages Implementation](./dm-implementation.md)
+- [Secure Clipboard](./secure-clipboard.md)
 
 ---
 

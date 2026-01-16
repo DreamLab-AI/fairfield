@@ -13,45 +13,43 @@
  */
 
 /**
- * NIP-04 Legacy Encryption Migration
+ * NIP-04 Legacy Encryption - REMOVED
  *
- * NIP-04 has known security issues:
+ * NIP-04 support was removed on 2025-12-01 due to known security issues:
  * - No authentication (malleable ciphertext)
  * - IV reuse vulnerabilities
  * - Metadata leakage
  *
- * Migration path:
- * - New DMs use NIP-44 via gift wrap (kind 1059)
- * - Legacy kind 4 DMs are read-only after DISABLE_DATE
- * - Kind 4 support removed after REMOVE_DATE
+ * All DMs now use NIP-44 via gift wrap (kind 1059).
+ * This constant is kept for reference only.
  */
 export const NIP04_MIGRATION = {
-  /** Start showing "legacy message" badges */
+  /** Historical: Started showing "legacy message" badges */
   WARN_DATE: '2025-01-01',
-  /** Disable NIP-04 encryption for new messages (read-only mode) */
+  /** Historical: Disabled NIP-04 encryption for new messages */
   DISABLE_DATE: '2025-06-01',
-  /** Remove NIP-04 decryption support entirely */
+  /** NIP-04 support was removed on this date */
   REMOVE_DATE: '2025-12-01',
+  /** Current status */
+  STATUS: 'REMOVED' as const,
 } as const;
 
 /**
- * Legacy Plaintext Key Storage Migration
+ * Legacy Plaintext Key Storage - REMOVED
  *
- * Older versions stored private keys in plaintext localStorage.
- * Current versions use encrypted storage with session keys.
- *
- * Migration:
- * - Auto-migrate on login (re-encrypt with session key)
- * - Warn users with plaintext keys to re-login
- * - Remove plaintext key support after REMOVE_DATE
+ * Plaintext key storage was removed on 2025-06-01.
+ * All keys now use encrypted storage with session keys.
+ * This constant is kept for reference only.
  */
 export const PLAINTEXT_KEY_MIGRATION = {
-  /** Show warning about plaintext key storage */
+  /** Historical: Started showing warnings */
   WARN_DATE: '2025-01-15',
-  /** Stop accepting plaintext keys from storage (force re-login) */
+  /** Historical: Stopped accepting plaintext keys */
   DISABLE_DATE: '2025-03-01',
-  /** Remove legacy plaintext key parsing code */
+  /** Plaintext key support was removed on this date */
   REMOVE_DATE: '2025-06-01',
+  /** Current status */
+  STATUS: 'REMOVED' as const,
 } as const;
 
 /**
@@ -103,31 +101,35 @@ export function isRemovedPhase(migration: { REMOVE_DATE: string }): boolean {
 }
 
 /**
- * Check if NIP-04 encryption should be used (false after disable date)
+ * NIP-04 encryption is no longer allowed (removed 2025-12-01)
+ * @returns Always false - NIP-04 is removed
  */
 export function isNip04EncryptionAllowed(): boolean {
-  return !isDisabledPhase(NIP04_MIGRATION) && !isRemovedPhase(NIP04_MIGRATION);
+  return false; // NIP-04 removed as of 2025-12-01
 }
 
 /**
- * Check if NIP-04 decryption should be attempted
+ * NIP-04 decryption is no longer allowed (removed 2025-12-01)
+ * @returns Always false - NIP-04 is removed
  */
 export function isNip04DecryptionAllowed(): boolean {
-  return !isRemovedPhase(NIP04_MIGRATION);
+  return false; // NIP-04 removed as of 2025-12-01
 }
 
 /**
- * Check if legacy plaintext keys should be migrated
+ * Plaintext key migration is no longer applicable (removed 2025-06-01)
+ * @returns Always false - feature removed
  */
 export function isPlaintextKeyMigrationRequired(): boolean {
-  return isWarningPhase(PLAINTEXT_KEY_MIGRATION) || isDisabledPhase(PLAINTEXT_KEY_MIGRATION);
+  return false; // Plaintext keys removed as of 2025-06-01
 }
 
 /**
- * Check if plaintext keys should be rejected entirely
+ * Plaintext keys are always rejected (removed 2025-06-01)
+ * @returns Always true - plaintext keys are rejected
  */
 export function shouldRejectPlaintextKeys(): boolean {
-  return isDisabledPhase(PLAINTEXT_KEY_MIGRATION) || isRemovedPhase(PLAINTEXT_KEY_MIGRATION);
+  return true; // Plaintext keys removed as of 2025-06-01
 }
 
 /**

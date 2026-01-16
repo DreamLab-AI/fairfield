@@ -25,34 +25,22 @@ last_updated: 2026-01-16
 - [Development](#development)
 - [Deployment](#deployment)
 - [Reference](#reference)
-- [Maintenance & Quality](#maintenance-quality)
-- [Archive](#archive)
+- [Maintenance and Quality](#maintenance-and-quality)
 
 ---
 
 ## Getting Started
 
-### Quick Start Guides
+### For Users
 
-**[PWA Quick Start](features/pwa-quick-start.md)**
-Install Nostr-BBS as a Progressive Web App with offline support. Learn about installation, offline message queue, and background sync.
+**[User Documentation](user/index.md)**
+Complete user documentation including getting started guides, zone guides, and feature documentation.
 
-**[Search Usage Guide](features/search-usage-guide.md)**
-How to use semantic vector search and keyword search to find messages by meaning, not just text matching.
+**[Creating an Account](user/getting-started/creating-account.md)**
+Step-by-step guide to creating your account and getting started with the platform.
 
-**[Threading Quick Reference](features/threading-quick-reference.md)**
-Quick reference for using threaded conversations in channels and direct messages.
-
-**[Mute Quick Reference](features/mute-quick-reference.md)**
-Quick guide for blocking users and managing blocked user lists.
-
-### Tutorials
-
-**[Icon Integration Guide](features/icon-integration-guide.md)**
-Tutorial for integrating custom icons and PWA assets into the application.
-
-**[Channel Stats Usage](features/channel-stats-usage.md)**
-How to view and interpret channel statistics and metrics for community management.
+**[First Steps](user/getting-started/first-steps.md)**
+Your first steps after creating an account - navigating the platform and key features.
 
 ---
 
@@ -75,90 +63,40 @@ Implementation refinement, optimisations, and architectural improvements.
 **[05 - Completion](architecture/05-completion.md)**
 Integration testing, deployment procedures, and production readiness checklist.
 
-### Semantic Search Architecture
+### Additional Architecture Documentation
 
-**[06 - Semantic Search Specification](architecture/06-semantic-search-spec.md)**
-Requirements for AI-powered semantic vector search with HNSW indexing.
-
-**[07 - Semantic Search Architecture](architecture/07-semantic-search-architecture.md)**
-Embedding pipeline design using sentence-transformers and Google Cloud Run.
-
-**[08 - Semantic Search Pseudocode](architecture/08-semantic-search-pseudocode.md)**
-HNSW index algorithms, quantisation, and client-side WASM search implementation.
-
-**[09 - Semantic Search Risks](architecture/09-semantic-search-risks.md)**
-Integration risks, privacy considerations, and mitigation strategies.
-
-### Protocol Implementation
-
-**[Encryption Flows](architecture/encryption-flows.md)**
-NIP-44 encryption, NIP-17/59 gift-wrapped DMs, and key management flows.
-
-**[NIP Interactions](architecture/nip-interactions.md)**
-How different Nostr Improvement Proposals interact in the system architecture.
+**[Architecture Overview](architecture.md)**
+High-level architecture overview and system design summary.
 
 ---
 
 ## Features
 
-### Messaging & Communication
+### Developer Feature Documentation
 
 **[Direct Messages Implementation](features/dm-implementation.md)**
 NIP-17/59 encrypted direct messaging with gift wrap for metadata privacy.
 
-**[Threading Implementation](features/threading-implementation.md)**
-Threaded conversation system for organised discussions in channels.
-
-**[NIP-25 Reactions Implementation](features/nip-25-reactions-implementation.md)**
-Emoji reaction system for messages following NIP-25 specification.
-
-**[Pinned Messages Implementation](features/pinned-messages-implementation.md)**
-Pin important messages to channel tops for visibility.
-
-**[Mute Implementation Summary](features/mute-implementation-summary.md)**
-User blocking and muting system for controlling visible content.
-
-### Search & Discovery
-
-**[Search Implementation](features/search-implementation.md)**
-Comprehensive search system with semantic vector search and keyword filtering.
-
-**[Search Implementation Summary](features/search-implementation-summary.md)**
-Executive summary of search capabilities and technical implementation.
-
-**[Link Preview Implementation](features/link-preview-implementation.md)**
-Automatic URL preview generation with Open Graph and metadata extraction.
-
-### Progressive Web App
-
-**[PWA Implementation](features/pwa-implementation.md)**
-Complete Progressive Web App features including offline support, service worker, and installation.
-
-**[Notification System Phase 1](features/notification-system-phase1.md)**
-Push notification system for new messages, mentions, and events.
-
-### Content Management
-
-**[Drafts Implementation](features/drafts-implementation.md)**
-Message draft persistence and auto-save functionality.
-
-**[Export Implementation](features/export-implementation.md)**
-Data export system for messages, profiles, and user content.
-
-### Mobile Components
-
 **[Mobile UI Components](features/mobile-ui-components.md)**
 Material Design 3 inspired mobile components including BottomSheet, SwipeableMessage, and VirtualList with touch gestures and accessibility.
-
-### Security
 
 **[Secure Clipboard and Memory](features/secure-clipboard.md)**
 Security utilities for handling sensitive data with automatic clipboard clearing (60 second timeout) and memory-safe string handling.
 
-### Accessibility
+**[Authentication](features/authentication.md)**
+Authentication system implementation and design patterns.
 
-**[Accessibility Improvements](features/accessibility-improvements.md)**
-WCAG 2.1 Level AA compliance, keyboard navigation, and screen reader support.
+### User Feature Documentation
+
+For end-user feature guides, see the [User Features](user/features/index.md) section including:
+- [Messaging](user/features/messaging.md)
+- [Private Messages](user/features/private-messages.md)
+- [Calendar](user/features/calendar.md)
+- [Searching](user/features/searching.md)
+- [Bookmarks](user/features/bookmarks.md)
+- [Reactions](user/features/reactions.md)
+- [Notifications](user/features/notifications.md)
+- [Customisation](user/features/customisation.md)
 
 ---
 
@@ -197,18 +135,19 @@ Step-by-step implementation guide for getting started with the authentication sy
 
 ## Development
 
-### Development Guides
+### Developer Documentation
 
-**[Mentions Patch](development/mentions-patch.md)**
-Implementation details for user mention system with `@` syntax and autocomplete.
+**[Developer Index](developer/index.md)**
+Main developer documentation hub with guides for getting started, architecture, features, and contributing.
 
-### Store Architecture
+**[Development Setup](developer/getting-started/development-setup.md)**
+Local development environment setup guide.
 
-**[Store Dependency Analysis](store-dependency-analysis.md)**
-Analysis of Svelte store dependencies, data flow, and state management architecture.
+**[Project Structure](developer/getting-started/project-structure.md)**
+Overview of the project directory structure and organisation.
 
-**[Store Reference](reference/store-reference.md)**
-Complete reference for all Svelte stores including auth, channels, messages, and DM state.
+**[Contributing Guidelines](developer/contributing/index.md)**
+How to contribute to the project including code style and pull request process.
 
 ---
 
@@ -216,17 +155,17 @@ Complete reference for all Svelte stores including auth, channels, messages, and
 
 ### Production Deployment
 
-**[Deployment Guide](deployment/deployment-guide.md)**
-Comprehensive serverless deployment guide for GitHub Pages and Google Cloud Platform.
+**[Deployment Index](developer/deployment/index.md)**
+Overview of deployment options and strategies.
 
-**[GCP Deployment](deployment/gcp-deployment.md)**
-Step-by-step Google Cloud Platform deployment for Cloud Run, Cloud Storage, and Firestore.
+**[GitHub Pages Deployment](developer/deployment/github-pages.md)**
+Deploy the application to GitHub Pages.
 
-**[GCP Architecture](deployment/gcp-architecture.md)**
-Google Cloud Platform architecture diagrams and infrastructure design.
+**[Cloud Run Deployment](developer/deployment/cloud-run.md)**
+Deploy to Google Cloud Run for serverless container hosting.
 
-**[GitHub Workflows](deployment/github-workflows.md)**
-CI/CD pipeline configuration with GitHub Actions for automated deployments.
+**[Self-Hosting Guide](developer/deployment/self-hosting.md)**
+Guide for self-hosting the application.
 
 ---
 
@@ -234,130 +173,40 @@ CI/CD pipeline configuration with GitHub Actions for automated deployments.
 
 ### API Documentation
 
-**[API Reference](reference/api-reference.md)**
-Complete API documentation for all public interfaces, components, and utilities.
+**[Developer Reference Index](developer/reference/api.md)**
+API documentation for components and utilities.
 
-**[Configuration Reference](reference/configuration-reference.md)**
-Environment variables, build configuration, and runtime settings reference.
+**[Configuration Reference](developer/reference/configuration.md)**
+Environment variables and configuration settings.
 
-**[NIP Protocol Reference](reference/nip-protocol-reference.md)**
+**[NIP Protocol Reference](developer/reference/nip-protocol-reference.md)**
 Nostr Improvement Proposals (NIPs) implemented in the system with usage examples.
 
-**[Store Reference](reference/store-reference.md)**
-Svelte store API reference including auth, channels, messages, DM, PWA, bookmarks, drafts, and mute stores.
+**[Event Kinds Reference](developer/reference/event-kinds.md)**
+Nostr event kinds used in the application.
+
+**[Stores Reference](developer/reference/stores.md)**
+Svelte store API reference.
 
 ---
 
-## Maintenance & Quality
+## Maintenance and Quality
 
 ### Project Maintenance
 
-**[CONTRIBUTION.md](CONTRIBUTION.md)**
+**[Contributing Guidelines](developer/contributing/index.md)**
 Contributing guidelines, code style, pull request process, and development workflow.
 
-**[MAINTENANCE.md](MAINTENANCE.md)**
-Maintenance procedures, dependency updates, security patches, and operational guidelines.
+**[Testing Guide](developer/contributing/testing.md)**
+How to write and run tests for the project.
+
+**[Pull Requests](developer/contributing/pull-requests.md)**
+Pull request guidelines and review process.
 
 ### Quality Assurance
 
-**[Link Validation Summary](link-validation-summary.md)**
-Executive summary of documentation link validation results (489 broken links identified).
-
-**[Link Validation Report](working/link-validation-report.md)**
-Detailed link validation report with broken links categorised by type.
-
-**[Link Validation Index](link-validation-index.md)**
-Index of all documentation links with validation status and recommendations.
-
-**[Link Validation Actionable](link-validation-actionable.md)**
-Actionable remediation plan for fixing broken documentation links.
-
-**[Diagram Audit Report](diagram-audit-report.md)**
-Audit of Mermaid diagrams for correctness, accessibility, and documentation alignment.
-
----
-
-## Archive
-
-### Historical Research Documents
-
-**[Auth Design Delivery](archive/auth-design-delivery.md)**
-Original authentication design delivery document with initial specifications.
-
-**[Research Index](archive/research-index.md)**
-Index of research conducted during the authentication design phase.
-
-**[Security Research](archive/security-research.md)**
-Security research findings and recommendations from the design phase.
-
-**[Security Onboarding](archive/security-onboarding.md)**
-Detailed onboarding security research and implementation recommendations.
-
-**[UI Patterns](archive/ui-patterns.md)**
-UI pattern research and component design explorations.
-
-**[Visual Summary](archive/visual-summary.md)**
-Visual design summary with mockups and component previews.
-
----
-
-## Working Documents
-
-These documents track ongoing documentation improvement efforts:
-
-### Quality Improvement Process
-
-**[CLEANING_SUMMARY.md](working/CLEANING_SUMMARY.md)**
-Summary of documentation cleaning, validation, and quality improvement efforts.
-
-**[Cleaning Actions Applied](working/cleaning-actions-applied.md)**
-Detailed log of specific cleaning actions performed on documentation files.
-
-**[Content Audit](working/content-audit.md)**
-Content quality audit results including spelling, grammar, and consistency checks.
-
-**[Content Cleaning Report](working/content-cleaning-report.md)**
-Report on content cleaning operations with before/after metrics.
-
-**[Corpus Analysis](working/corpus-analysis.md)**
-Analysis of documentation corpus structure, coverage, and completeness.
-
-**[Final Quality Report](working/final-quality-report.md)**
-Final comprehensive quality assessment after all improvements applied.
-
-### Infrastructure Improvements
-
-**[Automation Setup Report](working/automation-setup-report.md)**
-Setup and configuration of automated documentation quality checks.
-
-**[Diagram Modernisation Report](working/diagram-modernisation-report.md)**
-Report on upgrading Mermaid diagrams to latest syntax and best practices.
-
-**[Metadata Implementation Report](working/metadata-implementation-report.md)**
-Implementation of YAML frontmatter and metadata in documentation files.
-
-**[Spelling Audit Report](working/spelling-audit-report.md)**
-UK English spelling audit and standardisation report.
-
-**[Structure Normalisation Report](working/structure-normalisation-report.md)**
-Report on normalising document structure following Diataxis framework.
-
-### Documentation Architecture
-
-**[IA Architecture Spec](working/ia-architecture-spec.md)**
-Information architecture specification defining documentation structure and taxonomy.
-
-**[Link Infrastructure Spec](working/link-infrastructure-spec.md)**
-Specification for link management, validation, and automated checking infrastructure.
-
-**[Navigation Design Spec](working/navigation-design-spec.md)**
-Navigation design patterns and wayfinding improvements for documentation.
-
-**[Reference Consolidation Report](working/reference-consolidation-report.md)**
-Report on consolidating and organising reference documentation.
-
-**[Tag Vocabulary](working/tag-vocabulary.md)**
-Controlled vocabulary for document tags and metadata classification.
+**[Link Validation Report](link-validation-report.md)**
+Automated link validation report for documentation quality.
 
 ---
 
@@ -384,20 +233,26 @@ This documentation follows the [Diataxis framework](https://diataxis.fr/) for sy
 
 ```
 docs/
-├── INDEX.md                    # This file - master hub
-├── CONTRIBUTION.md            # Contributing guidelines
-├── MAINTENANCE.md             # Maintenance procedures
+├── INDEX.md                   # This file - master hub
+├── README.md                  # Documentation overview
 ├── architecture/              # System design (SPARC)
-├── archive/                   # Historical research and design documents
-├── deployment/                # Production deployment
-├── development/               # Development guides
+├── adr/                       # Architecture Decision Records
 ├── ddd/                       # Domain-Driven Design documentation
+├── developer/                 # Developer documentation
+│   ├── architecture/          # Technical architecture
+│   ├── contributing/          # Contribution guidelines
+│   ├── deployment/            # Deployment guides
+│   ├── features/              # Feature implementation
+│   ├── getting-started/       # Development setup
+│   └── reference/             # API reference
 ├── features/                  # Feature documentation
-├── guides/                    # Implementation and quick-start guides
-├── reference/                 # API and configuration
+├── guides/                    # Implementation guides
 ├── security/                  # Security documentation
-├── user/                      # End-user documentation
-└── working/                   # Quality improvement tracking
+└── user/                      # End-user documentation
+    ├── features/              # User feature guides
+    ├── getting-started/       # User onboarding
+    ├── safety/                # Privacy and security
+    └── zones/                 # Community zone guides
 ```
 
 ---
@@ -405,13 +260,14 @@ docs/
 ## Quick Links
 
 - **[Project README](../README.md)** - Main project overview with screenshots and quick start
-- **[Contributing](CONTRIBUTION.md)** - How to contribute to the project
-- **[License](../LICENSE)** - MIT License details
+- **[User Documentation](user/index.md)** - End-user guides and tutorials
+- **[Developer Documentation](developer/index.md)** - Technical documentation for developers
+- **[Contributing](developer/contributing/index.md)** - How to contribute to the project
 - **[GitHub Repository](https://github.com/jjohare/Nostr-BBS)** - Source code and issue tracking
 
 ---
 
-## Support & Community
+## Support and Community
 
 - **Documentation Issues** - Report broken links or unclear documentation via [GitHub Issues](https://github.com/jjohare/Nostr-BBS/issues)
 - **Discussions** - Join community discussions at [GitHub Discussions](https://github.com/jjohare/Nostr-BBS/discussions)
@@ -420,5 +276,4 @@ docs/
 ---
 
 **Last validated:** 2026-01-16
-**Link validation status:** 489 broken links identified, remediation in progress
 **Documentation version:** 1.0.0

@@ -78,74 +78,18 @@ export function verifySignature(event: {
 }
 
 /**
- * NIP-04 encrypt (simplified)
+ * NIP-04 REMOVED
  *
- * @deprecated NIP-04 is deprecated. Use NIP-44 for new implementations.
- * This function remains for backward compatibility with existing messages.
- */
-export async function nip04Encrypt(
-  privkey: string,
-  pubkey: string,
-  text: string
-): Promise<string> {
-  console.warn('[DEPRECATED] nip04Encrypt is deprecated. Use NIP-44 for new messages.');
-  const sharedPoint = secp256k1.getSharedSecret(privkey, '02' + pubkey);
-  const sharedX = sharedPoint.slice(1, 33);
-
-  const iv = crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey(
-    'raw',
-    sharedX,
-    { name: 'AES-CBC', length: 256 },
-    false,
-    ['encrypt']
-  );
-
-  const encoded = new TextEncoder().encode(text);
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-CBC', iv },
-    key,
-    encoded
-  );
-
-  const ctb64 = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
-  const ivb64 = btoa(String.fromCharCode(...iv));
-
-  return `${ctb64}?iv=${ivb64}`;
-}
-
-/**
- * NIP-04 decrypt (simplified)
+ * NIP-04 encryption/decryption was removed on 2025-12-01 due to known security issues:
+ * - No authentication (malleable ciphertext)
+ * - IV reuse vulnerabilities
+ * - Metadata leakage
  *
- * @deprecated NIP-04 is deprecated. Use NIP-44 for new implementations.
- * This function remains for backward compatibility with existing messages.
+ * Use NIP-44 via gift wrap (kind 1059) for all encrypted communications.
+ *
+ * If you need to read historical NIP-04 encrypted messages, use an external
+ * tool or archive service before they were removed.
  */
-export async function nip04Decrypt(
-  privkey: string,
-  pubkey: string,
-  data: string
-): Promise<string> {
-  const [ctb64, ivb64] = data.split('?iv=');
 
-  const sharedPoint = secp256k1.getSharedSecret(privkey, '02' + pubkey);
-  const sharedX = sharedPoint.slice(1, 33);
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    sharedX,
-    { name: 'AES-CBC', length: 256 },
-    false,
-    ['decrypt']
-  );
-
-  const ciphertext = Uint8Array.from(atob(ctb64), c => c.charCodeAt(0));
-  const iv = Uint8Array.from(atob(ivb64), c => c.charCodeAt(0));
-
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-CBC', iv },
-    key,
-    ciphertext
-  );
-
-  return new TextDecoder().decode(plaintext);
-}
+// Functions intentionally removed - not just deprecated, REMOVED.
+// Compile errors are intentional to force migration to NIP-44.

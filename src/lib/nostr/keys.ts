@@ -100,52 +100,13 @@ export function generateKeyPair(): { privateKey: string; publicKey: string } {
 }
 
 /**
- * @deprecated DISABLED - Plaintext key storage is a security risk.
- * Use authStore.setKeys() instead for encrypted session storage.
- * This function is a no-op for security reasons.
+ * Legacy plaintext key storage functions have been REMOVED.
+ *
+ * As of 2025-06-01 (PLAINTEXT_KEY_MIGRATION.REMOVE_DATE), plaintext key
+ * storage is no longer supported due to security risks.
+ *
+ * Use authStore.setKeys() for encrypted session storage.
  */
-export function saveKeysToStorage(_publicKey: string, _privateKey: string): void {
-  console.error(
-    '[SECURITY] saveKeysToStorage is DEPRECATED and disabled. ' +
-    'Plaintext key storage is a security risk. ' +
-    'Use authStore.setKeys() for encrypted session storage.'
-  );
-}
 
-/**
- * @deprecated Load keys from legacy plaintext localStorage.
- * Returns null for encrypted storage format - use authStore instead.
- * Only returns keys if legacy plaintext format is detected (for migration).
- */
-export function loadKeysFromStorage(): { publicKey: string; privateKey: string } | null {
-  if (typeof localStorage === 'undefined') {
-    return null;
-  }
-
-  try {
-    const stored = localStorage.getItem('nostr_bbs_keys');
-    if (!stored) {
-      return null;
-    }
-
-    const parsed = JSON.parse(stored);
-
-    // Return null for encrypted storage format - should use authStore
-    if (parsed.encryptedPrivateKey || !parsed.publicKey || !parsed.privateKey) {
-      return null;
-    }
-
-    // Legacy plaintext format detected - warn and return for migration
-    console.warn(
-      '[SECURITY] Legacy plaintext keys detected in localStorage. ' +
-      'Please re-authenticate to migrate to encrypted storage.'
-    );
-
-    return {
-      publicKey: parsed.publicKey,
-      privateKey: parsed.privateKey
-    };
-  } catch {
-    return null;
-  }
-}
+// These functions are intentionally removed - not deprecated, REMOVED.
+// If you see compile errors, update your code to use authStore.

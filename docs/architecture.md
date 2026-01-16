@@ -1,6 +1,11 @@
 # Fairfield Architecture Overview
 
-This document provides a high-level overview of the Fairfield application architecture. For detailed documentation, see the [architecture directory](./architecture/).
+This document provides a high-level overview of the Fairfield application architecture. For detailed SPARC documentation, see the architecture files:
+- [01-specification.md](./architecture/01-specification.md)
+- [02-architecture.md](./architecture/02-architecture.md)
+- [03-pseudocode.md](./architecture/03-pseudocode.md)
+- [04-refinement.md](./architecture/04-refinement.md)
+- [05-completion.md](./architecture/05-completion.md)
 
 ## System Architecture
 
@@ -266,8 +271,6 @@ For comprehensive technical details, see:
 | [03-pseudocode.md](./architecture/03-pseudocode.md) | Implementation pseudocode |
 | [04-refinement.md](./architecture/04-refinement.md) | Design refinements |
 | [05-completion.md](./architecture/05-completion.md) | Completion checklist |
-| [06-semantic-search-spec.md](./architecture/06-semantic-search-spec.md) | Semantic search specification |
-| [07-semantic-search-architecture.md](./architecture/07-semantic-search-architecture.md) | Semantic search design |
 
 ## Related Documentation
 

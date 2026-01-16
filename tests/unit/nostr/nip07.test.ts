@@ -2,7 +2,11 @@
  * Unit Tests: NIP-07 Browser Extension Support
  *
  * Tests for browser extension detection, key retrieval, event signing,
- * and NIP-04/NIP-44 encryption support detection.
+ * and NIP-44 encryption support detection.
+ *
+ * NOTE: As of 2025-12-01, NIP-04 encryption/decryption functions have been
+ * REMOVED. The encryptWithExtension and decryptWithExtension functions now
+ * always throw errors instructing users to use NIP-44 instead.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -298,74 +302,65 @@ describe('NIP-07 Browser Extension Support', () => {
     });
   });
 
-  describe('encryptWithExtension', () => {
-    it('should throw when NIP-04 encryption is not supported', async () => {
-      (window as unknown as { nostr: unknown }).nostr = {
-        getPublicKey: vi.fn()
-        // No nip04 support
-      };
-
-      await expect(encryptWithExtension(VALID_PUBKEY, 'secret'))
-        .rejects.toThrow('NIP-04 encryption not supported by extension');
-    });
-
-    it('should throw when nip04 object exists but encrypt is missing', async () => {
-      (window as unknown as { nostr: unknown }).nostr = {
-        nip04: {}
-      };
-
-      await expect(encryptWithExtension(VALID_PUBKEY, 'secret'))
-        .rejects.toThrow('NIP-04 encryption not supported by extension');
-    });
-
-    it('should encrypt using extension', async () => {
-      const encryptedContent = 'encrypted_content_here';
+  describe('encryptWithExtension - REMOVED (NIP-04)', () => {
+    it('should always throw error indicating NIP-04 was removed', async () => {
+      // NIP-04 was removed on 2025-12-01
+      // The function now always throws, regardless of extension state
       (window as unknown as { nostr: unknown }).nostr = {
         nip04: {
-          encrypt: vi.fn().mockResolvedValue(encryptedContent)
+          encrypt: vi.fn().mockResolvedValue('would_be_encrypted')
         }
       };
 
-      const result = await encryptWithExtension(VALID_PUBKEY, 'secret message');
+      await expect(encryptWithExtension(VALID_PUBKEY, 'secret'))
+        .rejects.toThrow('NIP-04 encryption was removed on 2025-12-01');
+    });
 
-      expect(result).toBe(encryptedContent);
-      expect(window.nostr!.nip04!.encrypt).toHaveBeenCalledWith(VALID_PUBKEY, 'secret message');
+    it('should throw with instructions to use NIP-44', async () => {
+      (window as unknown as { nostr: unknown }).nostr = undefined;
+
+      await expect(encryptWithExtension(VALID_PUBKEY, 'secret'))
+        .rejects.toThrow('Use NIP-44 encryption (kind 1059 gift wrap) instead');
+    });
+
+    it('should throw with hasNip44Support hint', async () => {
+      (window as unknown as { nostr: unknown }).nostr = {
+        getPublicKey: vi.fn()
+      };
+
+      await expect(encryptWithExtension(VALID_PUBKEY, 'secret'))
+        .rejects.toThrow('Check hasNip44Support() for extension compatibility');
     });
   });
 
-  describe('decryptWithExtension', () => {
-    it('should throw when NIP-04 decryption is not supported', async () => {
+  describe('decryptWithExtension - REMOVED (NIP-04)', () => {
+    it('should always throw error indicating NIP-04 was removed', async () => {
+      // NIP-04 was removed on 2025-12-01
+      // The function now always throws, regardless of extension state
+      (window as unknown as { nostr: unknown }).nostr = {
+        nip04: {
+          decrypt: vi.fn().mockResolvedValue('would_be_decrypted')
+        }
+      };
+
+      await expect(decryptWithExtension(VALID_PUBKEY, 'ciphertext'))
+        .rejects.toThrow('NIP-04 decryption was removed on 2025-12-01');
+    });
+
+    it('should throw with instructions to use NIP-44', async () => {
+      (window as unknown as { nostr: unknown }).nostr = undefined;
+
+      await expect(decryptWithExtension(VALID_PUBKEY, 'ciphertext'))
+        .rejects.toThrow('Use NIP-44 decryption (kind 1059 gift wrap) instead');
+    });
+
+    it('should throw with hasNip44Support hint', async () => {
       (window as unknown as { nostr: unknown }).nostr = {
         getPublicKey: vi.fn()
       };
 
       await expect(decryptWithExtension(VALID_PUBKEY, 'ciphertext'))
-        .rejects.toThrow('NIP-04 decryption not supported by extension');
-    });
-
-    it('should throw when nip04 object exists but decrypt is missing', async () => {
-      (window as unknown as { nostr: unknown }).nostr = {
-        nip04: {
-          encrypt: vi.fn() // only encrypt, no decrypt
-        }
-      };
-
-      await expect(decryptWithExtension(VALID_PUBKEY, 'ciphertext'))
-        .rejects.toThrow('NIP-04 decryption not supported by extension');
-    });
-
-    it('should decrypt using extension', async () => {
-      const plaintext = 'decrypted message';
-      (window as unknown as { nostr: unknown }).nostr = {
-        nip04: {
-          decrypt: vi.fn().mockResolvedValue(plaintext)
-        }
-      };
-
-      const result = await decryptWithExtension(VALID_PUBKEY, 'ciphertext');
-
-      expect(result).toBe(plaintext);
-      expect(window.nostr!.nip04!.decrypt).toHaveBeenCalledWith(VALID_PUBKEY, 'ciphertext');
+        .rejects.toThrow('Check hasNip44Support() for extension compatibility');
     });
   });
 

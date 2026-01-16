@@ -6,7 +6,7 @@ Deploy the Fairfield Nostr Relay to production environments.
 
 - Node.js 18+ (LTS recommended)
 - npm or yarn
-- Persistent storage for SQLite database
+- PostgreSQL 14+ database (Cloud SQL recommended for production)
 
 ## Environment Configuration
 
@@ -17,8 +17,11 @@ Create a `.env` file with the following variables:
 PORT=8080
 HOST=0.0.0.0
 
-# Database
-SQLITE_DATA_DIR=/var/lib/nostr-relay/data
+# Database (PostgreSQL connection string)
+DATABASE_URL=postgresql://user:password@localhost:5432/nostr_relay
+
+# For Cloud SQL via Unix socket:
+# DATABASE_URL=postgresql://user:password@localhost/nostr_relay?host=/cloudsql/PROJECT:REGION:INSTANCE
 
 # Access Control
 WHITELIST_PUBKEYS=pubkey1,pubkey2,pubkey3
@@ -44,9 +47,7 @@ RUN npm ci --only=production
 COPY dist/ ./dist/
 
 ENV PORT=8080
-ENV SQLITE_DATA_DIR=/data
 
-VOLUME ["/data"]
 EXPOSE 8080
 
 CMD ["node", "dist/server.js"]
@@ -59,7 +60,7 @@ docker build -t nostr-relay .
 docker run -d \
   --name nostr-relay \
   -p 8080:8080 \
-  -v nostr-data:/data \
+  -e DATABASE_URL="postgresql://user:password@host:5432/nostr_relay" \
   -e WHITELIST_PUBKEYS="pubkey1,pubkey2" \
   -e ADMIN_PUBKEYS="admin-pubkey" \
   nostr-relay
@@ -71,17 +72,32 @@ docker run -d \
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nostr_relay
+      POSTGRES_USER: nostr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nostr -d nostr_relay"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   nostr-relay:
     build: .
     ports:
       - "8080:8080"
-    volumes:
-      - nostr-data:/data
     environment:
       - PORT=8080
-      - SQLITE_DATA_DIR=/data
+      - DATABASE_URL=postgresql://nostr:${POSTGRES_PASSWORD}@postgres:5432/nostr_relay
       - WHITELIST_PUBKEYS=${WHITELIST_PUBKEYS}
       - ADMIN_PUBKEYS=${ADMIN_PUBKEYS}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -90,10 +106,10 @@ services:
       retries: 3
 
 volumes:
-  nostr-data:
+  postgres-data:
 ```
 
-### Google Cloud Run
+### Google Cloud Run with Cloud SQL
 
 ```mermaid
 graph LR
@@ -101,12 +117,29 @@ graph LR
         CR[Container Instance]
     end
 
-    subgraph "Cloud Storage"
-        GCS[Cloud Storage FUSE]
+    subgraph "Cloud SQL"
+        PG[(PostgreSQL)]
     end
 
     CLIENT[Clients] -->|HTTPS| CR
-    CR -->|SQLite| GCS
+    CR -->|Unix Socket| PG
+```
+
+**Prerequisites:**
+
+1. Create Cloud SQL PostgreSQL instance:
+```bash
+gcloud sql instances create nostr-relay-db \
+  --database-version=POSTGRES_16 \
+  --tier=db-f1-micro \
+  --region=europe-west1 \
+  --storage-size=10GB
+
+# Create database
+gcloud sql databases create nostr_relay --instance=nostr-relay-db
+
+# Create user
+gcloud sql users create nostr --instance=nostr-relay-db --password=YOUR_PASSWORD
 ```
 
 **Deployment Steps:**
@@ -116,17 +149,31 @@ graph LR
 gcloud builds submit --tag gcr.io/PROJECT_ID/nostr-relay
 ```
 
-2. Deploy with Cloud Storage mount:
+2. Deploy with Cloud SQL connection:
 ```bash
 gcloud run deploy nostr-relay \
   --image gcr.io/PROJECT_ID/nostr-relay \
   --platform managed \
   --region europe-west1 \
   --allow-unauthenticated \
-  --set-env-vars "SQLITE_DATA_DIR=/mnt/data" \
-  --execution-environment gen2 \
-  --add-volume name=data,type=cloud-storage,bucket=nostr-relay-data \
-  --add-volume-mount volume=data,mount-path=/mnt/data
+  --add-cloudsql-instances PROJECT_ID:europe-west1:nostr-relay-db \
+  --set-env-vars "DATABASE_URL=postgresql://nostr:YOUR_PASSWORD@localhost/nostr_relay?host=/cloudsql/PROJECT_ID:europe-west1:nostr-relay-db"
+```
+
+**Alternative: Use Secret Manager for credentials:**
+```bash
+# Store database URL as secret
+echo -n "postgresql://nostr:PASSWORD@localhost/nostr_relay?host=/cloudsql/PROJECT_ID:europe-west1:nostr-relay-db" | \
+  gcloud secrets create nostr-relay-db-url --data-file=-
+
+# Deploy with secret
+gcloud run deploy nostr-relay \
+  --image gcr.io/PROJECT_ID/nostr-relay \
+  --platform managed \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --add-cloudsql-instances PROJECT_ID:europe-west1:nostr-relay-db \
+  --set-secrets "DATABASE_URL=nostr-relay-db-url:latest"
 ```
 
 ### Systemd Service
@@ -136,7 +183,8 @@ Create `/etc/systemd/system/nostr-relay.service`:
 ```ini
 [Unit]
 Description=Fairfield Nostr Relay
-After=network.target
+After=network.target postgresql.service
+Requires=postgresql.service
 
 [Service]
 Type=simple
@@ -149,11 +197,17 @@ RestartSec=10
 
 Environment=NODE_ENV=production
 Environment=PORT=8080
-Environment=SQLITE_DATA_DIR=/var/lib/nostr-relay/data
 EnvironmentFile=/etc/nostr-relay/config
 
 [Install]
 WantedBy=multi-user.target
+```
+
+Create config file `/etc/nostr-relay/config`:
+```bash
+DATABASE_URL=postgresql://nostr:password@localhost:5432/nostr_relay
+WHITELIST_PUBKEYS=pubkey1,pubkey2
+ADMIN_PUBKEYS=admin-pubkey
 ```
 
 Enable and start:
@@ -224,8 +278,8 @@ graph TD
     end
 
     subgraph Backups
-        G --> B1[SQLite Backup]
-        G --> B2[Volume Snapshots]
+        G --> B1[PostgreSQL Backup]
+        G --> B2[Cloud SQL Snapshots]
     end
 ```
 
@@ -246,21 +300,42 @@ graph TD
 
 ### Performance
 
-- [ ] Tune SQLite cache size
-- [ ] Configure connection limits
+- [ ] Tune PostgreSQL connection pool (default: 20 connections)
+- [ ] Configure pg_bouncer for high connection counts
 - [ ] Monitor memory usage
+- [ ] Enable pg_stat_statements for query analysis
 
 ## Backup Strategy
 
-SQLite database backup:
+### PostgreSQL backup:
 
 ```bash
-# Hot backup using sqlite3 .backup
-sqlite3 /var/lib/nostr-relay/data/nostr.db ".backup '/backup/nostr-$(date +%Y%m%d).db'"
+# Logical backup (pg_dump)
+pg_dump -h localhost -U nostr nostr_relay > /backup/nostr-$(date +%Y%m%d).sql
 
-# Or copy WAL checkpoint
-sqlite3 /var/lib/nostr-relay/data/nostr.db "PRAGMA wal_checkpoint(TRUNCATE);"
-cp /var/lib/nostr-relay/data/nostr.db /backup/
+# Compressed backup
+pg_dump -h localhost -U nostr -Fc nostr_relay > /backup/nostr-$(date +%Y%m%d).dump
+
+# Restore from backup
+pg_restore -h localhost -U nostr -d nostr_relay /backup/nostr-20240215.dump
+```
+
+### Cloud SQL automated backups:
+
+```bash
+# Enable automated backups
+gcloud sql instances patch nostr-relay-db \
+  --backup-start-time=02:00 \
+  --enable-bin-log
+
+# Create on-demand backup
+gcloud sql backups create --instance=nostr-relay-db
+
+# List backups
+gcloud sql backups list --instance=nostr-relay-db
+
+# Restore from backup
+gcloud sql backups restore BACKUP_ID --restore-instance=nostr-relay-db
 ```
 
 ## Monitoring
@@ -294,8 +369,8 @@ journalctl -u nostr-relay --priority=err
 graph TB
     subgraph "Single Instance"
         R1[Relay]
-        DB1[(SQLite)]
-        R1 --> DB1
+        PG1[(PostgreSQL)]
+        R1 --> PG1
     end
 
     subgraph "Horizontal Scaling"
@@ -303,22 +378,33 @@ graph TB
         R2[Relay 1]
         R3[Relay 2]
         R4[Relay 3]
-        PG[(PostgreSQL)]
+        POOL[PgBouncer<br/>Connection Pool]
+        PRIMARY[(PostgreSQL<br/>Primary)]
+        READ1[(Read Replica 1)]
+        READ2[(Read Replica 2)]
 
         LB --> R2
         LB --> R3
         LB --> R4
-        R2 --> PG
-        R3 --> PG
-        R4 --> PG
+        R2 --> POOL
+        R3 --> POOL
+        R4 --> POOL
+        POOL -->|Writes| PRIMARY
+        POOL -->|Reads| READ1
+        POOL -->|Reads| READ2
+        PRIMARY -->|Replication| READ1
+        PRIMARY -->|Replication| READ2
     end
 
-    style DB1 fill:#9f9
-    style PG fill:#99f
+    style PG1 fill:#99f
+    style PRIMARY fill:#99f
+    style READ1 fill:#9cf
+    style READ2 fill:#9cf
 ```
 
 For high-volume deployments, consider:
-- PostgreSQL instead of SQLite
-- Read replicas for query load
-- Connection pooling
+- Read replicas for query load distribution
+- PgBouncer for connection pooling (reduces connection overhead)
+- Cloud SQL HA configuration for automatic failover
 - CDN for static content
+- Separate read/write connection strings for optimal routing

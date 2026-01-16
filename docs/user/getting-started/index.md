@@ -8,7 +8,7 @@ Welcome! This guide will help you set up your account and start using the platfo
 
 1. **[Create Your Account](creating-account.md)** — Set up your secure identity (5 minutes)
 2. **[First Steps](first-steps.md)** — Learn the basics of navigation (10 minutes)
-3. **[Understanding Zones](understanding-zones.md)** — Learn about community spaces (5 minutes)
+3. **[Explore Your Zone](../zones/index.md)** — Learn about community spaces (5 minutes)
 
 ---
 
@@ -150,7 +150,7 @@ See [Privacy](../safety/privacy.md) for details.
 
 If you get stuck:
 
-1. Check the [Features](../features/) guides for specific tasks
+1. Check the [Features](../features/index.md) guides for specific tasks
 2. Look for help in your zone's support channel
 3. Ask an experienced community member
 

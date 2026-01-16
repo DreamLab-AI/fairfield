@@ -195,9 +195,9 @@ Everything you need to get started and make the most of the platform:
 | Section | Purpose | You'll Learn |
 |---------|---------|--------------|
 | [Getting Started](user/getting-started/index.md) | **Tutorials** | How to create an account and navigate the platform |
-| [Zone Guides](user/zones/) | **Tutorials** | What each community space offers and how to use it |
-| [Features](user/features/) | **How-to Guides** | How to accomplish specific tasks |
-| [Safety & Privacy](user/safety/) | **Explanation** | How your data is protected |
+| [Zone Guides](user/zones/index.md) | **Tutorials** | What each community space offers and how to use it |
+| [Features](user/features/index.md) | **How-to Guides** | How to accomplish specific tasks |
+| [Safety & Privacy](user/safety/index.md) | **Explanation** | How your data is protected |
 
 ### Quick Start
 
@@ -234,20 +234,20 @@ Technical documentation for contributors and self-hosters.
 | Section | Purpose | You'll Learn |
 |---------|---------|--------------|
 | [Getting Started](developer/getting-started/index.md) | **Tutorials** | How to set up the development environment |
-| [Architecture](developer/architecture/) | **Explanation** | How the system is designed and why |
-| [ADR (Decision Records)](adr/) | **Reference** | Architectural decisions and rationale |
-| [DDD (Domain Model)](ddd/) | **Reference** | Domain-driven design patterns and entities |
-| [Feature Guides](developer/features/) | **How-to Guides** | How to implement and extend features |
-| [Reference](developer/reference/) | **Reference** | API documentation, protocols, configuration |
-| [Deployment](developer/deployment/) | **How-to Guides** | How to deploy and maintain the platform |
-| [Contributing](developer/contributing/) | **Guidelines** | How to contribute to the project |
+| [Architecture](developer/architecture/index.md) | **Explanation** | How the system is designed and why |
+| [ADR (Decision Records)](adr/README.md) | **Reference** | Architectural decisions and rationale |
+| [DDD (Domain Model)](ddd/README.md) | **Reference** | Domain-driven design patterns and entities |
+| [Feature Guides](developer/features/messaging.md) | **How-to Guides** | How to implement and extend features |
+| [Reference](developer/reference/api.md) | **Reference** | API documentation, protocols, configuration |
+| [Deployment](developer/deployment/index.md) | **How-to Guides** | How to deploy and maintain the platform |
+| [Contributing](developer/contributing/index.md) | **Guidelines** | How to contribute to the project |
 
 ### Developer Quick Links
 
 - [Local Development Setup](developer/getting-started/development-setup.md)
 - [System Architecture](developer/architecture/index.md)
-- [Architecture Decision Records](adr/) — Technical decisions and rationale
-- [Domain Model](ddd/) — Entities, aggregates, and bounded contexts
+- [Architecture Decision Records](adr/README.md) - Technical decisions and rationale
+- [Domain Model](ddd/README.md) - Entities, aggregates, and bounded contexts
 - [API Reference](developer/reference/api.md)
 - [Contributing Guidelines](developer/contributing/index.md)
 

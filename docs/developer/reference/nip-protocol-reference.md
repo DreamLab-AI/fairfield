@@ -19,7 +19,7 @@ This document consolidates all Nostr Improvement Proposal (NIP) implementations.
 2. [NIP-04: Encrypted DMs (Legacy)](#nip-04-encrypted-dms-legacy)
 3. [NIP-06: Key Derivation](#nip-06-key-derivation)
 4. [NIP-09: Event Deletion](#nip-09-event-deletion)
-5. [NIP-10: Text Notes & Replies](#nip-10-text-notes--replies)
+5. [NIP-10: Text Notes & Replies](#nip-10-text-notes-replies)
 6. [NIP-17: Private DMs](#nip-17-private-dms)
 7. [NIP-25: Reactions](#nip-25-reactions)
 8. [NIP-28: Public Chat (Deprecated)](#nip-28-public-chat-deprecated)

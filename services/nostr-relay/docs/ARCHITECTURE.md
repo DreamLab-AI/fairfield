@@ -30,7 +30,7 @@ graph TB
     end
 
     subgraph "Data Layer"
-        DB[(SQLite<br/>better-sqlite3)]
+        DB[(PostgreSQL<br/>pg driver)]
     end
 
     NC -->|WebSocket| WSS
@@ -111,27 +111,27 @@ flowchart TD
 
 ### Database (`db.ts`)
 
-SQLite persistence with optimised indexes and WAL mode.
+PostgreSQL persistence via Cloud SQL with optimised indexes and JSONB support for tag queries.
 
 ```mermaid
 erDiagram
     EVENTS {
         string id PK "64-char hex event ID"
         string pubkey "64-char hex pubkey"
-        integer created_at "Unix timestamp"
+        bigint created_at "Unix timestamp"
         integer kind "Event kind number"
-        text tags "JSON array"
+        jsonb tags "JSONB array for GIN indexing"
         text content "Event content"
         string sig "128-char hex signature"
-        integer received_at "Server receipt time"
+        bigint received_at "Server receipt time"
     }
 
     WHITELIST {
         string pubkey PK "64-char hex pubkey"
-        text cohorts "JSON array of cohort names"
-        integer added_at "Unix timestamp"
+        jsonb cohorts "JSONB array of cohort names"
+        bigint added_at "Unix timestamp"
         string added_by "Admin pubkey"
-        integer expires_at "Expiry timestamp"
+        bigint expires_at "Expiry timestamp"
         text notes "Admin notes"
     }
 ```
@@ -234,7 +234,7 @@ flowchart LR
         WL[Whitelist]
         SIG[Signature]
         N16[NIP-16]
-        DB[(SQLite)]
+        DB[(PostgreSQL)]
         SUBS[Subscriptions]
     end
 
@@ -261,7 +261,7 @@ flowchart LR
     subgraph Relay
         WS[WebSocket]
         H[Handlers]
-        DB[(SQLite)]
+        DB[(PostgreSQL)]
     end
 
     C -->|1. REQ| WS
@@ -274,7 +274,7 @@ flowchart LR
 
 ## Concurrency Model
 
-The relay uses Node.js's event loop with synchronous SQLite operations via better-sqlite3:
+The relay uses Node.js's event loop with async PostgreSQL operations via the pg driver connection pool:
 
 ```mermaid
 graph TB
@@ -286,10 +286,11 @@ graph TB
         WS[WebSocket I/O]
         HTTP[HTTP I/O]
         FS[File System]
+        SQL[PostgreSQL Queries<br/>pg driver]
     end
 
-    subgraph "Sync Operations"
-        SQL[SQLite Queries<br/>better-sqlite3]
+    subgraph "Connection Pool"
+        POOL[Pool Manager<br/>max: 20 connections]
     end
 
     EL --> WS
@@ -297,7 +298,8 @@ graph TB
     EL --> FS
     EL --> SQL
 
-    SQL -->|WAL Mode| CONC[Concurrent Reads<br/>Serial Writes]
+    SQL --> POOL
+    POOL -->|Async| CONC[Concurrent Reads/Writes<br/>Connection Pooling]
 ```
 
 ## Security Architecture
@@ -316,7 +318,7 @@ graph TB
     end
 
     subgraph "Storage"
-        DB[(SQLite)]
+        DB[(PostgreSQL)]
     end
 
     REQUEST[Incoming Request] --> RL

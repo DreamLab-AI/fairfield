@@ -6,8 +6,8 @@ import { toast } from './toast';
 import { indexNewMessage, removeDeletedMessage } from '$lib/utils/searchIndex';
 import { ndk, publishEvent, subscribe as ndkSubscribe } from '$lib/nostr/relay';
 import { NDKEvent, type NDKFilter, type NDKSubscription } from '@nostr-dev-kit/ndk';
-import { getPublicKey, getEventHash, signEvent, nip04Encrypt, nip04Decrypt } from '$lib/utils/nostr-crypto';
-import { isNip04EncryptionAllowed, isNip04DecryptionAllowed, NIP04_MIGRATION, daysUntil } from '$lib/config/migrations';
+import { getPublicKey, getEventHash, signEvent } from '$lib/utils/nostr-crypto';
+import { NIP04_MIGRATION } from '$lib/config/migrations';
 
 /**
  * Message author information
@@ -96,62 +96,27 @@ function createMessageStore() {
   }
 
   /**
-   * Decrypt message content (NIP-04 legacy)
-   * Note: NIP-04 decryption will be removed after 2025-12-01
+   * NIP-04 decryption - REMOVED
+   *
+   * NIP-04 was removed on 2025-12-01. All encrypted messages should use NIP-44.
+   * This function returns a placeholder message for any legacy encrypted content.
    */
-  async function decryptMessage(
-    encryptedContent: string,
-    senderPubkey: string,
-    recipientPrivkey: string
-  ): Promise<string> {
-    // Check migration status
-    if (!isNip04DecryptionAllowed()) {
-      console.warn('[MIGRATION] NIP-04 decryption disabled after', NIP04_MIGRATION.REMOVE_DATE);
-      return '[Legacy encrypted message - please export before migration deadline]';
-    }
-
-    try {
-      const result = await nip04Decrypt(recipientPrivkey, senderPubkey, encryptedContent);
-
-      // Show deprecation warning in warning phase
-      const daysLeft = daysUntil(NIP04_MIGRATION.DISABLE_DATE);
-      if (daysLeft > 0 && daysLeft < 180) {
-        console.warn(`[MIGRATION] NIP-04 encryption will be disabled in ${daysLeft} days`);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Failed to decrypt message:', error);
-      toast.warning('Some messages could not be decrypted', 5000);
-      return '[Encrypted message - decryption failed]';
-    }
+  function handleLegacyEncryptedMessage(): string {
+    console.warn('[REMOVED] NIP-04 decryption removed as of', NIP04_MIGRATION.REMOVE_DATE);
+    return '[Legacy NIP-04 encrypted message - encryption method no longer supported]';
   }
 
   /**
-   * Encrypt message content (NIP-04 legacy)
-   * Note: NIP-04 encryption disabled after 2025-06-01
-   * @deprecated Use NIP-44 via gift wrap for new messages
+   * NIP-04 encryption - REMOVED
+   *
+   * NIP-04 encryption was removed on 2025-12-01.
+   * Use NIP-44 via gift wrap (kind 1059) for encrypted messages.
    */
-  async function encryptMessage(
-    content: string,
-    recipientPubkey: string,
-    senderPrivkey: string
-  ): Promise<string> {
-    // Check migration status - block encryption after disable date
-    if (!isNip04EncryptionAllowed()) {
-      throw new Error(
-        `NIP-04 encryption is disabled as of ${NIP04_MIGRATION.DISABLE_DATE}. ` +
-        'Please use NIP-44 encryption (kind 1059 gift wrap) for new messages.'
-      );
-    }
-
-    // Warn about upcoming deprecation
-    const daysLeft = daysUntil(NIP04_MIGRATION.DISABLE_DATE);
-    if (daysLeft > 0 && daysLeft < 90) {
-      console.warn(`[DEPRECATION] NIP-04 encryption will be disabled in ${daysLeft} days`);
-    }
-
-    return await nip04Encrypt(senderPrivkey, recipientPubkey, content);
+  function encryptMessage(): never {
+    throw new Error(
+      'NIP-04 encryption was removed on 2025-12-01. ' +
+      'Use NIP-44 encryption (kind 1059 gift wrap) for encrypted messages.'
+    );
   }
 
   /**
@@ -257,10 +222,11 @@ function createMessageStore() {
           const isDeleted = await db.isMessageDeleted(event.id);
           if (isDeleted) return;
 
-          // Decrypt if necessary
+          // Handle encrypted content
           let content = event.content;
-          if (isEncrypted && userPrivkey) {
-            content = await decryptMessage(event.content, event.pubkey, userPrivkey);
+          if (isEncrypted) {
+            // NIP-04 removed - show placeholder for legacy encrypted content
+            content = handleLegacyEncryptedMessage();
           }
 
           // Cache message
@@ -334,9 +300,12 @@ function createMessageStore() {
       try {
         let finalContent = content;
 
-        // Encrypt if necessary
-        if (isEncrypted && memberPubkeys.length > 0) {
-          finalContent = await encryptMessage(content, memberPubkeys[0], userPrivkey);
+        // NIP-04 encryption removed - reject encrypted message requests
+        if (isEncrypted) {
+          throw new Error(
+            'NIP-04 encrypted messages are no longer supported. ' +
+            'Use NIP-44 gift wrap (kind 1059) for encrypted direct messages.'
+          );
         }
 
         // Create tags
@@ -493,8 +462,9 @@ function createMessageStore() {
           const event = ndkEventToEvent(ndkEvent);
           // Handle new message
           let content = event.content;
-          if (isEncrypted && userPrivkey) {
-            content = await decryptMessage(event.content, event.pubkey, userPrivkey);
+          if (isEncrypted) {
+            // NIP-04 removed - show placeholder for legacy encrypted content
+            content = handleLegacyEncryptedMessage();
           }
 
           const dbMsg: DBMessage = {
@@ -649,8 +619,9 @@ function createMessageStore() {
             if (isDeleted) return;
 
             let content = event.content;
-            if (isEncrypted && userPrivkey) {
-              content = await decryptMessage(event.content, event.pubkey, userPrivkey);
+            if (isEncrypted) {
+              // NIP-04 removed - show placeholder for legacy encrypted content
+              content = handleLegacyEncryptedMessage();
             }
 
             const dbMsg: DBMessage = {

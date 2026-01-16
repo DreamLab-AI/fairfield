@@ -331,5 +331,4 @@ npm test -- tests/unit/nostr/admin-security.test.ts
 ## Related Documentation
 
 - [Authentication](../features/authentication.md)
-- [Whitelist Service](../features/whitelist.md)
 - [Security Audit Report](../security-audit-report.md)

@@ -1,4 +1,4 @@
-import NDK, { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import NDK, { NDKPrivateKeySigner, NDKNip07Signer } from '@nostr-dev-kit/ndk';
 import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
@@ -83,7 +83,7 @@ export async function reconnectNDK(): Promise<void> {
 }
 
 /**
- * Set a signer for authenticated operations
+ * Set a private key signer for authenticated operations
  */
 export function setSigner(privateKey: string): void {
 	if (!browser) return;
@@ -91,6 +91,22 @@ export function setSigner(privateKey: string): void {
 	const instance = getNDK();
 	const signer = new NDKPrivateKeySigner(privateKey);
 	instance.signer = signer;
+}
+
+/**
+ * Set a NIP-07 browser extension signer for authenticated operations.
+ * Uses window.nostr for signing via extensions like Alby or nos2x.
+ */
+export function setNip07Signer(): void {
+	if (!browser) return;
+
+	const instance = getNDK();
+	const signer = new NDKNip07Signer();
+	instance.signer = signer;
+
+	if (import.meta.env.DEV) {
+		console.log('NDK configured with NIP-07 extension signer');
+	}
 }
 
 /**

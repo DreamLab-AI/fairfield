@@ -1,15 +1,18 @@
 /**
  * Web Worker for offloading crypto operations from main thread
  *
- * Handles NIP-04 and NIP-44 encryption/decryption operations
- * to prevent blocking the UI during intensive crypto work.
+ * Handles NIP-44 encryption/decryption operations to prevent blocking
+ * the UI during intensive crypto work.
+ *
+ * NOTE: NIP-04 support was REMOVED on 2025-12-01.
+ * All encrypted communications must use NIP-44.
  */
 
-import { nip04, nip44 } from 'nostr-tools';
-import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
+import { nip44 } from 'nostr-tools';
+import { hexToBytes } from '@noble/hashes/utils.js';
 
 export interface CryptoWorkerRequest {
-  type: 'encrypt' | 'decrypt' | 'encrypt44' | 'decrypt44' | 'getConversationKey';
+  type: 'encrypt44' | 'decrypt44' | 'getConversationKey';
   id: string;
   payload: {
     privkey?: string;
@@ -34,26 +37,8 @@ self.onmessage = async (e: MessageEvent<CryptoWorkerRequest>) => {
     let result: string | Uint8Array;
 
     switch (type) {
-      case 'encrypt': {
-        // NIP-04 encryption (legacy, deprecated but needed for compatibility)
-        if (!payload.privkey || !payload.pubkey || !payload.content) {
-          throw new Error('Missing required parameters for encrypt');
-        }
-        result = await nip04.encrypt(payload.privkey, payload.pubkey, payload.content);
-        break;
-      }
-
-      case 'decrypt': {
-        // NIP-04 decryption (legacy, deprecated but needed for compatibility)
-        if (!payload.privkey || !payload.pubkey || !payload.ciphertext) {
-          throw new Error('Missing required parameters for decrypt');
-        }
-        result = await nip04.decrypt(payload.privkey, payload.pubkey, payload.ciphertext);
-        break;
-      }
-
       case 'encrypt44': {
-        // NIP-44 encryption (recommended)
+        // NIP-44 encryption
         if (!payload.conversationKey || !payload.content) {
           throw new Error('Missing required parameters for encrypt44');
         }
@@ -62,7 +47,7 @@ self.onmessage = async (e: MessageEvent<CryptoWorkerRequest>) => {
       }
 
       case 'decrypt44': {
-        // NIP-44 decryption (recommended)
+        // NIP-44 decryption
         if (!payload.conversationKey || !payload.ciphertext) {
           throw new Error('Missing required parameters for decrypt44');
         }
@@ -81,7 +66,10 @@ self.onmessage = async (e: MessageEvent<CryptoWorkerRequest>) => {
       }
 
       default:
-        throw new Error(`Unknown operation type: ${type}`);
+        throw new Error(
+          `Unknown operation type: ${type}. ` +
+          'Note: NIP-04 (encrypt/decrypt) was removed on 2025-12-01. Use NIP-44.'
+        );
     }
 
     const response: CryptoWorkerResponse = { id, success: true, result };

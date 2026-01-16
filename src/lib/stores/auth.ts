@@ -5,6 +5,7 @@ import { base } from '$app/paths';
 import { encryptPrivateKey, decryptPrivateKey, isEncryptionAvailable } from '$lib/utils/key-encryption';
 import { isPWAInstalled, checkIfPWA } from '$lib/stores/pwa';
 import { hasNip07Extension, getPublicKeyFromExtension, getExtensionName, waitForNip07 } from '$lib/nostr/nip07';
+import { setNip07Signer, clearSigner } from '$lib/nostr/ndk';
 
 export interface AuthState {
   state: 'unauthenticated' | 'authenticating' | 'authenticated';
@@ -176,6 +177,9 @@ function createAuthStore() {
             // Re-verify public key from extension
             const currentPubkey = await getPublicKeyFromExtension();
             if (currentPubkey === parsed.publicKey) {
+              // Set NDK to use NIP-07 extension signer
+              setNip07Signer();
+
               update(state => ({
                 ...state,
                 ...syncStateFields({
@@ -330,6 +334,9 @@ function createAuthStore() {
           nsecBackedUp: true // Extension manages keys
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
+
+        // Set NDK to use NIP-07 extension signer
+        setNip07Signer();
 
         // Update store state
         update(state => ({
@@ -553,6 +560,9 @@ function createAuthStore() {
     logout: async () => {
       set(initialState);
       if (browser) {
+        // Clear NDK signer
+        clearSigner();
+
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(PWA_AUTH_KEY);
         sessionStorage.removeItem(SESSION_KEY);

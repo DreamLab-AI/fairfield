@@ -102,25 +102,30 @@ export async function signEventWithExtension(event: {
 }
 
 /**
- * Encrypt message using NIP-04 via extension
+ * NIP-04 encryption via extension - REMOVED
+ *
+ * NIP-04 was removed on 2025-12-01. Use NIP-44 encryption instead.
+ * Check hasNip44Support() and use NIP-44 methods from your extension.
  */
-export async function encryptWithExtension(pubkey: string, plaintext: string): Promise<string> {
-  if (!browser || !window.nostr?.nip04?.encrypt) {
-    throw new Error('NIP-04 encryption not supported by extension');
-  }
-
-  return window.nostr.nip04.encrypt(pubkey, plaintext);
+export async function encryptWithExtension(_pubkey: string, _plaintext: string): Promise<never> {
+  throw new Error(
+    'NIP-04 encryption was removed on 2025-12-01. ' +
+    'Use NIP-44 encryption (kind 1059 gift wrap) instead. ' +
+    'Check hasNip44Support() for extension compatibility.'
+  );
 }
 
 /**
- * Decrypt message using NIP-04 via extension
+ * NIP-04 decryption via extension - REMOVED
+ *
+ * NIP-04 was removed on 2025-12-01. Use NIP-44 decryption instead.
  */
-export async function decryptWithExtension(pubkey: string, ciphertext: string): Promise<string> {
-  if (!browser || !window.nostr?.nip04?.decrypt) {
-    throw new Error('NIP-04 decryption not supported by extension');
-  }
-
-  return window.nostr.nip04.decrypt(pubkey, ciphertext);
+export async function decryptWithExtension(_pubkey: string, _ciphertext: string): Promise<never> {
+  throw new Error(
+    'NIP-04 decryption was removed on 2025-12-01. ' +
+    'Use NIP-44 decryption (kind 1059 gift wrap) instead. ' +
+    'Check hasNip44Support() for extension compatibility.'
+  );
 }
 
 /**

@@ -235,7 +235,7 @@ Add [feature] to enable [capability].
 
 ## Screenshots
 
-![Feature screenshot](url)
+*[Screenshot of feature - add actual screenshot here]*
 
 ## Breaking Changes
 

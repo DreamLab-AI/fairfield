@@ -27,8 +27,8 @@ import { SECTION_CONFIG } from '$lib/types/channel';
 const KIND_SECTION_REQUEST = 9022;
 const KIND_SECTION_APPROVAL = 9023;
 const KIND_SECTION_STATS = 30079;
-const KIND_DM = 4;  // NIP-04 encrypted DM (fallback)
-const KIND_GIFT_WRAP = 1059;  // NIP-17 gift-wrapped DM (preferred)
+const KIND_GIFT_WRAP = 1059;  // NIP-17/NIP-59 gift-wrapped DM (required since 2025-12-01)
+// NOTE: KIND_DM (4) removed - NIP-04 no longer supported as of 2025-12-01
 
 /**
  * Request access to a section
@@ -182,6 +182,9 @@ export async function approveSectionAccess(
 
 /**
  * Send DM to user notifying them of section access approval
+ *
+ * Uses NIP-44/NIP-59 gift wrap (kind 1059) for encrypted DMs.
+ * NIP-04 was removed on 2025-12-01.
  */
 async function sendAccessApprovalDM(
   recipientPubkey: string,
@@ -200,23 +203,34 @@ async function sendAccessApprovalDM(
       return;
     }
 
-    // Create NIP-04 encrypted DM (fallback, widely supported)
-    const dmEvent = new NDKEvent(ndkInstance);
-    dmEvent.kind = KIND_DM;
-    dmEvent.tags = [['p', recipientPubkey]];
-
-    // Encrypt content using NIP-04
+    // Use NIP-44/NIP-59 gift wrap for encrypted DM
+    // NOTE: NIP-04 was removed on 2025-12-01
     const user = await signer.user();
     if (user) {
-      dmEvent.content = await signer.encrypt(
+      // Create the inner sealed event (kind 13)
+      const sealedEvent = new NDKEvent(ndkInstance);
+      sealedEvent.kind = 13; // Sealed (NIP-59)
+      sealedEvent.tags = [['p', recipientPubkey]];
+      sealedEvent.content = message;
+      sealedEvent.created_at = Math.floor(Date.now() / 1000);
+      await sealedEvent.sign(signer);
+
+      // Create the gift wrap (kind 1059)
+      const giftWrapEvent = new NDKEvent(ndkInstance);
+      giftWrapEvent.kind = KIND_GIFT_WRAP;
+      giftWrapEvent.tags = [['p', recipientPubkey]];
+
+      // Encrypt the sealed event using NIP-44
+      giftWrapEvent.content = await signer.encrypt(
         { pubkey: recipientPubkey } as any,
-        message
+        JSON.stringify(sealedEvent.rawEvent())
       );
-      await dmEvent.sign(signer);
-      await dmEvent.publish();
+      giftWrapEvent.created_at = Math.floor(Date.now() / 1000);
+      await giftWrapEvent.sign(signer);
+      await giftWrapEvent.publish();
 
       if (import.meta.env.DEV) {
-        console.log('[Sections] Approval DM sent to:', recipientPubkey.slice(0, 8) + '...');
+        console.log('[Sections] Approval DM (NIP-59 gift wrap) sent to:', recipientPubkey.slice(0, 8) + '...');
       }
     }
   } catch (error) {

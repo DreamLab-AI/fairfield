@@ -38,6 +38,9 @@ import {
 const KIND_SECTION_REQUEST = 9022;     // User requests section access
 const KIND_SECTION_APPROVAL = 9023;    // Admin approves section access
 const KIND_SECTION_STATS = 30079;      // Section statistics (replaceable)
+const KIND_GIFT_WRAP = 1059;           // NIP-59 gift wrap for encrypted DMs
+const KIND_SEALED = 13;                // NIP-59 sealed event
+// NOTE: KIND_DM (4) removed - NIP-04 no longer supported as of 2025-12-01
 
 /**
  * Storage key for caching section access
@@ -269,7 +272,7 @@ function createSectionStore() {
         pendingRequests: state.pendingRequests.filter(r => r.id !== request.id)
       }));
 
-      // Send DM explaining denial if reason provided
+      // Send DM explaining denial if reason provided (using NIP-59 gift wrap)
       if (reason) {
         try {
           const { ndk } = await import('$lib/nostr/relay');
@@ -282,21 +285,28 @@ function createSectionStore() {
           const signer = ndkInstance.signer;
 
           if (signer) {
-            interface NDKUser {
-              pubkey: string;
-            }
-
-            const dmEvent = new NDKEvent(ndkInstance);
-            dmEvent.kind = 4; // NIP-04 encrypted DM
-            dmEvent.tags = [['p', request.requesterPubkey]];
-            // Create NDKUser for encryption
+            const denialMessage = `Your access request for ${request.section} has been denied. Reason: ${reason}`;
             const recipientUser = ndkInstance.getUser({ pubkey: request.requesterPubkey });
-            dmEvent.content = await signer.encrypt(
+
+            // Create the inner sealed event (kind 13) - NIP-59
+            const sealedEvent = new NDKEvent(ndkInstance);
+            sealedEvent.kind = KIND_SEALED;
+            sealedEvent.tags = [['p', request.requesterPubkey]];
+            sealedEvent.content = denialMessage;
+            sealedEvent.created_at = Math.floor(Date.now() / 1000);
+            await sealedEvent.sign(signer);
+
+            // Create the gift wrap (kind 1059) - NIP-59
+            const giftWrapEvent = new NDKEvent(ndkInstance);
+            giftWrapEvent.kind = KIND_GIFT_WRAP;
+            giftWrapEvent.tags = [['p', request.requesterPubkey]];
+            giftWrapEvent.content = await signer.encrypt(
               recipientUser,
-              `Your access request for ${request.section} has been denied. Reason: ${reason}`
+              JSON.stringify(sealedEvent.rawEvent())
             );
-            await dmEvent.sign(signer);
-            await dmEvent.publish();
+            giftWrapEvent.created_at = Math.floor(Date.now() / 1000);
+            await giftWrapEvent.sign(signer);
+            await giftWrapEvent.publish();
           }
         } catch (error) {
           console.error('[Sections] Failed to send denial DM:', error);

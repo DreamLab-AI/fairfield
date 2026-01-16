@@ -62,7 +62,7 @@ nostr-relay/
 ├── src/
 │   ├── server.ts       # Main server entry point
 │   ├── handlers.ts     # WebSocket message handlers
-│   ├── db.ts           # SQLite database operations
+│   ├── db.ts           # PostgreSQL database operations (pg driver)
 │   ├── whitelist.ts    # Access control
 │   ├── rateLimit.ts    # Rate limiting
 │   ├── nip16.ts        # NIP-16 event treatment
@@ -71,7 +71,6 @@ nostr-relay/
 ├── tests/
 │   └── unit/           # Unit tests
 ├── docs/               # Documentation
-├── data/               # SQLite database (gitignored)
 ├── dist/               # Compiled output (gitignored)
 ├── package.json
 ├── tsconfig.json
@@ -236,14 +235,21 @@ console.error(`[${new Date().toISOString()}] Signature verification failed for $
 ### Database Inspection
 
 ```bash
-# Open SQLite database
-sqlite3 data/nostr.db
+# Connect to PostgreSQL database
+psql $DATABASE_URL
+
+# Or with explicit connection
+psql -h localhost -U nostr -d nostr_relay
 
 # Useful queries
-.schema
+\dt                                    -- List tables
+\d events                              -- Describe events table
 SELECT COUNT(*) FROM events;
 SELECT kind, COUNT(*) FROM events GROUP BY kind;
 SELECT * FROM whitelist;
+
+# Check table sizes
+SELECT pg_size_pretty(pg_total_relation_size('events'));
 ```
 
 ## Contributing
@@ -288,7 +294,7 @@ refactor: extract signature verification
 
 | Package | Purpose |
 |---------|---------|
-| `better-sqlite3` | SQLite database driver |
+| `pg` | PostgreSQL database driver |
 | `ws` | WebSocket server |
 | `@noble/curves` | Schnorr signatures |
 | `@noble/hashes` | Cryptographic hashing |
@@ -307,30 +313,50 @@ refactor: extract signature verification
 
 ## Performance Tips
 
-### SQLite Optimisation
+### PostgreSQL Connection Pool
 
 ```typescript
 // Already configured in db.ts
-this.db.pragma('journal_mode = WAL');
-this.db.pragma('synchronous = NORMAL');
-this.db.pragma('cache_size = -64000'); // 64MB
-this.db.pragma('temp_store = MEMORY');
+this.pool = new Pool({
+  connectionString,
+  max: 20,                    // Maximum connections
+  idleTimeoutMillis: 30000,   // Close idle connections after 30s
+  connectionTimeoutMillis: 10000,  // Connection timeout
+});
 ```
 
 ### Efficient Queries
 
 ```typescript
-// Use prepared statements
-const stmt = this.db.prepare('SELECT * FROM events WHERE pubkey = ?');
-const events = stmt.all(pubkey);
+// Use parameterized queries (prevents SQL injection)
+const result = await this.pool.query(
+  'SELECT * FROM events WHERE pubkey = $1',
+  [pubkey]
+);
 
-// Batch operations
-const insertMany = this.db.transaction((events) => {
+// Use JSONB containment for tag queries (uses GIN index)
+const result = await this.pool.query(
+  `SELECT * FROM events WHERE tags @> $1::jsonb`,
+  [JSON.stringify([['e', eventId]])]
+);
+
+// Batch inserts with transactions
+const client = await this.pool.connect();
+try {
+  await client.query('BEGIN');
   for (const event of events) {
-    insert.run(event);
+    await client.query(
+      'INSERT INTO events (id, pubkey, ...) VALUES ($1, $2, ...)',
+      [event.id, event.pubkey, ...]
+    );
   }
-});
-insertMany(events);
+  await client.query('COMMIT');
+} catch (e) {
+  await client.query('ROLLBACK');
+  throw e;
+} finally {
+  client.release();
+}
 ```
 
 ### Memory Management

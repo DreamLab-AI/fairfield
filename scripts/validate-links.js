@@ -67,11 +67,24 @@ function fileExists(filePath) {
 function anchorExists(filePath, anchor) {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
-    const anchorId = anchor.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
 
-    // Check for headers that would generate this anchor
-    const headerRegex = new RegExp(`^#{1,6}\\s+.*${anchor.replace(/-/g, '[ -]')}`, 'im');
-    if (headerRegex.test(content)) return true;
+    // Normalize anchor for comparison (lowercase, strip special chars, replace spaces with dashes)
+    const normalizedAnchor = anchor.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+
+    // Extract all headers and generate their anchors
+    const headerRegex = /^#{1,6}\s+(.+)$/gm;
+    let match;
+    while ((match = headerRegex.exec(content)) !== null) {
+      const headerText = match[1];
+      // Generate anchor from header text (same as most markdown processors)
+      const generatedAnchor = headerText.toLowerCase()
+        .replace(/[^\w\s-]/g, '')  // Remove special chars except dashes
+        .replace(/\s+/g, '-')      // Replace spaces with dashes
+        .replace(/-+/g, '-')       // Collapse multiple dashes
+        .replace(/^-|-$/g, '');    // Trim leading/trailing dashes
+
+      if (generatedAnchor === normalizedAnchor) return true;
+    }
 
     // Check for explicit anchor tags
     if (content.includes(`id="${anchor}"`) || content.includes(`id='${anchor}'`)) return true;

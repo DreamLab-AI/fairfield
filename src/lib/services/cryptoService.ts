@@ -113,25 +113,27 @@ class CryptoService {
   }
 
   /**
-   * NIP-04 encrypt (legacy, deprecated but needed for compatibility)
+   * NIP-04 encrypt - REMOVED
+   *
+   * NIP-04 was removed on 2025-12-01. Use encrypt44() instead.
    */
-  async encrypt(privkey: string, pubkey: string, content: string): Promise<string> {
-    const result = await this.sendRequest({
-      type: 'encrypt',
-      payload: { privkey, pubkey, content }
-    });
-    return result as string;
+  async encrypt(_privkey: string, _pubkey: string, _content: string): Promise<never> {
+    throw new Error(
+      'NIP-04 encryption was removed on 2025-12-01. ' +
+      'Use encrypt44() with a conversation key from getConversationKey().'
+    );
   }
 
   /**
-   * NIP-04 decrypt (legacy, deprecated but needed for compatibility)
+   * NIP-04 decrypt - REMOVED
+   *
+   * NIP-04 was removed on 2025-12-01. Use decrypt44() instead.
    */
-  async decrypt(privkey: string, pubkey: string, ciphertext: string): Promise<string> {
-    const result = await this.sendRequest({
-      type: 'decrypt',
-      payload: { privkey, pubkey, ciphertext }
-    });
-    return result as string;
+  async decrypt(_privkey: string, _pubkey: string, _ciphertext: string): Promise<never> {
+    throw new Error(
+      'NIP-04 decryption was removed on 2025-12-01. ' +
+      'Use decrypt44() with a conversation key from getConversationKey().'
+    );
   }
 
   /**
