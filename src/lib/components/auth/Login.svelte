@@ -4,11 +4,14 @@
   import { restoreFromNsecOrHex } from '$lib/nostr/keys';
   import { authStore } from '$lib/stores/auth';
   import { checkWhitelistStatus } from '$lib/nostr/whitelist';
+  import { hasNip07Extension, waitForNip07 } from '$lib/nostr/nip07';
   import InfoTooltip from '$lib/components/ui/InfoTooltip.svelte';
 
   const dispatch = createEventDispatcher<{
     success: { publicKey: string; privateKey: string; keepSignedIn: boolean };
     pending: { publicKey: string; privateKey: string; keepSignedIn: boolean };
+    successNip07: { publicKey: string };
+    pendingNip07: { publicKey: string };
     signup: void;
   }>();
 
@@ -17,16 +20,46 @@
   let validationError = '';
   let isCheckingWhitelist = false;
   let keepSignedIn = true; // Default to yes
+  let hasExtension = false;
+  let isConnectingExtension = false;
 
-  onMount(() => {
+  onMount(async () => {
     // Check if user previously opted out
     if (browser) {
       const savedPref = localStorage.getItem('nostr_bbs_keep_signed_in');
       if (savedPref !== null) {
         keepSignedIn = savedPref === 'true';
       }
+      // Check for NIP-07 extension
+      hasExtension = await waitForNip07(1000);
     }
   });
+
+  async function handleExtensionLogin() {
+    isConnectingExtension = true;
+    validationError = '';
+    authStore.clearError();
+
+    try {
+      const { publicKey } = await authStore.loginWithExtension();
+
+      // Check whitelist status
+      isCheckingWhitelist = true;
+      const whitelistStatus = await checkWhitelistStatus(publicKey);
+      isCheckingWhitelist = false;
+
+      if (whitelistStatus.isApproved || whitelistStatus.isAdmin) {
+        dispatch('successNip07', { publicKey });
+      } else {
+        dispatch('pendingNip07', { publicKey });
+      }
+    } catch (error) {
+      validationError = error instanceof Error ? error.message : 'Failed to connect to extension';
+    } finally {
+      isConnectingExtension = false;
+      isCheckingWhitelist = false;
+    }
+  }
 
   async function handleRestore() {
     isRestoring = true;
@@ -82,12 +115,42 @@
         />
       </div>
 
-      <div class="alert alert-info mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <span class="text-sm">Enter your private key (nsec or hex) to access your account</span>
-      </div>
+      <!-- NIP-07 Extension Login -->
+      {#if hasExtension}
+        <div class="mb-4">
+          <button
+            class="btn btn-primary btn-lg w-full gap-2"
+            on:click={handleExtensionLogin}
+            disabled={isConnectingExtension || isCheckingWhitelist}
+            aria-busy={isConnectingExtension || isCheckingWhitelist}
+          >
+            {#if isConnectingExtension}
+              <span class="loading loading-spinner" aria-hidden="true"></span>
+              <span>Connecting to extension...</span>
+            {:else if isCheckingWhitelist}
+              <span class="loading loading-spinner" aria-hidden="true"></span>
+              <span>Checking approval status...</span>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Login with Nostr Extension
+            {/if}
+          </button>
+          <p class="text-xs text-center text-base-content/60 mt-2">
+            Use your browser extension (Alby, nos2x, etc.) to sign in securely
+          </p>
+        </div>
+
+        <div class="divider text-xs">OR USE PRIVATE KEY</div>
+      {:else}
+        <div class="alert alert-info mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="text-sm">Enter your private key (nsec or hex) to access your account</span>
+        </div>
+      {/if}
 
       <div class="form-control mb-4">
         <label class="label" for="private-key-input">

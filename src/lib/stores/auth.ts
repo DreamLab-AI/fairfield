@@ -4,6 +4,7 @@ import { browser } from '$app/environment';
 import { base } from '$app/paths';
 import { encryptPrivateKey, decryptPrivateKey, isEncryptionAvailable } from '$lib/utils/key-encryption';
 import { isPWAInstalled, checkIfPWA } from '$lib/stores/pwa';
+import { hasNip07Extension, getPublicKeyFromExtension, getExtensionName, waitForNip07 } from '$lib/nostr/nip07';
 
 export interface AuthState {
   state: 'unauthenticated' | 'authenticating' | 'authenticated';
@@ -19,6 +20,10 @@ export interface AuthState {
   accountStatus: 'incomplete' | 'complete';
   nsecBackedUp: boolean;
   isReady: boolean;
+  /** Whether using NIP-07 browser extension for signing */
+  isNip07: boolean;
+  /** Name of the NIP-07 extension if available */
+  extensionName: string | null;
 }
 
 const initialState: AuthState = {
@@ -34,7 +39,9 @@ const initialState: AuthState = {
   isEncrypted: false,
   accountStatus: 'incomplete',
   nsecBackedUp: false,
-  isReady: false
+  isReady: false,
+  isNip07: false,
+  extensionName: null
 };
 
 const STORAGE_KEY = 'nostr_bbs_keys';
@@ -160,6 +167,53 @@ function createAuthStore() {
     try {
       const parsed = JSON.parse(stored);
 
+      // Check if using NIP-07 extension mode
+      if (parsed.isNip07) {
+        // Verify extension is still available
+        const extensionReady = await waitForNip07(1000);
+        if (extensionReady) {
+          try {
+            // Re-verify public key from extension
+            const currentPubkey = await getPublicKeyFromExtension();
+            if (currentPubkey === parsed.publicKey) {
+              update(state => ({
+                ...state,
+                ...syncStateFields({
+                  publicKey: parsed.publicKey,
+                  privateKey: null,
+                  nickname: parsed.nickname || null,
+                  avatar: parsed.avatar || null,
+                  isAuthenticated: true,
+                  isEncrypted: false,
+                  accountStatus: parsed.accountStatus || 'complete',
+                  nsecBackedUp: true,
+                  isNip07: true,
+                  extensionName: getExtensionName(),
+                  isReady: true
+                })
+              }));
+              return;
+            }
+          } catch {
+            // Extension denied access or pubkey mismatch - need to re-auth
+          }
+        }
+        // Extension not available or pubkey mismatch - clear NIP-07 state
+        update(state => ({
+          ...state,
+          ...syncStateFields({
+            publicKey: parsed.publicKey,
+            nickname: parsed.nickname || null,
+            avatar: parsed.avatar || null,
+            isAuthenticated: false,
+            isNip07: false,
+            error: 'Nostr extension not detected. Please unlock your extension or login with nsec.',
+            isReady: true
+          })
+        }));
+        return;
+      }
+
       // Check if data is encrypted
       if (parsed.encryptedPrivateKey && isEncryptionAvailable()) {
         const sessionKey = getSessionKey();
@@ -247,6 +301,65 @@ function createAuthStore() {
      * Wait for the auth store to be ready (session restored)
      */
     waitForReady: () => readyPromise || Promise.resolve(),
+
+    /**
+     * Login using NIP-07 browser extension
+     * @returns Object with publicKey on success, or throws on failure
+     */
+    loginWithExtension: async (): Promise<{ publicKey: string }> => {
+      if (!browser) {
+        throw new Error('Browser environment required');
+      }
+
+      // Wait for extension to be ready
+      const extensionReady = await waitForNip07(2000);
+      if (!extensionReady) {
+        throw new Error('No NIP-07 extension found. Please install Alby, nos2x, or another Nostr signer.');
+      }
+
+      try {
+        const publicKey = await getPublicKeyFromExtension();
+        const extensionName = getExtensionName();
+
+        // Store NIP-07 mode in localStorage
+        const storageData = {
+          publicKey,
+          isNip07: true,
+          extensionName,
+          accountStatus: 'complete', // Extension users are presumed to be existing Nostr users
+          nsecBackedUp: true // Extension manages keys
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
+
+        // Update store state
+        update(state => ({
+          ...state,
+          ...syncStateFields({
+            publicKey,
+            privateKey: null, // No private key stored - extension handles signing
+            isAuthenticated: true,
+            isPending: false,
+            error: null,
+            isEncrypted: false,
+            accountStatus: 'complete',
+            nsecBackedUp: true,
+            isNip07: true,
+            extensionName
+          })
+        }));
+
+        return { publicKey };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to connect to extension';
+        update(state => ({ ...state, error: message }));
+        throw error;
+      }
+    },
+
+    /**
+     * Check if NIP-07 extension is available
+     */
+    hasExtension: () => hasNip07Extension(),
 
     /**
      * Set keys with encryption

@@ -8,6 +8,7 @@
   import { authStore } from '$lib/stores/auth';
   import { checkWhitelistStatus, publishRegistrationRequest } from '$lib/nostr/whitelist';
   import { getAppConfig } from '$lib/config/loader';
+  import { waitForProfileIndexing } from '$lib/nostr/profile-sync';
 
   const appConfig = getAppConfig();
 
@@ -47,9 +48,13 @@
       // Skip pending approval for pre-approved users
       goto(`${base}/chat`);
     } else {
-      // Small delay to ensure Kind 0 profile event is fully saved before Kind 9024
+      // Wait for Kind 0 profile event to be indexed before publishing Kind 9024
+      // Uses exponential backoff (100ms → 200ms → 400ms → 800ms) with 5s max timeout
       // This prevents race conditions where registration arrives before profile
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const profileIndexed = await waitForProfileIndexing(publicKey, nickname, 5000);
+      if (!profileIndexed && import.meta.env.DEV) {
+        console.warn('[Signup] Profile may not be fully indexed yet, proceeding anyway');
+      }
 
       // Publish registration request so admin can see this user
       try {

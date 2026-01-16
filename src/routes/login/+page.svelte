@@ -28,6 +28,19 @@
     pageState = 'pending';
   }
 
+  // NIP-07 extension login handlers
+  function handleSuccessNip07(event: CustomEvent<{ publicKey: string }>) {
+    // Already authenticated via authStore.loginWithExtension()
+    goto(`${base}/chat`);
+  }
+
+  function handlePendingNip07(event: CustomEvent<{ publicKey: string }>) {
+    const { publicKey } = event.detail;
+    authStore.setPending(true);
+    pendingPubkey = publicKey;
+    pageState = 'pending';
+  }
+
   function handleApproved() {
     authStore.setPending(false);
     goto(`${base}/chat`);
@@ -43,7 +56,13 @@
 </svelte:head>
 
 {#if pageState === 'login'}
-  <Login on:success={handleSuccess} on:pending={handlePending} on:signup={handleSignup} />
+  <Login
+    on:success={handleSuccess}
+    on:pending={handlePending}
+    on:successNip07={handleSuccessNip07}
+    on:pendingNip07={handlePendingNip07}
+    on:signup={handleSignup}
+  />
 {:else if pageState === 'pending'}
   <PendingApproval publicKey={pendingPubkey} on:approved={handleApproved} />
 {/if}
