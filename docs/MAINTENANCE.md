@@ -71,7 +71,7 @@ category: String (required)
 difficulty: beginner|intermediate|advanced (required)
 duration: String (required, e.g., "30 minutes")
 prerequisites: Array (required)
-last_updated: YYYY-MM-DD (optional)
+last_updated: 2026-01-16
 ---
 ```
 
@@ -83,7 +83,7 @@ description: String (required)
 category: String (required)
 applies_to: Array (required)
 prerequisites: Array (optional)
-last_updated: YYYY-MM-DD (optional)
+last_updated: 2026-01-16
 ---
 ```
 
@@ -94,7 +94,7 @@ title: String (required)
 description: String (required)
 category: String (required)
 type: api|cli|architecture|glossary (required)
-last_updated: YYYY-MM-DD (optional)
+last_updated: 2026-01-16
 ---
 ```
 
@@ -106,7 +106,7 @@ description: String (required)
 category: String (required)
 concepts: Array (required)
 related_topics: Array (optional)
-last_updated: YYYY-MM-DD (optional)
+last_updated: 2026-01-16
 ---
 ```
 

@@ -3,7 +3,7 @@ title: Mobile UI Components
 description: Material Design 3 inspired mobile-optimised components with touch gestures and accessibility
 category: features
 tags: [mobile, ui, md3, accessibility, touch]
-last_updated: 2025-01-15
+last_updated: 2026-01-16
 ---
 
 # Mobile UI Components

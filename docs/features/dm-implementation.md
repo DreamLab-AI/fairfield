@@ -1,7 +1,7 @@
 ---
 title: NIP-17/NIP-59 Gift-Wrapped DM Implementation
 description: Complete implementation guide for privacy-preserving direct messages using NIP-17 sealed rumors and NIP-59 gift wrapping
-last_updated: 2025-12-23
+last_updated: 2026-01-15
 category: reference
 tags: [direct-messages, nip-17, nip-59, encryption, privacy]
 difficulty: advanced
