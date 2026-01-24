@@ -5,9 +5,11 @@
     isSearchAvailable,
     getSearchStats,
     loadIndex,
-    type SearchResult
-  } from './hnsw-search';
-  import { getLocalSyncState, syncEmbeddings, shouldSync } from './embeddings-sync';
+    syncEmbeddings,
+    type SearchResult,
+    type RuVectorStats
+  } from './ruvector-search';
+  import { shouldSync } from './embeddings-sync';
 
   // Props
   export let onSelect: (noteId: string) => void = () => {};
@@ -18,30 +20,23 @@
   let results: SearchResult[] = [];
   let isSearching = false;
   let error: string | null = null;
-  let stats: { vectorCount: number; dimensions: number } | null = null;
-  let syncState: { version: number; lastSynced: number } | null = null;
+  let stats: RuVectorStats | null = null;
   let indexLoaded = false;
+  let searchMode: 'server' | 'cached' | 'hybrid' = 'hybrid';
 
   // Debounce search
   let searchTimeout: ReturnType<typeof setTimeout>;
 
   onMount(async () => {
-    // Load sync state
-    const state = await getLocalSyncState();
-    if (state) {
-      syncState = { version: state.version, lastSynced: state.lastSynced };
-    }
-
-    // Try to load index
-    if (state?.version) {
-      try {
-        indexLoaded = await loadIndex();
-        if (indexLoaded) {
-          stats = getSearchStats();
-        }
-      } catch (e) {
-        console.warn('Failed to load search index:', e);
+    // Try to load RuVector index (from server or local cache)
+    try {
+      indexLoaded = await loadIndex();
+      if (indexLoaded) {
+        stats = getSearchStats();
+        searchMode = stats?.searchMode || 'hybrid';
       }
+    } catch (e) {
+      console.warn('Failed to load search index:', e);
     }
   });
 
@@ -75,8 +70,8 @@
   }
 
   async function handleSync() {
-    if (!shouldSync()) {
-      error = 'Please connect to WiFi to sync embeddings';
+    if (!shouldSync() && !navigator.onLine) {
+      error = 'Please connect to sync embeddings';
       return;
     }
 
@@ -86,11 +81,9 @@
     try {
       const result = await syncEmbeddings(true);
       if (result.synced) {
-        syncState = { version: result.version, lastSynced: Date.now() };
-        indexLoaded = await loadIndex();
-        if (indexLoaded) {
-          stats = getSearchStats();
-        }
+        indexLoaded = true;
+        stats = getSearchStats();
+        searchMode = stats?.searchMode || 'hybrid';
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Sync failed';
@@ -103,8 +96,18 @@
     onSelect(noteId);
   }
 
-  function formatDate(timestamp: number): string {
-    return new Date(timestamp).toLocaleDateString();
+  function formatDate(dateStr: string | null): string {
+    if (!dateStr) return 'Never';
+    return new Date(dateStr).toLocaleDateString();
+  }
+
+  function getSearchModeLabel(mode: string): string {
+    switch (mode) {
+      case 'server': return 'RuVector (server)';
+      case 'cached': return 'Offline cache';
+      case 'hybrid': return 'RuVector + cache';
+      default: return mode;
+    }
   }
 </script>
 
@@ -152,9 +155,7 @@
   {:else if stats}
     <div class="stats">
       <span>{stats.vectorCount.toLocaleString()} messages indexed</span>
-      {#if syncState}
-        <span>v{syncState.version} • {formatDate(syncState.lastSynced)}</span>
-      {/if}
+      <span>{getSearchModeLabel(searchMode)} • {formatDate(stats.lastUpdated)}</span>
     </div>
   {/if}
 

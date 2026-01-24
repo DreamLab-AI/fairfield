@@ -4,7 +4,7 @@ description: "AI-powered search that understands meaning, not just keywords."
 category: tutorial
 tags: ['developer', 'search', 'user']
 difficulty: beginner
-last-updated: 2026-01-16
+last-updated: 2026-01-24
 ---
 
 # Semantic Vector Search
@@ -17,40 +17,50 @@ AI-powered search that understands meaning, not just keywords.
 
 Semantic search enables users to find messages by meaning rather than exact keywords. Search for "schedule tomorrow's meeting" and find messages about "planning the session for Friday"—the system understands context and intent.
 
+**Search Backends:**
+- **Primary**: RuVector PostgreSQL (server-side, 150x-12,500x faster)
+- **Fallback**: hnswlib-wasm (client-side, offline-only mode)
+
 ---
 
 ## Architecture
 
 ```mermaid
 graph TB
+    subgraph RuVector["RuVector PostgreSQL (Primary)"]
+        PG["PostgreSQL<br/>pgvector + HNSW"]
+        API["Embedding API<br/>Cloud Run"]
+        Memory["Memory Store<br/>1.17M+ entries"]
+    end
+
     subgraph Pipeline["Cloud-Based Embedding Pipeline"]
         CloudRun["Cloud Run API<br/>REST Endpoints"]
         Relay["Nostr Relay<br/>Fetch Messages"]
         ST["sentence-transformers<br/>all-MiniLM-L6-v2"]
-        HNSW["hnswlib<br/>Build Index"]
-        GCS["Cloud Storage<br/>Store Index"]
     end
 
     subgraph PWA["PWA Client"]
-        WiFi{"WiFi<br/>Detection"}
-        Sync["Lazy Sync<br/>Background"]
-        IDB["IndexedDB<br/>Cache Index"]
-        WASM["hnswlib-wasm<br/>Local Search"]
+        RuVClient["RuVector Client<br/>Hybrid Search"]
+        WiFi{"Network<br/>Detection"}
+        IDB["IndexedDB<br/>Cache"]
+        WASM["hnswlib-wasm<br/>Fallback"]
         UI["SemanticSearch<br/>Component"]
     end
 
     CloudRun -->|1. Trigger| Relay
     Relay -->|2. Kind 1,9| ST
-    ST -->|3. 384d Vectors| HNSW
-    HNSW -->|4. Upload| GCS
+    ST -->|3. 384d Vectors| PG
+    ST -->|3b. Store| Memory
 
-    WiFi -->|5. Check Network| Sync
-    Sync -->|6. Download| GCS
-    Sync -->|7. Store| IDB
-    IDB -->|8. Load| WASM
-    UI -->|9. Query| WASM
-    WASM -->|10. Results| UI
+    WiFi -->|4. Check Online| RuVClient
+    RuVClient -->|5a. Server Search| API
+    API -->|6. Query| PG
+    RuVClient -->|5b. Offline| WASM
+    RuVClient -->|7. Cache| IDB
+    UI -->|8. Query| RuVClient
+    RuVClient -->|9. Results| UI
 
+    style RuVector fill:#10b981,color:#fff
     style Pipeline fill:#4285f4,color:#fff
     style PWA fill:#1e40af,color:#fff
 ```
@@ -62,11 +72,12 @@ graph TB
 | Feature | Implementation | Benefit |
 |---------|----------------|---------|
 | **Semantic Understanding** | sentence-transformers/all-MiniLM-L6-v2 | Find by meaning, not just keywords |
-| **HNSW Index** | O(log n) approximate nearest neighbours | Sub-millisecond search on 100k+ vectors |
+| **RuVector Server Search** | PostgreSQL with HNSW indexing | 150x-12,500x faster than brute-force |
+| **Hybrid Mode** | Server + local cache | Best of both worlds |
+| **HNSW Fallback** | hnswlib-wasm (client-side) | Works fully offline |
 | **Int8 Quantisation** | 75% storage reduction | 100k messages = ~15MB index |
-| **WiFi-Only Sync** | Network Information API | Respects mobile data caps |
-| **Offline Search** | IndexedDB + hnswlib-wasm | Works without connectivity |
-| **Nightly Updates** | GitHub Actions cron | Always fresh index |
+| **Smart Sync** | Network-aware sync | Respects mobile data caps |
+| **Cross-Device** | RuVector PostgreSQL | Shared embeddings across devices |
 
 ---
 
