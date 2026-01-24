@@ -1,14 +1,14 @@
 # Accessibility Audit Report
 
-**Generated**: 2026-01-15T14:48:44.970Z
+**Generated**: 2026-01-24T17:20:06.450Z
 **Target**: https://dreamlab-ai.github.io/fairfield
 
 ## Summary
 
 | Metric | Count |
 |--------|-------|
-| Pages Tested | 0 |
-| Total Issues | 0 |
+| Pages Tested | 1 |
+| Total Issues | 1 |
 | Critical Issues | 0 |
 | Serious Issues | 0 |
 
@@ -17,6 +17,14 @@
 **Status**: PASS - No critical or serious accessibility violations detected.
 
 ## Detailed Results by Page
+
+### Login (/login)
+
+**URL**: https://dreamlab-ai.github.io/fairfield/login
+
+| Severity | Type | Description |
+|----------|------|-------------|
+| Moderate | target-size | Interactive elements smaller than 44x44px: 3 |
 
 ## Screenshots
 

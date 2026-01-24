@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "page": "Login (/login)",
+    "url": "https://dreamlab-ai.github.io/fairfield/login",
+    "issues": [
+      {
+        "type": "target-size",
+        "description": "Interactive elements smaller than 44x44px: 3",
+        "element": "A[188x40]: Skip to main content, INPUT[48x24]: toggle toggle-primar, BUTTON[384x32]: Create a new account",
+        "severity": "moderate"
+      }
+    ],
+    "timestamp": "2026-01-24T17:20:06.065Z"
+  }
+]
