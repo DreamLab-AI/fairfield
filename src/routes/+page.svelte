@@ -101,14 +101,14 @@
 			<div class="card-body">
 				<h2 class="card-title text-2xl justify-center">Welcome</h2>
 				<p class="text-base-content/70">
-					Secure, decentralized communication built on Nostr protocol
+					A private space for our community to connect, share, and grow together.
 				</p>
 				<div class="card-actions justify-center mt-4 flex-wrap gap-3">
 					<a href="{base}/signup" class="btn btn-primary btn-lg">
-						Create Account
+						Join Us
 					</a>
 					<a href="{base}/login" class="btn btn-outline btn-lg">
-						Login
+						Sign In
 					</a>
 				</div>
 			</div>
@@ -117,30 +117,30 @@
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
 			<div class="card bg-base-200">
 				<div class="card-body items-center text-center">
-					<div class="text-4xl mb-2">🔐</div>
-					<h3 class="card-title text-lg">Self-Sovereign Identity</h3>
+					<div class="text-4xl mb-2">👨‍👩‍👧‍👦</div>
+					<h3 class="card-title text-lg">Community Spaces</h3>
 					<p class="text-sm text-base-content/70">
-						Your keys, your identity. Nostr keypairs with did:nostr DID support.
+						Dedicated zones for family, friends, and shared interests.
 					</p>
 				</div>
 			</div>
 
 			<div class="card bg-base-200">
 				<div class="card-body items-center text-center">
-					<div class="text-4xl mb-2">🔒</div>
-					<h3 class="card-title text-lg">Encrypted & Ephemeral</h3>
+					<div class="text-4xl mb-2">💬</div>
+					<h3 class="card-title text-lg">Private Conversations</h3>
 					<p class="text-sm text-base-content/70">
-						NIP-44 encrypted DMs with NIP-59 gift wrap and NIP-16 ephemeral event support.
+						Secure messaging that stays between you and your people.
 					</p>
 				</div>
 			</div>
 
 			<div class="card bg-base-200">
 				<div class="card-body items-center text-center">
-					<div class="text-4xl mb-2">⚡</div>
-					<h3 class="card-title text-lg">Full NIP Compliance</h3>
+					<div class="text-4xl mb-2">📅</div>
+					<h3 class="card-title text-lg">Events & Calendar</h3>
 					<p class="text-sm text-base-content/70">
-						NIP-28 channels, NIP-33 addressable events, NIP-98 HTTP auth.
+						Plan gatherings and keep everyone in the loop.
 					</p>
 				</div>
 			</div>
