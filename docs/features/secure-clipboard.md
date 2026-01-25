@@ -3,7 +3,7 @@ title: Secure Clipboard and Memory
 description: Security utilities for handling sensitive data with automatic clipboard clearing and memory-safe string handling
 category: features
 tags: [security, clipboard, memory, privacy, sensitive-data]
-last_updated: 2025-01-15
+last_updated: 2026-01-15
 ---
 
 # Secure Clipboard and Memory

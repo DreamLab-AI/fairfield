@@ -1,7 +1,7 @@
 ---
 title: Nostr-BBS SPARC Pseudocode & Flows
 description: Detailed algorithm design and user flow diagrams for Nostr-BBS system implementation
-last_updated: 2025-12-23
+last_updated: 2026-01-15
 category: reference
 tags: [pseudocode, sparc-methodology, architecture, nostr-protocol]
 difficulty: advanced

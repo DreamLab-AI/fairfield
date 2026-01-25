@@ -227,7 +227,7 @@ category: [tutorial|how-to|reference|explanation]
 tags: [relevant, keywords]
 status: [draft|review|published]
 author: [Author Name]
-last_updated: YYYY-MM-DD
+last_updated: 2026-01-16
 ---
 ```
 

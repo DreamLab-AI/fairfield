@@ -1,7 +1,7 @@
 ---
 title: Nostr-BBS SPARC Refinement & Technology Selection
 description: Technology stack decisions, TDD planning, and implementation refinement for Nostr-BBS
-last_updated: 2025-12-23
+last_updated: 2026-01-15
 category: reference
 tags: [refinement, sparc-methodology, pwa, testing]
 difficulty: intermediate

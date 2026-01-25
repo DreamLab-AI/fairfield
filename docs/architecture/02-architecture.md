@@ -1,7 +1,7 @@
 ---
 title: Nostr-BBS SPARC Architecture
 description: System architecture design for Nostr-BBS including component diagrams, data flow, and technical infrastructure
-last_updated: 2025-12-23
+last_updated: 2026-01-16
 category: explanation
 tags: [architecture, sparc-methodology, serverless, pwa]
 difficulty: intermediate
